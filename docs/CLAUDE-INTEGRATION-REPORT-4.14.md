@@ -109,15 +109,14 @@ Dùng contract role có sẵn (`lib/auth/current-user.ts`, đã có `"student"` 
 - `tests/e2e/ui-414.spec.ts` (Public Academy + Student nav + Business route) → **✅ 3/3 pass** sau khi sửa 1 locator quá rộng (`getByRole("link", {name:/H2O Mentor/i})` khớp 3 phần tử — thêm `.first()`)
 - `tests/e2e/smoke.spec.ts` → ✅ pass
 - `tests/e2e/input-orchestrator.spec.ts` (Input Engine, **không thuộc phạm vi 4.14**, code không bị đụng tới) → ❌ 2/3 fail — lỗi tiền tồn tại, chưa từng được Playwright chạy qua trước phiên này (kể cả ở 4.13.7). Một lỗi là timeout chờ nút "Commit vào H2OBOOK"; lỗi còn lại đáng chú ý hơn — locator khớp `"URL đã sẵn sàng: file:///etc/passwd"` thay vì thông báo từ chối, cho thấy UI có thể đang hiển thị `file://` URL là "sẵn sàng" ở bước preview thay vì chặn ngay — **cần đội ngũ Input Engine kiểm tra lại**, tôi không sửa vì ngoài phạm vi nhiệm vụ này và đụng vào logic bảo mật SSRF nhạy cảm.
-- Project `mobile` (WebKit): môi trường chưa có sẵn browser WebKit, đang cài trong lúc viết báo cáo này — xem mục 16.
+- Project `mobile` (WebKit) — `tests/e2e/ui-414.spec.ts` + `smoke.spec.ts` → **✅ 4/4 pass** sau khi cài `pnpm exec playwright install webkit`.
 
 ## 16. Lỗi/giới hạn còn tồn tại
 
 1. **Tesseract OCR binary chưa cài trên máy** → `validate:input-phase4` và các test OCR/ảnh liên quan không chạy được đầy đủ. Cần cài đặt ở máy CI/production thật.
 2. **`input-orchestrator.spec.ts` có 2/3 test fail** — tiền tồn tại, ngoài phạm vi 4.14, cần đội Input Engine xem lại (đặc biệt điểm nghi vấn về xử lý `file://` URL).
 3. **Chưa xác minh luồng Supabase student-role/RLS thật** — chỉ chạy được Demo Mode (không có Supabase project thật để test). Logic role-redirect đã qua typecheck và bám sát đúng pattern của chính bản 4.14 gốc.
-4. **Playwright project `mobile` (WebKit)** chưa xác nhận xong tại thời điểm viết báo cáo (đang cài đặt browser).
-5. Design polish (bảng màu, contrast số, kiểm tra pixel-level ở 4 breakpoint) mới kiểm tra tĩnh qua CSS, chưa chụp ảnh màn hình thực tế trên trình duyệt.
+4. Design polish (bảng màu, contrast số, kiểm tra pixel-level ở 4 breakpoint) mới kiểm tra tĩnh qua CSS, chưa chụp ảnh màn hình thực tế trên trình duyệt.
 
 ## 17. Environment Variables cần thêm trên Vercel
 
