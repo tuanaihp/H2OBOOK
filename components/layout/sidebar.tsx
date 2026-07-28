@@ -30,6 +30,7 @@ const domains = [
     { href: "/templates", label: "Template", icon: Boxes },
     { href: "/clones", label: "Brand Clone", icon: BookCopy },
     { href: "/brand-kit", label: "Brand Kit", icon: Palette },
+    { href: "/design-library", label: "Thư viện thiết kế", icon: Palette },
     { href: "/assets", label: "Kho tài sản", icon: FolderOpen },
     { href: "/content-health", label: "Preflight", icon: HeartPulse },
     { href: "/publish", label: "Publish Center", icon: Send },

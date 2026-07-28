@@ -47,7 +47,8 @@
     "validate:migrations": "node scripts/validate-migration-chain.mjs",
     "check:input-storage": "node scripts/check-input-storage-regression.mjs",
     "audit:production": "node scripts/audit-production-readiness.mjs",
-    "validate:ui414": "node scripts/validate-ui-414.mjs"
+    "validate:ui414": "node scripts/validate-ui-414.mjs",
+    "validate:design-library": "node scripts/validate-design-library-module.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",
