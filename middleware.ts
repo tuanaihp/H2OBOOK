@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/api/health", "/api/readiness", "/api/payments/webhook"];
@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
   const production = process.env.NEXT_PUBLIC_APP_MODE === "production" && url && key;
   if (!production) return response;
 
+  const { createServerClient } = await import("@supabase/ssr");
   const supabase = createServerClient(url!, key!, {
     cookies: {
       getAll: () => request.cookies.getAll(),
