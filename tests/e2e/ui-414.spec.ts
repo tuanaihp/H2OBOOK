@@ -11,7 +11,7 @@ test("student learning command center has learner navigation", async ({ page }) 
   await page.goto("/student");
   await expect(page.getByRole("heading", { name: /Chào buổi sáng/i })).toBeVisible();
   await expect(page.getByText("NHIỆM VỤ HÔM NAY")).toBeVisible();
-  await expect(page.getByRole("link", { name: /H2O Mentor/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /H2O Mentor/i }).first()).toBeVisible();
 });
 
 test("workspace business routes remain available", async ({ page }) => {
