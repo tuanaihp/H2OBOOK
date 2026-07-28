@@ -1,6 +1,6 @@
 {
   "name": "h2obook-professional-editor",
-  "version": "4.13.7",
+  "version": "4.14.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -11,7 +11,7 @@
     "validate": "node scripts/validate-source.mjs",
     "worker:document": "node workers/document-worker/index.mjs",
     "smoke": "node scripts/smoke-test.mjs",
-    "check": "pnpm validate:claude-guides && pnpm audit:input && pnpm validate:input-phase2 && pnpm validate:input-phase3 && pnpm validate:input-phase4 && pnpm validate:input-phase5 && pnpm validate:input-phase6 && pnpm validate:input-phase7 && pnpm test:input-hardening && pnpm test:input-load && pnpm validate:migrations && pnpm check:input-storage && pnpm validate && pnpm validate:imports && pnpm validate:professional && pnpm validate:editor412 && pnpm typecheck && pnpm test && pnpm test:sql && pnpm smoke && pnpm build",
+    "check": "pnpm validate:claude-guides && pnpm validate:ui414 && pnpm audit:input && pnpm validate:input-phase2 && pnpm validate:input-phase3 && pnpm validate:input-phase4 && pnpm validate:input-phase5 && pnpm validate:input-phase6 && pnpm validate:input-phase7 && pnpm test:input-hardening && pnpm test:input-load && pnpm validate:migrations && pnpm check:input-storage && pnpm validate && pnpm validate:imports && pnpm validate:professional && pnpm validate:editor412 && pnpm typecheck && pnpm test && pnpm test:sql && pnpm smoke && pnpm build",
     "validate:imports": "node scripts/validate-imports.mjs",
     "validate:v4": "node scripts/validate-v4.mjs",
     "test": "vitest run",
@@ -46,7 +46,8 @@
     "test:input-load": "node scripts/load-test-input-core.mjs && python3 tests/performance/test_large_documents.py",
     "validate:migrations": "node scripts/validate-migration-chain.mjs",
     "check:input-storage": "node scripts/check-input-storage-regression.mjs",
-    "audit:production": "node scripts/audit-production-readiness.mjs"
+    "audit:production": "node scripts/audit-production-readiness.mjs",
+    "validate:ui414": "node scripts/validate-ui-414.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",

@@ -11,7 +11,7 @@ const required = [
 const missing = required.filter((file) => !fs.existsSync(path.join(root,file)));
 if (missing.length) { console.error("Missing V4 files:", missing); process.exit(1); }
 const pkg = JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8"));
-if (!/^4\.(?:[1-9]|1[0-3])\.\d+$/.test(pkg.version)) throw new Error("Professional package version mismatch");
+if (!/^4\.(?:[1-9]|1[0-9])\.\d+$/.test(pkg.version)) throw new Error("Professional package version mismatch");
 const store = fs.readFileSync(path.join(root,"store/app-store.ts"),"utf8");
 for (const marker of ["smartSettings","learningGoals","flashcards","studySessions","knowledgeSources","reusableBlocks","version: 4"]) if (!store.includes(marker)) throw new Error(`Missing store marker: ${marker}`);
 const migration = fs.readFileSync(path.join(root,"supabase/migrations/0006_h2obook_v4_smart_core.sql"),"utf8");

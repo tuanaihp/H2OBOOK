@@ -12,7 +12,7 @@ const required = [
 const missing = required.filter(file => !fs.existsSync(path.join(root, file)));
 if (missing.length) { console.error("Missing production files:", missing); process.exit(1); }
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-if (!/^4\.(?:[1-9]|1[0-3])\.\d+$/.test(pkg.version)) throw new Error("Unexpected package version");
+if (!/^4\.(?:[1-9]|1[0-9])\.\d+$/.test(pkg.version)) throw new Error("Unexpected package version");
 const worker = fs.readFileSync(path.join(root, "workers/document-worker/index.mjs"), "utf8");
 if (worker.includes("worker-scaffold")) throw new Error("Document worker is still a scaffold");
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/0005_h2obook_security_hardening.sql"), "utf8");

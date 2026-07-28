@@ -93,3 +93,15 @@
 - Added Asset/R2 handling for embedded Word media without Base64 book payloads.
 - Added structured `python-docx` fallback with direct BookDocument output.
 - Added Phase 2 unit tests, validator and Claude progress report.
+
+## 4.14.0 — AI Student Experience & Public Academy
+
+- Added public ThuyH2O Makeup Academy website at `/` and `/academy/*`.
+- Added books, courses, strategy hub, learning paths, about, membership and success-story presentation pages.
+- Added Student Learning Command Center at `/student/*`.
+- Added student course, library, assignment, roadmap, local Mentor, profile and portfolio UI.
+- Added mobile-first student bottom navigation.
+- Added student role redirect in middleware and login flow.
+- Added public read-only catalog API.
+- Added safe feature flags for public/student V2 rollout.
+- Kept all existing H2OBOOK Business, Editor, Input and Publishing routes unchanged.

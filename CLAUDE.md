@@ -176,3 +176,20 @@ Never expose secrets, storage credentials, raw stack traces or another workspace
 - Phase 4 Image Smart Import is implemented; preserve all four modes, `.jpe`, stored-object magic validation, region order and deterministic Tesseract fallback.
 - The active phase is Phase 5 HTML Import 2.0.
 - Before changing input code, run `pnpm validate:input-phase2`, `pnpm validate:input-phase3` and `pnpm validate:input-phase4` to protect DOCX/PDF/image regression behavior.
+
+## H2OBOOK 4.14 — Public Academy and Student Experience
+
+The project now has three presentation layers in one Next.js app:
+
+- Public Academy: `/` and `/academy/*`.
+- Student Experience: `/student/*`.
+- Existing Workspace/Admin: current routes such as `/dashboard`, `/books`, `/editor`, `/store`.
+
+Do not move or rename existing workspace routes when working on 4.14. Public/student components must remain prefixed with `h2o-public-*` or `h2o-student-*` to avoid CSS regressions in the editor and admin workspace.
+
+Feature flags:
+
+- `NEXT_PUBLIC_PUBLIC_SITE_V2`
+- `NEXT_PUBLIC_STUDENT_EXPERIENCE_V2`
+
+The public catalog and student experience currently use curated local read models plus existing Zustand demo records. Do not claim Supabase data integration is complete until real queries, RLS tests and E2E tests have passed.
