@@ -8,7 +8,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // "standalone" is only for self-hosted Docker (see Dockerfile.production).
+  // Vercel has its own build output format and explicitly recommends against
+  // setting this, since it can break routing/edge-function bundling there.
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: { serverActions: { bodySizeLimit: "10mb" } },
