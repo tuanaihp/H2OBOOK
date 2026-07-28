@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/api/health", "/api/readiness", "/api/payments/webhook"];
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/api/public", "/api/health", "/api/readiness", "/api/payments/webhook"];
 
 function buildCsp(nonce: string) {
   const production = process.env.NODE_ENV === "production";
@@ -42,6 +42,7 @@ export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const production = process.env.NEXT_PUBLIC_APP_MODE === "production" && url && key;
+  const studentExperienceV2 = process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_V2 !== "false";
   if (!production) return response;
 
   const supabase = createServerClient(url!, key!, {
@@ -52,7 +53,12 @@ export async function middleware(request: NextRequest) {
   });
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
-  const isPublic = publicPrefixes.some((prefix) => pathname.startsWith(prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
+  const isPublic = pathname === "/" || publicPrefixes.some((prefix) => pathname.startsWith(prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
+  let memberRole: string | null = null;
+  if (user) {
+    const { data: membership } = await supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle();
+    memberRole = membership?.role ?? null;
+  }
   if (!user && !isPublic) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
@@ -61,11 +67,19 @@ export async function middleware(request: NextRequest) {
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }
+  if (user && memberRole === "student" && studentExperienceV2 && !isPublic && !pathname.startsWith("/student") && !pathname.startsWith("/api/")) {
+    const studentHome = request.nextUrl.clone();
+    studentHome.pathname = "/student";
+    studentHome.search = "";
+    const redirect = NextResponse.redirect(studentHome);
+    redirect.headers.set("content-security-policy", buildCsp(nonce));
+    return redirect;
+  }
   if (user && (pathname === "/login" || pathname === "/signup")) {
-    const dashboard = request.nextUrl.clone();
-    dashboard.pathname = "/dashboard";
-    dashboard.search = "";
-    const redirect = NextResponse.redirect(dashboard);
+    const landing = request.nextUrl.clone();
+    landing.pathname = memberRole === "student" ? (studentExperienceV2 ? "/student" : "/learn") : "/dashboard";
+    landing.search = "";
+    const redirect = NextResponse.redirect(landing);
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }

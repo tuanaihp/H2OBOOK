@@ -17,6 +17,6 @@ for (const [name, command] of [
 const external = ["SUPABASE", "REDIS", "R2", "CLAMAV"].map(name => ({ name: `${name.toLowerCase()}-integration`, status: "external", detail: "Requires a real local/staging service and credentials." }));
 checks.push(...external);
 const releaseReady = checks.every(item => item.status === "pass");
-const report = { version: "4.13.7", generatedAt: new Date().toISOString(), releaseReady, checks };
-fs.writeFileSync("docs/PRODUCTION-READINESS-AUDIT-4.13.7.json", JSON.stringify(report, null, 2) + "\n");
+const report = { version: "4.14.0", generatedAt: new Date().toISOString(), releaseReady, checks };
+fs.writeFileSync("docs/PRODUCTION-READINESS-AUDIT-4.14.0.json", JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify(report, null, 2));

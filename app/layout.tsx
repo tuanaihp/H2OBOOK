@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "H2OBOOK Professional Editor 4.12", template: "%s | H2OBOOK" },
-  description: "Nền tảng tạo sách, học tập, đào tạo và kinh doanh nội dung theo kiến trúc offline-first, AI tùy chọn.",
+  title: { default: "H2OBOOK 4.14 · AI Learning Universe", template: "%s | H2OBOOK" },
+  description: "Hệ sinh thái sách, khóa học, chiến lược nghề Makeup và trải nghiệm học viên thông minh của ThuyH2O Makeup Academy.",
   applicationName: "H2OBOOK",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icons/icon.svg", apple: "/icons/icon.svg" }

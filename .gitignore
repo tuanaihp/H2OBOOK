@@ -6,6 +6,8 @@ node_modules
 .DS_Store
 coverage
 *.tsbuildinfo
+__pycache__/
+*.pyc
 
 # Generated local PDF import fixtures
 tests/fixtures/input/generated-pdf/

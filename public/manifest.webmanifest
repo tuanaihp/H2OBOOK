@@ -1,7 +1,7 @@
 {
-  "name": "H2OBOOK Professional 4.11",
+  "name": "H2OBOOK 4.14 — AI Learning Universe",
   "short_name": "H2OBOOK",
-  "description": "Professional authoring, multi-format publishing, learning and knowledge commerce — offline-first, AI optional.",
+  "description": "Hệ sinh thái sách, khóa học, chiến lược nghề Makeup và trải nghiệm học viên thông minh — AI tùy chọn.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
@@ -23,8 +23,19 @@
   ],
   "shortcuts": [
     {
-      "name": "Hành trình học",
-      "url": "/learn",
+      "name": "H2OBOOK Academy",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Learning Command",
+      "url": "/student",
       "icons": [
         {
           "src": "/icons/icon.svg",
@@ -36,17 +47,6 @@
     {
       "name": "H2OBOOK Studio",
       "url": "/editor/book_makeup_pro",
-      "icons": [
-        {
-          "src": "/icons/icon.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
-        }
-      ]
-    },
-    {
-      "name": "Ôn tập",
-      "url": "/study",
       "icons": [
         {
           "src": "/icons/icon.svg",

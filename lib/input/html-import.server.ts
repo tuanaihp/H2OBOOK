@@ -154,10 +154,12 @@ function sanitizeDocument(document: Document, baseUrl: string | undefined, repor
 function parseList(element: Element, position: number): SemanticContentNode {
   const ordered = element.tagName.toLowerCase() === "ol";
   const items = Array.from(element.children).filter((child) => child.tagName.toLowerCase() === "li").map((item, itemIndex) => {
-    const nested = Array.from(item.children).filter((child) => ["ul", "ol"].includes(child.tagName.toLowerCase()));
+    const nestedLists = Array.from(item.children).filter((child) => ["ul", "ol"].includes(child.tagName.toLowerCase()));
+    const otherBlocks = Array.from(item.children).filter((child) => BLOCK_TAGS.has(child.tagName.toLowerCase()) && !["ul", "ol"].includes(child.tagName.toLowerCase()));
     const clone = item.cloneNode(true) as Element;
-    Array.from(clone.children).filter((child) => ["ul", "ol"].includes(child.tagName.toLowerCase())).forEach((child) => child.remove());
-    const children = nested.map((child, index) => parseList(child, index));
+    Array.from(clone.children).filter((child) => BLOCK_TAGS.has(child.tagName.toLowerCase())).forEach((child) => child.remove());
+    const children: SemanticContentNode[] = nestedLists.map((child, index) => parseList(child, index));
+    otherBlocks.forEach((block) => parseBlock(block, children));
     return makeNode("list_item", itemIndex, {}, inlineSpans(clone), children);
   });
   return makeNode("list", position, { ordered, start: Number(element.getAttribute("start") ?? 1) }, undefined, items);
@@ -204,6 +206,17 @@ function parseBlock(element: Element, target: SemanticContentNode[]) {
   if (/^h[1-6]$/.test(tag)) {
     const level = Number(tag.slice(1));
     const type = level === 1 ? "chapter" : level === 2 ? "section" : "heading";
+    const blockChildren = Array.from(element.children).filter((child) => BLOCK_TAGS.has(child.tagName.toLowerCase()));
+    if (blockChildren.length) {
+      const headingSpans: RichTextSpan[] = [];
+      element.childNodes.forEach((child) => {
+        if (child.nodeType === 1 && BLOCK_TAGS.has((child as Element).tagName.toLowerCase())) return;
+        inlineSpans(child, [], headingSpans);
+      });
+      if (textOf(headingSpans)) push(makeNode(type, target.length, { level }, compactRichText(headingSpans)));
+      blockChildren.forEach((child) => parseBlock(child, target));
+      return;
+    }
     const spans = inlineSpans(element);
     if (textOf(spans)) push(makeNode(type, target.length, { level }, spans));
     return;

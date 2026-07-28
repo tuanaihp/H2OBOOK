@@ -80,7 +80,7 @@ export function Sidebar() {
       <Link href="/ai-studio" className={cn("quantum-assist-link", pathname.startsWith("/ai-studio") && "active")} title="Smart Tools – AI tùy chọn"><Sparkles/><span>Smart</span><i>{smart.aiEnabled ? "AI" : "LOCAL"}</i></Link>
     </div>
     <div className="quantum-context-nav">
-      <Link href="/dashboard" className="brand-logo"><div className="brand-mark">H2</div><div className="brand-word"><strong>H2OBOOK</strong><span>Editor 4.12</span></div></Link>
+      <Link href="/dashboard" className="brand-logo"><div className="brand-mark">H2</div><div className="brand-word"><strong>H2OBOOK</strong><span>Editor 4.14</span></div></Link>
       <div className="context-domain-head"><span>{activeDomain.label}</span><small>{smart.aiEnabled ? "AI hỗ trợ đang bật" : "Core độc lập AI"}</small></div>
       <div className="sidebar-scroll">{activeDomain.links.length ? activeDomain.links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn("nav-link", pathname === href || pathname.startsWith(`${href}/`) ? "active" : "")}><Icon/>{label}</Link>) : <div className="context-home-card"><strong>Smart Home</strong><p>Ưu tiên hôm nay, tiến độ học và các dự án đang hoạt động.</p></div>}</div>
       <div className="sidebar-bottom"><div className="plan-card"><div className="plan-title"><strong>{workspace.plan === "academy" ? "Academy Pro" : workspace.plan}</strong><span>{usage}%</span></div><p>{(workspace.storageUsedMb / 1024).toFixed(1)} GB / {(workspace.storageLimitMb / 1024).toFixed(0)} GB dung lượng</p><div className="plan-progress"><span style={{ width: `${usage}%` }}/></div><Link href="/membership">Quản lý gói</Link></div></div>

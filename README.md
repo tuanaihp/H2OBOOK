@@ -270,3 +270,35 @@ Validation command:
 ```bash
 pnpm validate:input-phase2
 ```
+
+## H2OBOOK 4.14 presentation layers
+
+### Public Academy
+
+- `/`
+- `/academy/books`
+- `/academy/courses`
+- `/academy/strategies`
+- `/academy/learning-paths`
+- `/academy/about`
+- `/academy/membership`
+- `/academy/success-stories`
+
+### Student Experience
+
+- `/student`
+- `/student/courses`
+- `/student/library`
+- `/student/assignments`
+- `/student/roadmap`
+- `/student/mentor`
+- `/student/profile`
+
+Enable with:
+
+```env
+NEXT_PUBLIC_PUBLIC_SITE_V2=true
+NEXT_PUBLIC_STUDENT_EXPERIENCE_V2=true
+```
+
+Existing Business/Admin routes are unchanged. Deploy 4.14 through a Git branch and Vercel Preview before merging to the production branch.
