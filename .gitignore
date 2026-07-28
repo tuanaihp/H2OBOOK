@@ -9,3 +9,5 @@ coverage
 
 # Generated local PDF import fixtures
 tests/fixtures/input/generated-pdf/
+
+.vercel
