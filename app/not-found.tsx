@@ -1,0 +1,1 @@
+import Link from "next/link";import { BookX } from "lucide-react";export default function NotFound(){return <main className="fatal-page"><BookX/><h1>Không tìm thấy trang</h1><p>Liên kết có thể đã thay đổi hoặc tài nguyên không còn tồn tại.</p><Link className="btn btn-primary" href="/dashboard">Về Dashboard</Link></main>}

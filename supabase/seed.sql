@@ -1,0 +1,8 @@
+-- H2OBOOK V2 seed guide
+-- Auth users must be created through Supabase Auth first.
+-- This file intentionally does not hardcode UUIDs or credentials.
+-- Recommended sequence:
+-- 1. Create owner user in Auth.
+-- 2. Call public.create_workspace('THUYH2O Makeup Academy','thuyh2o-academy').
+-- 3. Create Brand Profile, Book and Template through the application API.
+-- 4. Use lib/v2-seed.ts only for local-first UX demonstration, not production data.

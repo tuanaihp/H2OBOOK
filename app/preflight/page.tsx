@@ -1,0 +1,10 @@
+"use client";
+import { Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { AppShell } from "@/components/layout/app-shell";
+import { useAppStore } from "@/store/app-store";
+import { runBookPreflight } from "@/lib/editor/preflight";
+import { AlertTriangle, CheckCircle2, CircleAlert, ExternalLink } from "lucide-react";
+function PreflightPageInner(){const params=useSearchParams();const store=useAppStore();const book=store.books.find((item)=>item.id===params.get("book"))??store.books[0];if(!book)return <AppShell><div className="empty-state">Chưa có sách để kiểm tra.</div></AppShell>;const report=runBookPreflight(book);return <AppShell><div className="page-header"><div><span className="eyebrow">DESIGN PREFLIGHT</span><h1>Kiểm tra trước xuất bản</h1><p>{book.title}</p></div><Link className="btn btn-secondary" href={`/editor/${book.id}`}><ExternalLink size={15}/>Mở Studio</Link></div><div className="preflight-summary"><article className={report.passed?"passed":"failed"}>{report.passed?<CheckCircle2/>:<CircleAlert/>}<strong>{report.passed?"Đủ điều kiện xuất bản":"Cần sửa lỗi trước khi xuất bản"}</strong></article><article><strong>{report.errors}</strong><span>Lỗi bắt buộc</span></article><article><strong>{report.warnings}</strong><span>Cảnh báo</span></article></div><section className="section-card"><div className="section-head"><h2>Danh sách kiểm tra</h2></div><div className="preflight-list">{report.issues.length?report.issues.map((issue)=><article key={issue.id} className={`preflight-${issue.severity}`}>{issue.severity==="error"?<CircleAlert size={17}/>:<AlertTriangle size={17}/>}<div><strong>{issue.message}</strong><small>{issue.rule}{issue.fix?` • ${issue.fix}`:""}</small></div>{issue.pageId&&<span>{book.pages.findIndex((page)=>page.id===issue.pageId)+1}</span>}</article>):<div className="empty-state"><CheckCircle2/><strong>Không phát hiện lỗi</strong></div>}</div></section></AppShell>}
+export default function PreflightPage(){return <Suspense fallback={null}><PreflightPageInner/></Suspense>}

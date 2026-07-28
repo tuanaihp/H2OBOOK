@@ -1,0 +1,55 @@
+project: H2OBOOK Unified Input & Document Reconstruction Engine
+version: 4.13.7
+core_requires_ai: false
+current_phase: release_candidate
+phases:
+  - id: 0
+    name: Baseline audit and guidance integration
+    status: completed
+    depends_on: []
+  - id: 1
+    name: Unified Input Gateway foundation
+    status: accepted
+    depends_on: [0]
+  - id: 2
+    name: Word Import 2.0
+    status: completed
+    depends_on: [1]
+    evidence: [lib/input/word-import.ts, packages/input-core/src/word-html.ts, docs/claude-code/progress/PHASE-02-REPORT.md]
+  - id: 3
+    name: PDF Dual Import
+    status: completed
+    depends_on: [1]
+    evidence: [packages/input-core/src/pdf.ts, lib/input/pdf-import.ts, docs/claude-code/progress/PHASE-03-REPORT.md]
+  - id: 4
+    name: Image Smart Import
+    status: completed
+    depends_on: [1]
+    evidence: [packages/input-core/src/image.ts, lib/input/image-import.ts, components/editor/image-smart-import.tsx, docs/claude-code/progress/PHASE-04-REPORT.md]
+  - id: 5
+    name: HTML Import 2.0
+    status: completed
+    depends_on: [1]
+    evidence: [lib/input/html-import.server.ts, lib/input/html-import.ts, packages/input-core/src/html.ts, docs/claude-code/progress/PHASE-05-REPORT.md]
+  - id: 6
+    name: Orchestrator, preview, commit and recovery
+    status: completed
+    depends_on: [2, 3, 4, 5]
+    evidence:
+      - packages/input-core/src/orchestrator.ts
+      - lib/input/orchestrator-server.ts
+      - lib/input/orchestrator-client.ts
+      - components/input/unified-input-gateway.tsx
+      - app/api/input/sessions
+      - supabase/migrations/0021_h2obook_v4136_input_orchestrator.sql
+      - docs/claude-code/progress/PHASE-06-REPORT.md
+  - id: 7
+    name: Production validation and hardening
+    status: source_completed_external_validation_pending
+    depends_on: [6]
+    specification: docs/claude-code/phases/07-PRODUCTION-HARDENING.md
+    evidence:
+      - packages/input-core/src/hardening.ts
+      - workers/document-worker/index.mjs
+      - supabase/migrations/0022_h2obook_v4137_production_hardening.sql
+      - docs/claude-code/progress/PHASE-07-REPORT.md

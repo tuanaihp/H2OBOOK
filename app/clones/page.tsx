@@ -1,0 +1,22 @@
+"use client";
+
+import Link from "next/link";
+import { AppShell } from "@/components/layout/app-shell";
+import { Badge } from "@/components/ui/badge";
+import { MetricCard } from "@/components/ui/metric-card";
+import { useAppStore } from "@/store/app-store";
+import { formatDate } from "@/lib/utils";
+import { AlertTriangle, BookCopy, CheckCircle2, GitBranch, Pencil, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
+
+export default function ClonesPage() {
+  const store = useAppStore();
+  const synced = store.clones.filter((item) => item.status === "synced").length;
+  const updates = store.clones.filter((item) => item.status === "update_available").length;
+  const conflicts = store.clones.filter((item) => item.status === "conflict").length;
+  return <AppShell>
+    <div className="page-header"><div><span className="eyebrow">BRAND CLONE ENGINE</span><h1>Trung tâm nhân bản sách</h1><p>Theo dõi linked clone, phiên bản template và xung đột của từng đối tác.</p></div><div className="header-actions"><Link href="/templates" className="btn btn-primary"><Sparkles size={16}/>Tạo bản clone mới</Link></div></div>
+    <section className="metric-grid"><MetricCard label="Tổng bản clone" value={String(store.clones.length)} note="Tất cả thương hiệu" icon={BookCopy}/><MetricCard label="Đã đồng bộ" value={String(synced)} note="Đang dùng bản mới nhất" icon={CheckCircle2} tone="success"/><MetricCard label="Có bản cập nhật" value={String(updates)} note="Chờ đối tác áp dụng" icon={RefreshCw} tone="blue"/><MetricCard label="Xung đột" value={String(conflicts)} note="Cần xem và xử lý" icon={ShieldAlert} tone="warning"/></section>
+    <section className="section-card"><div className="section-head"><div><h2>Linked Clone Registry</h2><p>Mỗi bản ghi giữ liên kết giữa template master và sách của đối tác.</p></div><Badge tone="purple"><GitBranch size={12}/>Inheritance Engine</Badge></div><div className="clone-table-wrap"><table className="data-table clone-table"><thead><tr><th>Đối tác / sách</th><th>Chế độ</th><th>Phiên bản</th><th>Ghi đè</th><th>Trạng thái</th><th>Đồng bộ gần nhất</th><th/></tr></thead><tbody>{store.clones.map((clone) => { const template = store.templates.find((item) => item.id === clone.templateId); const book = store.books.find((item) => item.id === clone.targetBookId); const brand = store.brands.find((item) => item.id === clone.brandId); return <tr key={clone.id}><td><div className="clone-identity"><span className="brand-swatch" style={{ background: brand?.primaryColor }}/><div><strong>{clone.partnerName}</strong><small>{book?.title ?? "Sách đã xóa"}<br/>{template?.name}</small></div></div></td><td><Badge tone={clone.mode === "linked" ? "purple" : "neutral"}>{clone.mode === "linked" ? "Linked" : "Independent"}</Badge></td><td><div className="version-pair"><span>Đang dùng v{clone.sourceVersion}</span><strong>Master v{clone.currentTemplateVersion}</strong></div></td><td><strong>{clone.overrideCount}</strong> lớp<br/><small>{clone.conflictCount} xung đột</small></td><td>{clone.status === "synced" ? <Badge tone="success"><CheckCircle2 size={12}/>Đồng bộ</Badge> : clone.status === "update_available" ? <Badge tone="warning"><RefreshCw size={12}/>Có cập nhật</Badge> : <Badge tone="warning"><AlertTriangle size={12}/>Xung đột</Badge>}</td><td>{formatDate(clone.lastSyncedAt)}</td><td><div className="row-actions"><Link className="icon-btn" href={`/editor/${clone.targetBookId}`} title="Chỉnh sửa"><Pencil size={14}/></Link>{clone.status === "update_available" && <button className="btn btn-soft btn-sm" onClick={() => store.syncClone(clone.id)}><RefreshCw size={13}/>Đồng bộ</button>}{clone.status === "conflict" && <button className="btn btn-danger btn-sm" onClick={() => store.resolveCloneConflicts(clone.id)}><ShieldAlert size={13}/>Giải quyết</button>}</div></td></tr>; })}</tbody></table></div></section>
+    <section className="sync-explainer"><div><GitBranch size={25}/><h3>Cơ chế Linked Clone</h3><p>Element chưa sửa được cập nhật tự động. Element đã tùy biến được giữ lại và chuyển vào màn hình xử lý xung đột.</p></div><div><ShieldAlert size={25}/><h3>Bảo vệ nội dung</h3><p>Layer bắt buộc, bản quyền và trang chính sách có thể khóa để mọi bản thương hiệu luôn đúng chuẩn.</p></div><div><RefreshCw size={25}/><h3>Rollback phiên bản</h3><p>Mỗi lần đồng bộ tạo lịch sử thay đổi, cho phép quay lại phiên bản trước khi phát hiện lỗi.</p></div></section>
+  </AppShell>;
+}

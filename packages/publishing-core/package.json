@@ -1,0 +1,7 @@
+{
+  "name": "@h2obook/publishing-core",
+  "version": "4.4.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" }
+}

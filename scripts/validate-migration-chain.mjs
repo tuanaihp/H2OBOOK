@@ -1,0 +1,11 @@
+import fs from "node:fs";
+import path from "node:path";
+const dir = "supabase/migrations";
+const files = fs.readdirSync(dir).filter(name => /^\d{4}_.+\.sql$/.test(name)).sort();
+const numbers = files.map(name => Number(name.slice(0, 4)));
+const duplicates = numbers.filter((value, index) => numbers.indexOf(value) !== index);
+if (duplicates.length) throw new Error(`Duplicate migration numbers: ${duplicates.join(",")}`);
+for (let index = 1; index < numbers.length; index += 1) if (numbers[index] !== numbers[index - 1] + 1) throw new Error(`Migration gap: ${numbers[index - 1]} -> ${numbers[index]}`);
+const combined = files.map(name => fs.readFileSync(path.join(dir, name), "utf8")).join("\n");
+for (const required of ["enable row level security", "commit_input_session_hardened", "recover_stale_input_sessions", "for update skip locked"]) if (!combined.toLowerCase().includes(required.toLowerCase())) throw new Error(`Migration chain missing ${required}`);
+console.log(`Migration chain validation passed: ${files.length} sequential migrations (${files[0]} -> ${files.at(-1)}).`);

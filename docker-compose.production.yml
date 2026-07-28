@@ -1,0 +1,110 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    env_file: .env.local
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health/input"]
+      interval: 20s
+      timeout: 8s
+      retries: 10
+    depends_on:
+      redis:
+        condition: service_healthy
+      document-processor:
+        condition: service_healthy
+
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-change-me}
+    volumes:
+      - h2obook_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change-me}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:1.4
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  document-processor:
+    build:
+      context: services/document-processor
+    env_file: .env.local
+    environment:
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+    depends_on:
+      clamav:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  document-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.production
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change-me}@redis:6379/0
+      DOCUMENT_WORKER_URL: http://document-processor:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+      document-processor:
+        condition: service_healthy
+    restart: unless-stopped
+
+  publishing-worker:
+    build:
+      context: services/publishing-worker
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change-me}@redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  webhook-worker:
+    build:
+      context: services/webhook-worker
+    env_file: .env.local
+    environment:
+      WEBHOOK_WORKER_POLL_MS: ${WEBHOOK_WORKER_POLL_MS:-2000}
+      WEBHOOK_WORKER_CONCURRENCY: ${WEBHOOK_WORKER_CONCURRENCY:-5}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  input-recovery:
+    image: curlimages/curl:8.10.1
+    env_file: .env.local
+    command: ["sh", "-c", "while true; do curl -fsS -X POST -H \"Authorization: Bearer $${CRON_SECRET}\" 'http://web:3000/api/internal/input/recover-stale?limit=100' || true; sleep $${INPUT_RECOVERY_INTERVAL_SECONDS:-60}; done"]
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  h2obook_redis:
+  clamav_data:

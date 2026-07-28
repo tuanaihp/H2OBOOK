@@ -1,0 +1,59 @@
+{
+  "name": "H2OBOOK Professional 4.11",
+  "short_name": "H2OBOOK",
+  "description": "Professional authoring, multi-format publishing, learning and knowledge commerce — offline-first, AI optional.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#09111f",
+  "theme_color": "#0b1523",
+  "categories": [
+    "education",
+    "productivity",
+    "books"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Hành trình học",
+      "url": "/learn",
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "H2OBOOK Studio",
+      "url": "/editor/book_makeup_pro",
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Ôn tập",
+      "url": "/study",
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

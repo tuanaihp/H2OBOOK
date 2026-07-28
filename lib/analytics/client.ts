@@ -1,0 +1,11 @@
+"use client";
+import {createAnalyticsEvent,type AnalyticsEvent,type AnalyticsEventName} from "@h2obook/analytics-core";
+const QUEUE='h2obook-analytics-queue-v1',CONSENT='h2obook-analytics-consent',ANON='h2obook-anonymous-id',SESSION='h2obook-reader-session';let timer:ReturnType<typeof setTimeout>|undefined;
+function id(storage:Storage,key:string){let value=storage.getItem(key);if(!value){value=crypto.randomUUID();storage.setItem(key,value);}return value;}
+export function analyticsConsent(){if(typeof localStorage==='undefined')return false;return localStorage.getItem(CONSENT)!=='denied';}
+export function setAnalyticsConsent(value:boolean){localStorage.setItem(CONSENT,value?'granted':'denied');if(!value)localStorage.removeItem(QUEUE);}
+export function queuedEvents():AnalyticsEvent[]{if(typeof localStorage==='undefined')return[];try{return JSON.parse(localStorage.getItem(QUEUE)??'[]')}catch{return[]}}
+function save(events:AnalyticsEvent[]){localStorage.setItem(QUEUE,JSON.stringify(events.slice(-500)));}
+export function track(name:AnalyticsEventName,input:{resourceType?:AnalyticsEvent['resourceType'];resourceId?:string;properties?:AnalyticsEvent['properties']}={}){if(typeof window==='undefined'||!analyticsConsent())return;const event=createAnalyticsEvent(name,{sessionId:id(sessionStorage,SESSION),anonymousId:id(localStorage,ANON),...input});save([...queuedEvents(),event]);clearTimeout(timer);timer=setTimeout(()=>void flushAnalytics(),2500);return event.eventId;}
+export async function flushAnalytics(){if(typeof window==='undefined'||!navigator.onLine||!analyticsConsent())return;const events=queuedEvents();if(!events.length)return;try{const response=await fetch('/api/analytics/events',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({events:events.slice(0,50)}),keepalive:true});if(response.ok)save(events.slice(50));}catch{}}
+export function installAnalyticsFlush(){if(typeof window==='undefined')return()=>{};const online=()=>void flushAnalytics();const hidden=()=>{if(document.visibilityState==='hidden')void flushAnalytics();};window.addEventListener('online',online);document.addEventListener('visibilitychange',hidden);void flushAnalytics();return()=>{window.removeEventListener('online',online);document.removeEventListener('visibilitychange',hidden);};}

@@ -1,0 +1,13 @@
+{
+  "name": "h2obook-publishing-worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.850.0",
+    "@supabase/supabase-js": "^2.49.8",
+    "bullmq": "^5.58.0",
+    "ioredis": "^5.7.0",
+    "playwright-core": "^1.51.1",
+    "jszip": "^3.10.1"
+  }
+}

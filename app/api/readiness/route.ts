@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";import { getAppMode,getRuntimeCapabilities } from "@/lib/runtime-config";
+export async function GET(){const capabilities=getRuntimeCapabilities();const missingRequired=capabilities.filter(item=>item.required&&!item.configured);return NextResponse.json({status:missingRequired.length?"degraded":"ready",mode:getAppMode(),version:"3.5.0",capabilities,missingRequired:missingRequired.map(i=>i.key),timestamp:new Date().toISOString()},{status:missingRequired.length&&getAppMode()==="production"?503:200});}

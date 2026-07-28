@@ -1,0 +1,29 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { AppShell } from "@/components/layout/app-shell";
+import { Modal } from "@/components/ui/modal";
+import { Badge } from "@/components/ui/badge";
+import { useAppStore } from "@/store/app-store";
+import { formatDate } from "@/lib/utils";
+import { BookOpen, CalendarDays, GraduationCap, Plus, Search, Users } from "lucide-react";
+
+export default function ClassesPage() {
+  const store = useAppStore();
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [teacher, setTeacher] = useState(store.workspace.ownerName);
+  const [bookId, setBookId] = useState(store.books[0]?.id ?? "");
+  const filtered = useMemo(() => store.classes.filter((item) => `${item.name} ${item.code} ${item.teacherName}`.toLowerCase().includes(query.toLowerCase())), [store.classes, query]);
+  const detail = store.classes.find((item) => item.id === detailId);
+  const create = () => { store.createClass({ name: name.trim() || "Lớp học mới", teacherName: teacher, bookIds: bookId ? [bookId] : [], status: "upcoming" }); setOpen(false); setName(""); };
+  return <AppShell>
+    <div className="page-header"><div><span className="eyebrow">TRAINING OPERATIONS</span><h1>Quản lý lớp học</h1><p>Gắn sách, giảng viên, học viên, bài tập và tiến độ vào từng lớp.</p></div><button className="btn btn-primary" onClick={() => setOpen(true)}><Plus size={16}/>Tạo lớp mới</button></div>
+    <section className="section-card"><div className="table-toolbar"><div className="search-box compact"><Search size={16}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm lớp, mã lớp, giảng viên..."/></div><span className="result-count">{filtered.length} lớp</span></div><div className="section-body"><div className="class-grid">{filtered.map((course) => <article className="class-card" key={course.id}><div className="class-card-accent" style={{ background: course.color }}/><div className="class-card-head"><span className="class-code">{course.code}</span><Badge tone={course.status === "active" ? "success" : course.status === "completed" ? "neutral" : "warning"}>{course.status === "active" ? "Đang học" : course.status === "completed" ? "Đã hoàn thành" : "Sắp mở"}</Badge></div><h3>{course.name}</h3><p>Giảng viên: <strong>{course.teacherName}</strong></p><div className="class-metrics"><div><Users size={16}/><span><strong>{course.studentIds.length}</strong> học viên</span></div><div><BookOpen size={16}/><span><strong>{course.bookIds.length}</strong> sách</span></div><div><CalendarDays size={16}/><span>{formatDate(course.startDate)} – {formatDate(course.endDate)}</span></div></div><div className="class-progress"><span style={{ width: `${course.status === "completed" ? 100 : course.status === "active" ? 58 : 5}%` }}/></div><div className="class-actions"><button className="btn btn-secondary btn-sm" onClick={() => setDetailId(course.id)}>Xem chi tiết</button><Link className="btn btn-soft btn-sm" href="/library">Cấp tài liệu</Link></div></article>)}</div></div></section>
+    <Modal open={open} onClose={() => setOpen(false)} title="Tạo lớp học mới" description="Sau khi tạo, bạn có thể mời học viên và giao thêm sách."><div className="form-grid"><label className="field full"><span>Tên lớp</span><input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="Makeup Chuyên Nghiệp K27"/></label><label className="field"><span>Giảng viên</span><input className="input" value={teacher} onChange={(event) => setTeacher(event.target.value)}/></label><label className="field"><span>Sách chính</span><select className="select" value={bookId} onChange={(event) => setBookId(event.target.value)}>{store.books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></label></div><div className="modal-actions"><button className="btn btn-secondary" onClick={() => setOpen(false)}>Hủy</button><button className="btn btn-primary" onClick={create}><GraduationCap size={15}/>Tạo lớp</button></div></Modal>
+    <Modal open={Boolean(detail)} onClose={() => setDetailId(null)} title={detail?.name ?? "Chi tiết lớp"} description={`${detail?.code ?? ""} • Giảng viên ${detail?.teacherName ?? ""}`} width={720}><div className="class-detail-summary"><div><Users size={18}/><span><strong>{detail?.studentIds.length ?? 0}</strong> học viên</span></div><div><BookOpen size={18}/><span><strong>{detail?.bookIds.length ?? 0}</strong> tài liệu</span></div><div><CalendarDays size={18}/><span>{detail ? `${formatDate(detail.startDate)} – ${formatDate(detail.endDate)}` : ""}</span></div></div><div className="detail-two-columns"><section><h3>Sách đang cấp</h3>{detail?.bookIds.length ? detail.bookIds.map((id) => { const book = store.books.find((item) => item.id === id); return book ? <Link className="detail-list-row" key={id} href={`/reader/${book.id}`}><BookOpen size={15}/><span><strong>{book.title}</strong><small>{book.pages.length} trang</small></span></Link> : null; }) : <p className="muted">Chưa có sách.</p>}</section><section><h3>Học viên</h3>{detail?.studentIds.length ? detail.studentIds.map((id) => { const student = store.students.find((item) => item.id === id); return student ? <div className="detail-list-row" key={id}><Users size={15}/><span><strong>{student.name}</strong><small>{student.progress}% tiến độ</small></span></div> : null; }) : <p className="muted">Chưa có học viên.</p>}</section></div><div className="modal-actions"><Link className="btn btn-secondary" href="/students">Quản lý học viên</Link><Link className="btn btn-primary" href="/assignments">Giao bài tập</Link></div></Modal>
+  </AppShell>;
+}

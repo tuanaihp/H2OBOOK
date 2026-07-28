@@ -1,0 +1,57 @@
+name: H2OBOOK CI
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the real dependency lockfile
+        run: test -f pnpm-lock.yaml
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.5 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pnpm install --frozen-lockfile
+      - run: pip install -r services/document-processor/requirements.txt
+      - run: pnpm validate:claude-guides
+      - run: pnpm validate:input-phase2
+      - run: pnpm validate:input-phase3
+      - run: pnpm validate:input-phase4
+      - run: pnpm validate:input-phase5
+      - run: pnpm validate:input-phase6
+      - run: pnpm validate:input-phase7
+      - run: pnpm test:input-hardening
+      - run: pnpm test:input-load
+      - run: pnpm validate:migrations
+      - run: pnpm check:input-storage
+      - run: pnpm validate
+      - run: pnpm validate:imports
+      - run: pnpm validate:v4
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+        env:
+          REDIS_URL: redis://localhost:6379/0
+      - run: pnpm test:sql
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e --project=chromium

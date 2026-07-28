@@ -1,0 +1,11 @@
+H2OBOOK Unified Input Engine 4.13.7 — Phase 7 Release Candidate
+Generated: 2026-07-27 Asia/Ho_Chi_Minh
+Release status: source-complete; production approval pending external gates
+Project files before manifest: 453
+App pages: 54
+API routes: 58
+Supabase migrations: 22
+TypeScript/TSX files: 249
+Production audit: docs/PRODUCTION-READINESS-AUDIT-4.13.7.json
+Validation report: docs/VALIDATION-REPORT-4.13.7-PHASE7.md
+Known limitations: docs/KNOWN-LIMITATIONS-4.13.7.md

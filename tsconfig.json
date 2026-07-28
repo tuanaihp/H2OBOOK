@@ -1,0 +1,71 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@h2obook/content-core": [
+        "./packages/content-core/src/index.ts"
+      ],
+      "@h2obook/publishing-core": [
+        "./packages/publishing-core/src/index.ts"
+      ],
+      "@h2obook/ingestion-core": [
+        "./packages/ingestion-core/src/index.ts"
+      ],
+      "@h2obook/automation-core": [
+        "./packages/automation-core/src/index.ts"
+      ],
+      "@h2obook/growth-reader-core": [
+        "./packages/growth-reader-core/src/index.ts"
+      ],
+      "@h2obook/education-core": [
+        "./packages/education-core/src/index.ts"
+      ],
+      "@h2obook/analytics-core": [
+        "./packages/analytics-core/src/index.ts"
+      ],
+      "@h2obook/optional-assist-core": [
+        "./packages/optional-assist-core/src/index.ts"
+      ],
+      "@h2obook/enterprise-core": [
+        "./packages/enterprise-core/src/index.ts"
+      ],
+      "@h2obook/input-core": [
+        "./packages/input-core/src/index.ts"
+      ]
+    },
+    "baseUrl": "."
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

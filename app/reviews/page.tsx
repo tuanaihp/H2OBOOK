@@ -1,0 +1,34 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AppShell } from "@/components/layout/app-shell";
+import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
+import { useAppStore } from "@/store/app-store";
+import { formatDate } from "@/lib/utils";
+import { CheckCircle2, Circle, Clock3, MessageSquare, Plus, Send, ShieldCheck, UserRoundCheck } from "lucide-react";
+import type { ReviewStage, ReviewStatus } from "@/types/domain";
+
+const columns: Array<{ status: ReviewStatus; label: string }> = [
+  { status: "draft", label: "Chuẩn bị" }, { status: "in_review", label: "Đang duyệt" },
+  { status: "changes_requested", label: "Cần chỉnh sửa" }, { status: "approved", label: "Đã phê duyệt" }
+];
+const statusTone = (status: ReviewStatus) => status === "approved" ? "success" : status === "changes_requested" ? "warning" : status === "in_review" ? "purple" : "neutral";
+
+export default function ReviewsPage() {
+  const store = useAppStore();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState(store.reviews[0]?.id ?? "");
+  const [title, setTitle] = useState(""); const [bookId, setBookId] = useState(store.books[0]?.id ?? ""); const [stage, setStage] = useState<ReviewStage>("content"); const [comment, setComment] = useState("");
+  const selected = store.reviews.find((review) => review.id === selectedId);
+  const comments = useMemo(() => store.reviewComments.filter((item) => item.reviewId === selectedId), [store.reviewComments, selectedId]);
+  const create = () => { if (!title.trim() || !bookId) return; const review = store.createReview({ bookId, title: title.trim(), stage }); setSelectedId(review.id); setCreateOpen(false); setTitle(""); };
+  const submitComment = () => { if (!selected || !comment.trim()) return; store.addReviewComment({ reviewId: selected.id, message: comment }); setComment(""); };
+  return <AppShell>
+    <div className="page-header"><div><span className="eyebrow">PUBLISHING APPROVAL WORKFLOW</span><h1>Trung tâm duyệt sách</h1><p>Kiểm soát nội dung, thiết kế, thương hiệu và bản quyền trước khi phát hành.</p></div><div className="header-actions"><button className="btn btn-primary" onClick={() => setCreateOpen(true)}><Plus size={16}/>Tạo yêu cầu duyệt</button></div></div>
+    <div className="review-summary"><div><ShieldCheck/><span><strong>{store.reviews.filter((r) => r.status === "approved").length}</strong><small>Đã phê duyệt</small></span></div><div><Clock3/><span><strong>{store.reviews.filter((r) => r.status === "in_review").length}</strong><small>Đang duyệt</small></span></div><div><MessageSquare/><span><strong>{store.reviewComments.filter((c) => !c.resolved).length}</strong><small>Bình luận chưa xử lý</small></span></div><div><UserRoundCheck/><span><strong>{store.users.filter((u) => u.role !== "student").length}</strong><small>Người có thể duyệt</small></span></div></div>
+    <div className="review-board">{columns.map((column) => <section key={column.status}><header><strong>{column.label}</strong><span>{store.reviews.filter((review) => review.status === column.status).length}</span></header><div>{store.reviews.filter((review) => review.status === column.status).map((review) => { const book = store.books.find((item) => item.id === review.bookId); const completed = review.checklist.filter((item) => item.completed).length; return <button key={review.id} className={selectedId === review.id ? "active" : ""} onClick={() => setSelectedId(review.id)}><div className="review-card-top"><Badge tone={statusTone(review.status)}>{review.stage}</Badge><small>{formatDate(review.dueAt)}</small></div><strong>{review.title}</strong><p>{book?.title ?? "Sách không tồn tại"}</p><div className="review-progress"><span style={{ width: `${review.checklist.length ? completed / review.checklist.length * 100 : 0}%` }}/></div><footer><span>{completed}/{review.checklist.length} checklist</span><span><MessageSquare size={11}/>{review.commentsCount}</span></footer></button>; })}</div></section>)}</div>
+    {selected && <section className="section-card review-detail"><div className="section-head"><div><h2>{selected.title}</h2><p>Cập nhật {formatDate(selected.updatedAt)}</p></div><div className="review-status-actions"><button onClick={() => store.updateReviewStatus(selected.id, "in_review")}>Gửi duyệt</button><button onClick={() => store.updateReviewStatus(selected.id, "changes_requested")}>Yêu cầu sửa</button><button className="approve" onClick={() => store.updateReviewStatus(selected.id, "approved")}><CheckCircle2 size={14}/>Phê duyệt</button></div></div><div className="review-detail-grid"><div><h3>Checklist phát hành</h3>{selected.checklist.map((item) => <button className="review-check-item" key={item.id} onClick={() => store.toggleReviewChecklist(selected.id, item.id)}>{item.completed ? <CheckCircle2 size={17}/> : <Circle size={17}/>}<span>{item.label}</span></button>)}</div><div><h3>Bình luận</h3><div className="review-comments">{comments.map((item) => <article key={item.id} className={item.resolved ? "resolved" : ""}><div><strong>{item.authorName}</strong><small>{formatDate(item.createdAt)}</small></div><p>{item.message}</p>{!item.resolved && <button onClick={() => store.resolveReviewComment(item.id)}>Đánh dấu đã xử lý</button>}</article>)}</div><div className="review-comment-box"><textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Nhập bình luận hoặc yêu cầu chỉnh sửa..."/><button className="btn btn-primary btn-sm" onClick={submitComment}><Send size={13}/>Gửi</button></div></div></div></section>}
+    <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Tạo yêu cầu duyệt" description="Chọn sách và giai đoạn cần phê duyệt."><div className="form-grid"><label className="field full"><span>Tiêu đề</span><input className="input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ví dụ: Duyệt bản phát hành v4"/></label><label className="field"><span>Sách</span><select className="select" value={bookId} onChange={(event) => setBookId(event.target.value)}>{store.books.map((book) => <option value={book.id} key={book.id}>{book.title}</option>)}</select></label><label className="field"><span>Giai đoạn</span><select className="select" value={stage} onChange={(event) => setStage(event.target.value as ReviewStage)}><option value="content">Nội dung</option><option value="design">Thiết kế</option><option value="brand">Thương hiệu</option><option value="legal">Bản quyền</option><option value="final">Phát hành cuối</option></select></label></div><div className="modal-actions"><button className="btn btn-secondary" onClick={() => setCreateOpen(false)}>Hủy</button><button className="btn btn-primary" onClick={create}><Plus size={14}/>Tạo workflow</button></div></Modal>
+  </AppShell>;
+}

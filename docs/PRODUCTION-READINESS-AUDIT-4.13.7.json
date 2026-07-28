@@ -1,0 +1,57 @@
+{
+  "version": "4.13.7",
+  "generatedAt": "2026-07-27T14:40:34.538Z",
+  "releaseReady": false,
+  "checks": [
+    {
+      "name": "pnpm-lock.yaml",
+      "status": "blocked",
+      "detail": "Registry access is required to generate and commit the real lockfile."
+    },
+    {
+      "name": "node_modules",
+      "status": "blocked",
+      "detail": "Dependencies are not installed in this packaging environment."
+    },
+    {
+      "name": "phase7-static",
+      "status": "pass",
+      "detail": "Phase 7 Production Hardening validation passed: 15 required files, 14 architecture assertions."
+    },
+    {
+      "name": "hardening-runtime",
+      "status": "pass",
+      "detail": "Phase 7 hardening runtime passed: limits, retry policy, telemetry redaction, MIME confusion and filename safety."
+    },
+    {
+      "name": "processor-hardening",
+      "status": "pass",
+      "detail": "Processor hardening runtime passed: valid DOCX, traversal rejection, structure validation and ZIP bomb rejection."
+    },
+    {
+      "name": "load-test",
+      "status": "pass",
+      "detail": "{\"ok\":true,\"nodes\":20001,\"durationMs\":33,\"heapDeltaMb\":7}"
+    },
+    {
+      "name": "supabase-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    },
+    {
+      "name": "redis-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    },
+    {
+      "name": "r2-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    },
+    {
+      "name": "clamav-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    }
+  ]
+}

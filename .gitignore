@@ -1,0 +1,11 @@
+.next
+node_modules
+.env
+.env.local
+*.log
+.DS_Store
+coverage
+*.tsbuildinfo
+
+# Generated local PDF import fixtures
+tests/fixtures/input/generated-pdf/
