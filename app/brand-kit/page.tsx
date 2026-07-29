@@ -46,4 +46,4 @@ export default function BrandKitPage() {
   </AppShell>;
 }
 
-async function loadBrandImage(event: React.ChangeEvent<HTMLInputElement>, callback: (assetId: string, previewUrl: string) => void) { const file = event.target.files?.[0]; if (!file) return; const asset = await uploadAsset(file, { organizationId: useAppStore.getState().workspace.id, category: "brand-assets", assetType: "brand-image" }); callback(asset.assetId, asset.previewUrl); }
+async function loadBrandImage(event: React.ChangeEvent<HTMLInputElement>, callback: (assetId: string, previewUrl: string) => void) { const file = event.target.files?.[0]; if (!file) return; const asset = await uploadAsset(file, { organizationId: useAppStore.getState().workspace.id, category: "brand-assets", assetType: "brand-image", compress: true }); callback(asset.assetId, asset.previewUrl); }

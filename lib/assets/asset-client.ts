@@ -4,7 +4,38 @@ export type UploadedAsset = { assetId: string; previewUrl: string; mode: "local"
 
 function localId() { return `local:${crypto.randomUUID()}`; }
 
-export async function uploadAsset(file: File, input?: { organizationId?: string; category?: string; assetType?: string; metadata?: Record<string, unknown>; checksum?: string; width?: number; height?: number }): Promise<UploadedAsset> {
+const COMPRESSIBLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_IMAGE_DIMENSION = 2000;
+const IMAGE_OUTPUT_QUALITY = 0.82;
+
+/** Resizes/re-encodes oversized raster images to WebP before upload to reduce storage; falls back to the original file on any failure or when it isn't smaller. */
+async function compressImageFile(file: File): Promise<File> {
+  if (typeof window === "undefined" || typeof document === "undefined" || !COMPRESSIBLE_IMAGE_TYPES.has(file.type)) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    if (scale >= 1 && file.type === "image/webp") { bitmap.close(); return file; }
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { bitmap.close(); return file; }
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", IMAGE_OUTPUT_QUALITY));
+    if (!blob || blob.size >= file.size) return file;
+    const baseName = file.name.replace(/\.[a-zA-Z0-9]+$/, "") || "image";
+    return new File([blob], `${baseName}.webp`, { type: "image/webp" });
+  } catch {
+    return file;
+  }
+}
+
+export async function uploadAsset(inputFile: File, input?: { organizationId?: string; category?: string; assetType?: string; metadata?: Record<string, unknown>; checksum?: string; width?: number; height?: number; compress?: boolean }): Promise<UploadedAsset> {
+  // Compression is opt-in: Input Engine imports (PDF/Image/HTML/DOCX) rely on exact original
+  // pixel dimensions, EXIF and pre-validated magic bytes, so they must never pass compress:true.
+  const file = input?.compress ? await compressImageFile(inputFile) : inputFile;
   if (process.env.NEXT_PUBLIC_APP_MODE !== "production") {
     const assetId = localId();
     await saveLocalAsset(assetId, file);

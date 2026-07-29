@@ -67,7 +67,8 @@ export async function middleware(request: NextRequest) {
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }
-  if (user && memberRole === "student" && studentExperienceV2 && !isPublic && !pathname.startsWith("/student") && !pathname.startsWith("/api/")) {
+  const isStudentOwnedContent = pathname.startsWith("/editor/") || pathname.startsWith("/remix/");
+  if (user && memberRole === "student" && studentExperienceV2 && !isPublic && !isStudentOwnedContent && !pathname.startsWith("/student") && !pathname.startsWith("/api/")) {
     const studentHome = request.nextUrl.clone();
     studentHome.pathname = "/student";
     studentHome.search = "";
