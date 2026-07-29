@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, BrainCircuit, Menu, Sparkles } from "lucide-react";
+import { NeuralHeaderSignal } from "@/components/global-neural";
 
 export function PublicHeader() {
   const [mobileOpen,setMobileOpen]=useState(false);
@@ -18,6 +19,7 @@ export function PublicHeader() {
         <Link href="/academy/learning-paths">Lộ trình nghề</Link>
         <Link href="/academy/about">Về ThuyH2O</Link>
       </nav>
+      <NeuralHeaderSignal/>
       <div className="h2o-public-actions">
         <Link href="/login" className="h2o-public-login">Đăng nhập</Link>
         <Link href="/academy/membership" className="h2o-public-primary">Khám phá học viện <ArrowRight size={15}/></Link>

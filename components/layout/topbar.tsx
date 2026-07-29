@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bell, BookOpen, CheckCheck, Command, HelpCircle, Search, X } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
+import { NeuralHeaderSignal } from "@/components/global-neural";
 
 export function Topbar() {
   const [query, setQuery] = useState("");
@@ -24,6 +25,7 @@ export function Topbar() {
     <div className="topbar-search-wrap"><div className="search-box"><Search size={17}/><input value={query} onFocus={() => setSearchOpen(true)} onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }} placeholder="Tìm sách, template, học viên..."/><kbd><Command size={11}/>K</kbd></div>
       {searchOpen && query && <div className="global-search-results"><div className="search-result-head"><span>Kết quả tìm kiếm</span><button onClick={() => setSearchOpen(false)}><X size={13}/></button></div>{results.length ? results.map((result) => <Link key={`${result.meta}-${result.id}`} href={result.href} onClick={() => setSearchOpen(false)}><span className="result-icon"><BookOpen size={14}/></span><span><strong>{result.label}</strong><small>{result.meta}</small></span></Link>) : <p>Không tìm thấy kết quả phù hợp.</p>}</div>}
     </div>
+    <NeuralHeaderSignal compact/>
     <div className="top-actions">
       <Link className="icon-btn" aria-label="Trợ giúp và cài đặt" href="/settings" title="Trợ giúp và cài đặt"><HelpCircle size={18}/></Link>
       <div className="notification-wrap"><button className="icon-btn" aria-label="Thông báo" onClick={() => setNotificationsOpen(!notificationsOpen)}><Bell size={18}/>{unread > 0 && <span className="notification-dot">{unread}</span>}</button>

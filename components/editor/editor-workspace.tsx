@@ -12,6 +12,7 @@ import {
   Trash2, Type, Underline, Undo2, Unlock, Upload, WandSparkles, ZoomIn, ZoomOut
 } from "lucide-react";
 import { EditorCanvas } from "@/components/editor/editor-canvas";
+import { NeuralHeaderSignal } from "@/components/global-neural";
 import { useEditorStore } from "@/store/editor-store";
 import { useAppStore } from "@/store/app-store";
 import { uid } from "@/lib/utils";
@@ -166,6 +167,7 @@ export function EditorWorkspace() {
         <button className="editor-icon" onClick={() => store.setZoom(store.zoom + 0.08)}><ZoomIn size={16}/></button>
       </div>
       <div className="editor-top-right">
+        <NeuralHeaderSignal compact/>
         <button className="btn btn-secondary btn-sm" onClick={() => window.dispatchEvent(new Event("h2obook:export-page"))}><Download size={14}/>PNG</button>
         <button className="btn btn-secondary btn-sm" onClick={exportProject}><FileJson size={14}/>Dự án</button>
         <button className="btn btn-secondary btn-sm" onClick={() => projectRef.current?.click()}><Import size={14}/>Nhập</button>

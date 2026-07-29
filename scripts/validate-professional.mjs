@@ -12,7 +12,7 @@ const required=[
 ];
 for(const file of required)if(!fs.existsSync(path.join(root,file)))throw new Error(`Missing professional file: ${file}`);
 const pkg=JSON.parse(fs.readFileSync(path.join(root,"package.json"),"utf8"));
-if(!(pkg.version === "4.11.0" || /^4\.(12|13|14)\./.test(pkg.version)))throw new Error(`Unexpected package version ${pkg.version}`);
+if(!(pkg.version === "4.11.0" || /^4\.(1[2-9])\./.test(pkg.version)))throw new Error(`Unexpected package version ${pkg.version}`);
 const capabilities=fs.readFileSync(path.join(root,"app/api/v4/capabilities/route.ts"),"utf8");
 if(!capabilities.includes("coreRequiresAI")||!capabilities.includes("false"))throw new Error("No-AI-first capability contract is missing");
 const assist=fs.readFileSync(path.join(root,"packages/optional-assist-core/src/index.ts"),"utf8");
