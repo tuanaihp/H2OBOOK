@@ -104,6 +104,20 @@ Live route check (dev server): `/academy/neural-system-preview`, `/`, `/academy/
 
 ## 10. Final status
 
-**READY_FOR_VERCEL_PREVIEW**
+**READY_FOR_VERCEL_PREVIEW** at the time of the integration run — all build gates passed (`pnpm build` exit 0, typecheck clean, 41/41 unit tests, 18/18 Chromium E2E assertions), with `main` unmerged and production untouched per the integration prompt.
 
-All build gates pass on a real run (`pnpm build` exit 0, typecheck clean, 41/41 unit tests, 18/18 Chromium E2E assertions). `main` was not merged and production was not deployed, per the integration prompt. The only open item is the pre-existing WebKit/dev-HTTPS limitation documented in §8, which does not affect the production HTTPS deployment.
+## 11. Post-merge addendum — production deploy and a pre-existing CSP defect
+
+The owner then approved merging to `main` and deploying. Both were done (`main` → `ceec8e4`, deployed to `h2obook-app.vercel.app`).
+
+**Verifying the deploy exposed a pre-existing production defect.** The neural attributes applied on `/reader` and `/portal` but not on `/`, `/student`, `/dashboard`, `/design-library` or `/login`. The split was not random: the failing routes are statically prerendered, the working ones are dynamic.
+
+Root cause, measured on the live site: production sent `script-src 'self' 'nonce-<per-request>' 'strict-dynamic'` for every route. Next.js can only stamp that nonce onto markup it renders per request, so the 65 statically prerendered routes — built ahead of time with no nonce — had **every** script blocked: 10 external chunks plus 26 inline RSC payload scripts, 0 of 36 carrying a nonce. React never booted on them.
+
+This predates the 4.15 work (`middleware.ts` was byte-identical to `main` on the feature branch; the directive dates to `b4ef687`) and was confirmed independently: the Design Library configurator modal, shipped before this branch, was also dead on production `/design-library`. The blast radius was every client interaction on a static route — dropdowns, search, modals — with navigation still working only because `<Link>` degrades to `<a>`.
+
+**Fix** (`fix/csp-static-page-hydration`, merged as `c6e11a1`): production `script-src` is now `'self' 'unsafe-inline'`. Removing only `'strict-dynamic'` would not have been enough — naming any nonce in `script-src` also makes browsers ignore `'unsafe-inline'`, so the 26 un-nonced inline scripts would have stayed blocked; the nonce itself had to come out. External script hosts and `eval` remain blocked in production, dev is unchanged, and nothing in the app consumed the nonce (the sole `nonce` reference is the HTML-import sanitiser stripping it from untrusted markup).
+
+**Verified on the live production URL, Chromium and WebKit, 20/20 assertions:** all seven route→surface mappings apply; zero CSP script violations on a static page; the previously-dead Design Library modal opens again; `/editor` and `/reader` still carry no ambient overlay.
+
+**Net status: DEPLOYED AND VERIFIED IN PRODUCTION.** The WebKit-in-local-dev limitation from §8 remains untouched and is unrelated (it is an artefact of `upgrade-insecure-requests` against an HTTP dev server; production is HTTPS, and WebKit now passes there).
