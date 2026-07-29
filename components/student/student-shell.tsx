@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
 import { cn } from "@/lib/utils";
-import { Bell, BookOpen, Bot, ChevronRight, CircleUserRound, ClipboardCheck, Compass, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, Sparkles, Trophy } from "lucide-react";
+import { Bell, BookOpen, Bot, ChevronRight, CircleUserRound, ClipboardCheck, Compass, GraduationCap, Home, LibraryBig, LogOut, Menu, Palette, Search, Sparkles, Trophy } from "lucide-react";
 
 const nav = [
   { href: "/student", label: "Tổng quan", icon: Home },
   { href: "/student/courses", label: "Khóa học của tôi", icon: GraduationCap },
   { href: "/student/library", label: "Thư viện", icon: LibraryBig },
   { href: "/student/assignments", label: "Bài tập thực hành", icon: ClipboardCheck },
+  { href: "/student/design-library", label: "Thiết kế của tôi", icon: Palette },
   { href: "/student/roadmap", label: "Lộ trình nghề", icon: Compass },
   { href: "/student/mentor", label: "H2O Mentor", icon: Bot },
   { href: "/student/profile", label: "Hồ sơ & thành tựu", icon: Trophy }

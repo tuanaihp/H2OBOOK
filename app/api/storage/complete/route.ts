@@ -5,6 +5,7 @@ import { headStoredObject, readStoredObjectPrefix } from "@/lib/storage/r2";
 import { isR2Configured } from "@/lib/runtime-config";
 import { validateMagicBytes, validateUpload } from "@/lib/security/uploads";
 import { scanStoredFile } from "@/lib/security/file-scan";
+import { checkStorageQuota } from "@/lib/storage/quota";
 
 export async function POST(request: Request) {
   const auth = await requireApiUser();
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   if (!body.key || !body.fileName || !body.mimeType || !body.sizeBytes) return NextResponse.json({ error: "UPLOAD_METADATA_REQUIRED" }, { status: 400 });
   const valid = validateUpload({ fileName: body.fileName, mimeType: body.mimeType, sizeBytes: body.sizeBytes });
   if (!valid.ok) return NextResponse.json({ error: valid.error }, { status: 400 });
-  const access = await resolveOrganizationAccess(auth.user!, body.organizationId, ["owner", "admin", "designer", "partner", "teacher"]);
+  const access = await resolveOrganizationAccess(auth.user!, body.organizationId, ["owner", "admin", "designer", "partner", "teacher", "student"]);
   if (!access) return NextResponse.json({ error: "WORKSPACE_FORBIDDEN" }, { status: 403 });
   if (!body.key.startsWith(`${access.organizationId}/`)) return NextResponse.json({ error: "INVALID_STORAGE_SCOPE" }, { status: 403 });
 
@@ -29,6 +30,10 @@ export async function POST(request: Request) {
   const scan = await scanStoredFile({ key: body.key, fileName: body.fileName, mimeType: body.mimeType, sizeBytes: body.sizeBytes });
   const supabase = await createSupabaseServerClient();
   if (!supabase) return NextResponse.json({ error: "DATABASE_NOT_CONFIGURED" }, { status: 503 });
+  if (access.role === "student") {
+    const quota = await checkStorageQuota(supabase, access.organizationId, auth.user!.id, access.role, stored.sizeBytes);
+    if (!quota.ok) return NextResponse.json({ error: "STORAGE_QUOTA_EXCEEDED", usedBytes: quota.usedBytes, limitBytes: quota.limitBytes }, { status: 413 });
+  }
   const status = scan.status === "clean" ? "ready" : scan.status === "blocked" ? "blocked" : "processing";
   const { data, error } = await supabase.from("assets").insert({
     organization_id: access.organizationId,

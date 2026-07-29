@@ -23,13 +23,15 @@ export function DesignConfigurator({
   brands,
   activeBrandId,
   onClose,
-  onCreate
+  onCreate,
+  allowBulk = true
 }: {
   template: DesignTemplateDefinition;
   brands: BrandProfile[];
   activeBrandId: string;
   onClose: () => void;
   onCreate: (payload: DesignCreatePayload) => void;
+  allowBulk?: boolean;
 }) {
   const initialBrand = brands.find((item) => item.id === activeBrandId) ?? brands[0];
   const [brandId, setBrandId] = useState(initialBrand?.id ?? "");
@@ -68,7 +70,7 @@ export function DesignConfigurator({
           </div>
           <label className={styles.switchRow}><input type="checkbox" checked={useBrandKit} onChange={(event) => setUseBrandKit(event.target.checked)}/><span><Palette size={17}/>Áp dụng màu và font từ Brand Kit</span></label>
           <div className={styles.fieldsList}>{template.fields.map((item) => <label key={item.key}><span>{item.label}{item.required ? " *" : ""}</span>{item.type === "textarea" ? <textarea value={values[item.key] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} placeholder={item.placeholder}/> : <input type={item.type === "date" ? "text" : item.type} value={values[item.key] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} placeholder={item.placeholder}/>}</label>)}</div>
-          {template.bulkCapable && <div className={styles.bulkBox}>
+          {allowBulk && template.bulkCapable && <div className={styles.bulkBox}>
             <button className={styles.bulkToggle} onClick={() => setBulkMode((current) => !current)}><FileSpreadsheet size={17}/>{bulkMode ? "Tắt tạo hàng loạt" : "Tạo hàng loạt bằng CSV"}</button>
             {bulkMode && <><p>Dòng đầu là tên Smart Field. Mỗi dòng tiếp theo tạo một thiết kế riêng.</p><textarea value={csv} onChange={(event) => setCsv(event.target.value)}/><strong>{rows.length} thiết kế sẽ được tạo</strong></>}
           </div>}
