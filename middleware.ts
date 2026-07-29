@@ -5,8 +5,15 @@ const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/ac
 
 function buildCsp(nonce: string) {
   const production = process.env.NODE_ENV === "production";
+  // Next.js can only stamp a CSP nonce onto markup it renders per request. Statically
+  // prerendered routes (65 of 133 here) are built ahead of time with no nonce at all, so a
+  // nonce-based script-src blocked every script on them in production — including the inline
+  // RSC payload — and those pages never hydrated. Since specifying a nonce also makes the
+  // browser ignore 'unsafe-inline', the nonce has to come out of script-src, not just
+  // 'strict-dynamic'. Same-origin and inline scripts are allowed instead; external script
+  // hosts and eval remain blocked in production.
   const scriptSrc = production
-    ? `'self' 'nonce-${nonce}' 'strict-dynamic'`
+    ? `'self' 'unsafe-inline'`
     : `'self' 'nonce-${nonce}' 'unsafe-eval' 'unsafe-inline'`;
   return [
     "default-src 'self'",
