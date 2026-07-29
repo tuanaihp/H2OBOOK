@@ -1,0 +1,10 @@
+import type { NeuralSurface, NeuralSurfacePreset } from "./types";
+export const NEURAL_SURFACE_PRESETS: Record<NeuralSurface, NeuralSurfacePreset> = {
+  public: { surface:"public", intensity:"immersive", label:"H2O Neural Knowledge Core", shortLabel:"Neural Core", description:"Nạp, kết nối và biến tri thức thành lộ trình học tập.", accent:"#43d9e8", secondary:"#8a72ff", showAmbient:true, showHeaderSignal:true, motionScale:1 },
+  student: { surface:"student", intensity:"balanced", label:"H2O Learning Intelligence", shortLabel:"Learning AI", description:"Theo dõi kỹ năng, trí nhớ và bước học tiếp theo.", accent:"#4bd8df", secondary:"#9b78f5", showAmbient:true, showHeaderSignal:true, motionScale:.72 },
+  workspace: { surface:"workspace", intensity:"subtle", label:"H2O Workspace Intelligence", shortLabel:"Smart Workspace", description:"Tín hiệu thông minh nhẹ cho vận hành và quản trị.", accent:"#4ccfd8", secondary:"#8b6ae6", showAmbient:false, showHeaderSignal:true, motionScale:.32 },
+  creative: { surface:"creative", intensity:"focus", label:"H2O Creative Intelligence", shortLabel:"Creative Core", description:"Hỗ trợ thiết kế mà không làm xao nhãng canvas.", accent:"#54d8df", secondary:"#8e78f0", showAmbient:false, showHeaderSignal:true, motionScale:.18 },
+  reader: { surface:"reader", intensity:"focus", label:"H2O Reading Intelligence", shortLabel:"Smart Reading", description:"Ghi nhớ, ôn tập và kết nối nội dung khi đọc.", accent:"#58d5dd", secondary:"#7f79e9", showAmbient:false, showHeaderSignal:true, motionScale:.12 },
+  auth: { surface:"auth", intensity:"immersive", label:"H2O Secure Neural Access", shortLabel:"Secure Core", description:"Cổng truy cập an toàn vào hệ sinh thái tri thức.", accent:"#49d8e5", secondary:"#a071ef", showAmbient:true, showHeaderSignal:false, motionScale:.82 },
+  portal: { surface:"portal", intensity:"balanced", label:"H2O Academy Intelligence", shortLabel:"Academy Core", description:"Trải nghiệm thư viện thương hiệu có lớp AI hỗ trợ.", accent:"#4dd4dc", secondary:"#916fe9", showAmbient:true, showHeaderSignal:true, motionScale:.55 }
+};

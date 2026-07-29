@@ -29,7 +29,7 @@ const ui = read("components/input/unified-input-gateway.tsx");
 const editor = read("components/editor/editor-workspace.tsx");
 const sql = read("supabase/migrations/0021_h2obook_v4136_input_orchestrator.sql");
 const assertions = [
-  [/^4\.(?:13\.(?:[6-9]|[1-9]\d+)|14\.\d+)(?:-|$)/.test(pkg.version), "package version must be 4.13.6 or newer"],
+  [/^4\.(?:13\.(?:[6-9]|[1-9]\d+)|1[4-9]\.\d+)(?:-|$)/.test(pkg.version), "package version must be 4.13.6 or newer"],
   [pkg.scripts?.["validate:input-phase6"]?.includes("validate-input-phase6"), "phase 6 script missing"],
   [core.includes("OrchestratedInputSession") && core.includes("transitionInputSession"), "orchestrator state machine missing"],
   [core.includes("inputFingerprint") && core.includes("appendImportAsChapter"), "idempotency/append logic missing"],

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
 import { cn } from "@/lib/utils";
 import { Bell, BookOpen, Bot, ChevronRight, CircleUserRound, ClipboardCheck, Compass, GraduationCap, Home, LibraryBig, LogOut, Menu, Palette, Search, Sparkles, Trophy } from "lucide-react";
+import { NeuralHeaderSignal } from "@/components/global-neural";
 
 const nav = [
   { href: "/student", label: "Tổng quan", icon: Home },
@@ -30,7 +31,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       <div className="h2o-student-sidebar-bottom"><Link href="/academy/courses"><BookOpen/>Khám phá thêm khóa học</Link><Link href="/login"><LogOut/>Đăng xuất</Link></div>
     </aside>
     <main className="h2o-student-main">
-      <header className="h2o-student-topbar"><button className="h2o-student-mobile-menu" aria-label="Mở menu"><Menu/></button><div className="h2o-student-search"><Search/><input placeholder="Tìm bài học, sách hoặc kỹ năng..."/><kbd>⌘ K</kbd></div><Link href="/student/mentor" className="h2o-student-mentor-quick"><Sparkles/>Hỏi H2O Mentor</Link><button className="h2o-student-icon-btn"><Bell/><i>2</i></button><Link href="/student/profile" className="h2o-student-user"><CircleUserRound/><span><strong>{activeStudent?.name ?? "Học viên"}</strong><small>Academy Student</small></span><ChevronRight/></Link></header>
+      <header className="h2o-student-topbar"><button className="h2o-student-mobile-menu" aria-label="Mở menu"><Menu/></button><div className="h2o-student-search"><Search/><input placeholder="Tìm bài học, sách hoặc kỹ năng..."/><kbd>⌘ K</kbd></div><NeuralHeaderSignal compact/><Link href="/student/mentor" className="h2o-student-mentor-quick"><Sparkles/>Hỏi H2O Mentor</Link><button className="h2o-student-icon-btn"><Bell/><i>2</i></button><Link href="/student/profile" className="h2o-student-user"><CircleUserRound/><span><strong>{activeStudent?.name ?? "Học viên"}</strong><small>Academy Student</small></span><ChevronRight/></Link></header>
       <div className="h2o-student-content">{children}</div>
     </main>
     <nav className="h2o-student-mobile-nav">{nav.slice(0,5).map(({href,label,icon:Icon}) => <Link key={href} href={href} className={cn(pathname === href ? "active" : "")}><Icon/><span>{label.replace(" của tôi","").replace(" thực hành","")}</span></Link>)}</nav>
