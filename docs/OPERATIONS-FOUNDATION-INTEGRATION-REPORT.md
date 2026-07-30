@@ -53,7 +53,7 @@ explicitly left to the integrator per `docs/operations-foundation/INTEGRATION-GU
   `canAccessOperationsArea()`, redirecting to `/dashboard` when the flag is off or the
   role doesn't match, following the same pattern as `app/student/layout.tsx`.
 - `tests/e2e/operations-foundation.spec.ts` — targeted Playwright coverage (see Tests run).
-- `supabase/migrations/0024_h2obook_operations_foundation.sql` — revised migration (see below).
+- `supabase/migrations/0025_h2obook_operations_foundation.sql` — revised migration (see below).
 
 **Modified, minimally, non-destructively:**
 - `middleware.ts` — added `/verify` to `publicPrefixes` (only this one addition; the
@@ -127,7 +127,7 @@ Applied the "compare, then produce a revised migration" instruction from
   readable/writable by anyone) — not usable without adaptation.
 - It didn't reference the repo's `public.has_org_role`/`public.is_org_member` helpers.
 
-`supabase/migrations/0024_h2obook_operations_foundation.sql` (new, not yet applied to any
+`supabase/migrations/0025_h2obook_operations_foundation.sql` (new, not yet applied to any
 database) keeps the same 6 tables/columns/checks, and adds:
 - RLS policies scoped to `owner`/`admin` via `public.has_org_role`, matching the pattern in
   `0024_h2obook_v416_academy_revenue_loop.sql` (on the sibling branch) — not the
@@ -140,12 +140,12 @@ database) keeps the same 6 tables/columns/checks, and adds:
   Supabase query, to avoid leaking `verification_token`/`organization_id`.
 - Foreign keys to `public.assets`/`public.profiles` where the optional SQL had loose `uuid` columns.
 
-**Migration-number collision to resolve at merge time:** this branch and the sibling
+**Migration-number collision, resolved:** this branch and the sibling
 `feature/academy-revenue-loop-v416` branch (uncommitted work from an earlier session,
-committed and pushed separately today) were both cut from the same `main` and each added
-their own `0024_*.sql`. Whichever branch merges to `main` second must renumber its migration
-to `0025_*` before merging — `pnpm validate:migrations` will fail on a duplicate/gap otherwise.
-Not resolved here since neither branch has been merged yet and the merge order is the user's call.
+committed and pushed separately today) were both cut from the same `main` and each
+originally added their own `0024_*.sql`. Since `feature/academy-revenue-loop-v416` merges
+to `main` first, this branch's migration was renamed to
+`0025_h2obook_operations_foundation.sql` before merging, keeping the chain sequential.
 
 ## Validators / gates run
 
@@ -154,7 +154,7 @@ All commands below were run against `feature/h2obook-operations-foundation` (thi
 | Command | Result |
 |---|---|
 | `node scripts/validate-operations-foundation.mjs` | Pass — 16 core files, 4 route spaces |
-| `pnpm validate:migrations` | Pass — 24 sequential migrations, `0001` → `0024_h2obook_operations_foundation.sql` |
+| `pnpm validate:migrations` | Pass — 24 sequential migrations, `0001` → `0025_h2obook_operations_foundation.sql` |
 | `pnpm validate:imports` | Pass — 401 source files |
 | `pnpm validate:ui414` | Pass — 24 required files, 9 architecture checks, 3167 CSS blocks |
 | `pnpm typecheck` | Pass, 0 errors (after the `PackageCog` fix above) |
@@ -187,7 +187,7 @@ production. No Vercel preview was triggered from this session.
   `NEXT_PUBLIC_OPERATIONS_CENTER_V1` / `NEXT_PUBLIC_CERTIFICATE_VERIFY_V1` to `false` — every
   area's `layout.tsx` redirects to `/dashboard` when its flag is off, so this fully hides
   the surface without a code rollback. `NEXT_PUBLIC_PLATFORM_ADMIN_V1` already defaults `false`.
-- Migration `0024_h2obook_operations_foundation.sql` was never run against any database in
+- Migration `0025_h2obook_operations_foundation.sql` was never run against any database in
   this session (no Supabase project configured — demo mode only); nothing to roll back there.
 - Backup tag `h2obook-before-operations-foundation` marks `main` exactly as it was before
   this branch was cut.
