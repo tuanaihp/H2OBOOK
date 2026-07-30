@@ -1,5 +1,7 @@
 # H2OBOOK Unified Input Engine 4.13.7
 
+> Academy V4.16 đã nối vòng doanh thu, Supabase Auth invite, lesson player, progress/Skill Map, checkout và email giao dịch. Xem [Academy Production Runbook](docs/ACADEMY-PRODUCTION-RUNBOOK.md).
+
 **Professional Authoring & Publishing Engine — Offline-first, AI optional.**
 
 H2OBOOK Professional Editor 4.12 kế thừa toàn bộ codebase Professional 4.11 và bổ sung Compose Engine schema-based, Text Flow Engine cùng giao diện editor lớn, rõ và dễ thao tác hơn. Toàn bộ giai đoạn 4.1–4.11 vẫn được giữ nguyên:
