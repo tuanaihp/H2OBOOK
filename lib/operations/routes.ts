@@ -1,0 +1,46 @@
+import {
+  Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Building2, CheckCheck, CircleDollarSign,
+  CloudCog, FileInput, GraduationCap, HeartHandshake, LayoutDashboard, LifeBuoy, ListChecks,
+  MessageSquareText, PackageSearch, School, Settings2, ShieldCheck, UsersRound, Workflow
+} from "lucide-react";
+
+export const customerRoutes = [
+  { href: "/customer", label: "Tổng quan đăng ký", icon: LayoutDashboard },
+  { href: "/customer/onboarding", label: "Hồ sơ nhập học", icon: ListChecks },
+  { href: "/customer/orders", label: "Đơn hàng", icon: PackageSearch },
+  { href: "/customer/payments", label: "Thanh toán", icon: CircleDollarSign }
+];
+
+export const instructorRoutes = [
+  { href: "/instructor", label: "Command Center", icon: LayoutDashboard },
+  { href: "/instructor/classes", label: "Lớp của tôi", icon: School },
+  { href: "/instructor/assessments", label: "Bài cần chấm", icon: BookOpenCheck },
+  { href: "/instructor/students", label: "Tiến độ học viên", icon: UsersRound }
+];
+
+export const operationsRoutes = [
+  { href: "/operations", label: "Operations Overview", icon: LayoutDashboard },
+  { href: "/operations/admissions", label: "CRM & Admissions", icon: GraduationCap },
+  { href: "/operations/support", label: "Support Center", icon: LifeBuoy },
+  { href: "/operations/approvals", label: "Approval Center", icon: CheckCheck },
+  { href: "/operations/notifications", label: "Notification Center", icon: BellRing },
+  { href: "/operations/import-center", label: "Data Import Center", icon: FileInput },
+  { href: "/operations/automation-center", label: "Automation Center", icon: Workflow },
+  { href: "/operations/product-config", label: "Product Configuration", icon: Settings2 },
+  { href: "/operations/system-health", label: "System Health", icon: CloudCog }
+];
+
+export const platformRoutes = [
+  { href: "/platform-admin", label: "Platform Overview", icon: LayoutDashboard },
+  { href: "/platform-admin/organizations", label: "Organizations", icon: Building2 },
+  { href: "/platform-admin/plans", label: "Plans & Quotas", icon: BadgeCheck },
+  { href: "/platform-admin/system-health", label: "Platform Health", icon: Activity }
+];
+
+export const operationsRouteManifest = {
+  public: ["/verify/[certificateNo]"],
+  customer: customerRoutes.map((item) => item.href),
+  instructor: instructorRoutes.map((item) => item.href),
+  operations: operationsRoutes.map((item) => item.href),
+  platformAdmin: platformRoutes.map((item) => item.href)
+};

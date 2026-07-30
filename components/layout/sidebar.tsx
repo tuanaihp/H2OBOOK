@@ -6,10 +6,11 @@ import {
   BarChart3, BookCopy, BookOpen, Boxes, Brain, ClipboardCheck, CloudCog, CreditCard, FileCheck2,
   FileQuestion, FolderOpen, GraduationCap, LibraryBig, LockKeyhole, Palette, PlugZap, Settings,
   ShieldCheck, ShoppingBag, Sparkles, Store, UserCircle, Users, WandSparkles, Workflow, Globe2,
-  BadgeDollarSign, ListChecks, MessageSquareMore, HeartPulse, LayoutDashboard, Blocks, WifiOff, Import, Send, Sheet, Megaphone, Grid3X3, BotOff, Building2, BadgeCheck
+  BadgeDollarSign, ListChecks, MessageSquareMore, HeartPulse, LayoutDashboard, Blocks, WifiOff, Import, Send, Sheet, Megaphone, Grid3X3, BotOff, Building2, BadgeCheck, LifeBuoy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
+import { operationsFeatures } from "@/lib/operations/feature";
 
 const domains = [
   { id: "home", label: "Home", icon: LayoutDashboard, href: "/dashboard", links: [] },
@@ -56,6 +57,7 @@ const domains = [
   ]},
   { id: "system", label: "System", icon: Settings, href: "/settings", links: [
     { href: "/admin", label: "Quản trị", icon: ShieldCheck },
+    ...(operationsFeatures.operationsCenter ? [{ href: "/operations", label: "Operations Center", icon: LifeBuoy }] : []),
     { href: "/enterprise", label: "Enterprise & API", icon: Building2 },
     { href: "/integrations", label: "Tích hợp", icon: PlugZap },
     { href: "/cloud-sync", label: "Cloud Sync", icon: CloudCog },
