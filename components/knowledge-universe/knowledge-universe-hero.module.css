@@ -16,3 +16,58 @@
 @media(max-width:760px){.container{width:calc(100% - 28px);padding:54px 0 40px}.copyColumn h1{font-size:48px}.copyColumn>p{font-size:14px}.actions{align-items:stretch}.primaryAction,.secondaryAction{flex:1}.systemMetrics{grid-template-columns:1fr 1fr}.systemMetrics article:last-child{grid-column:1/3}.visualColumn{min-height:700px}.universe{width:520px;max-width:108%;margin-left:50%;transform:translateX(-50%)}.orbit3,.planetOrbit3{display:none}.orbit2{width:430px;height:430px}.planetOrbit2{--planet-radius:215px}.orbit1{width:270px;height:270px}.planetOrbit1{--planet-radius:135px}.planetFace{min-width:50px;min-height:50px;padding:7px;border-radius:50%;justify-content:center}.planetText{display:none}.planetIcon{width:34px;height:34px;background:transparent}.core{width:155px;height:155px}.coreCaption{top:calc(50% + 102px)}.nodeDetail{bottom:-78px}.mobilePlanetRail{display:flex;position:absolute;left:0;right:0;bottom:-150px;gap:7px;overflow:auto;padding:6px 2px 11px;scrollbar-width:none}.mobilePlanetRail button{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid rgba(145,213,225,.12);border-radius:999px;background:rgba(13,24,41,.72);color:#8fa3b8;font-size:8px}.mobilePlanetRail span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#081421}.mobilePlanetActive{color:#fff!important;border-color:#5ddfe9!important}.orbitLegend{display:none}}
 @media(max-width:540px){.copyColumn h1{font-size:39px}.actions{flex-direction:column}.systemMetrics{grid-template-columns:1fr}.systemMetrics article:last-child{grid-column:auto}.visualColumn{min-height:620px}.universe{width:410px}.orbit2{width:350px;height:350px}.planetOrbit2{--planet-radius:175px}.orbit1{width:230px;height:230px}.planetOrbit1{--planet-radius:115px}.core{width:132px;height:132px}.brainGlyph{inset:22px 8px 39px;width:115px}.core strong{font-size:30px}.coreCaption{top:calc(50% + 89px)}.nodeDetail{width:calc(100% - 12px);bottom:-125px;padding:14px}.nodeDetail header{grid-template-columns:38px 1fr}.nodeDetail header>b{display:none}.nodeDetail header>span{width:38px;height:38px}.nodeDetail>p{font-size:8px}.output{font-size:9px}.mobilePlanetRail{bottom:-190px}.stageControl{padding:14px}}
 @media(prefers-reduced-motion:reduce){.hero *{animation:none!important;scroll-behavior:auto!important}.primaryAction,.secondaryAction,.planetFace{transition:none!important}}
+
+/* ============================================================================
+   H2O WATER-PLANET REDESIGN
+   Replaces the rectangular planet chips with liquid droplet nodes and gives the
+   core an "ocean seen from orbit" drift. Appended last so it wins on source
+   order; every property it overrides is re-declared per breakpoint below.
+   ========================================================================== */
+
+/* Keep every planet label upright. The wrapper spins +360deg (reverse on orbit 2),
+   so the planet must spin the opposite way. The original directions were swapped,
+   which doubled the rotation and rendered labels upside-down mid-orbit. */
+.planet{animation-direction:normal}
+.planetOrbit2 .planet{animation-direction:reverse}
+
+/* Chip -> droplet + label underneath. */
+.planetFace{--droplet:56px;flex-direction:column;justify-content:center;gap:7px;min-width:0;min-height:0;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none}
+
+.planetIcon{position:relative;overflow:hidden;width:var(--droplet);height:var(--droplet);border-radius:50%;background:radial-gradient(circle at 34% 27%,color-mix(in srgb,var(--planet-color) 60%,#f4ffff) 0%,color-mix(in srgb,var(--planet-color) 44%,#0a1524) 45%,rgba(7,15,29,.94) 100%);color:#f4ffff;box-shadow:inset -7px -9px 16px rgba(2,8,20,.58),inset 6px 7px 15px color-mix(in srgb,var(--planet-color) 32%,transparent),0 0 0 1px color-mix(in srgb,var(--planet-color) 26%,transparent),0 12px 30px rgba(2,9,20,.45),0 0 26px color-mix(in srgb,var(--planet-color) 20%,transparent);transition:box-shadow .25s ease,transform .25s ease}
+
+/* Water body drifting inside the droplet. */
+.planetIcon::before{content:"";position:absolute;inset:-32%;background:radial-gradient(58% 40% at 30% 30%,color-mix(in srgb,var(--planet-color) 46%,transparent),transparent 70%),radial-gradient(50% 34% at 70% 66%,rgba(255,255,255,.18),transparent 72%);filter:blur(3px);animation:h2oDrift 15s ease-in-out infinite alternate}
+
+/* Specular glint, like light sitting on a water surface. */
+.planetIcon::after{content:"";position:absolute;left:23%;top:15%;width:34%;height:21%;border-radius:50%;background:linear-gradient(140deg,rgba(255,255,255,.6),rgba(255,255,255,0));filter:blur(1.5px)}
+
+.planetIcon>svg{position:relative;z-index:2;filter:drop-shadow(0 2px 5px rgba(2,9,20,.55))}
+
+.planetText{display:block;text-align:center;font-size:9px;font-weight:800;letter-spacing:.5px;color:rgba(226,248,255,.86);text-shadow:0 2px 9px rgba(2,10,22,.95),0 0 2px rgba(2,10,22,.8);white-space:nowrap}
+
+/* The old corner status dot becomes a ripple spreading off the droplet. */
+.planetFace>i{left:50%;top:calc(var(--droplet)/2);width:var(--droplet);height:var(--droplet);margin:calc(var(--droplet)/-2) 0 0 calc(var(--droplet)/-2);right:auto;border-radius:50%;background:none;border:1px solid color-mix(in srgb,var(--planet-color) 55%,transparent);box-shadow:none;opacity:0;animation:h2oRipple 4.2s ease-out infinite}
+
+/* Hover / active: swell the droplet instead of highlighting a rectangle. */
+.planetFace.planetActive{transform:scale(1.06);border:0;box-shadow:none}
+.planetActive .planetIcon{transform:scale(1.04);box-shadow:inset -7px -9px 16px rgba(2,8,20,.5),inset 6px 7px 15px color-mix(in srgb,var(--planet-color) 52%,transparent),0 0 0 2px color-mix(in srgb,var(--planet-color) 52%,transparent),0 14px 34px rgba(2,9,20,.5),0 0 42px color-mix(in srgb,var(--planet-color) 45%,transparent)}
+.planetActive .planetText{color:#fff}
+
+/* Focus must stay at least as visible as before: a hard ring on the droplet. */
+.planet:focus-visible .planetFace{transform:scale(1.06);border:0;box-shadow:none}
+.planet:focus-visible .planetIcon{box-shadow:0 0 0 3px color-mix(in srgb,var(--planet-color) 72%,transparent),0 0 0 6px rgba(3,12,24,.8),inset -7px -9px 16px rgba(2,8,20,.5),0 0 42px color-mix(in srgb,var(--planet-color) 45%,transparent)}
+
+/* Core: ocean currents seen from orbit. Masked so the blur stays on the sphere. */
+.core::before{content:"";position:absolute;inset:0;z-index:1;border-radius:50%;background:radial-gradient(120% 82% at 20% 22%,rgba(255,255,255,.2),transparent 60%),conic-gradient(from 0deg at 50% 50%,rgba(58,206,224,0) 0deg,rgba(58,206,224,.3) 42deg,rgba(24,120,190,.1) 96deg,rgba(96,236,240,.27) 152deg,rgba(40,80,180,.1) 222deg,rgba(72,220,235,.28) 292deg,rgba(58,206,224,0) 360deg);mix-blend-mode:screen;filter:blur(6px);mask:radial-gradient(circle at 50% 50%,#000 64%,transparent 100%);-webkit-mask:radial-gradient(circle at 50% 50%,#000 64%,transparent 100%);animation:h2oOcean 28s linear infinite}
+.core::after{content:"";position:absolute;inset:0;z-index:1;border-radius:50%;background:radial-gradient(46% 30% at 62% 70%,rgba(180,255,255,.2),transparent 70%),radial-gradient(38% 26% at 30% 62%,rgba(126,110,245,.2),transparent 72%);filter:blur(7px);mask:radial-gradient(circle at 50% 50%,#000 62%,transparent 100%);-webkit-mask:radial-gradient(circle at 50% 50%,#000 62%,transparent 100%);animation:h2oOcean 41s linear infinite reverse}
+
+@keyframes h2oOcean{to{transform:rotate(360deg)}}
+@keyframes h2oDrift{from{transform:translate3d(-4%,-3%,0) scale(1.04)}to{transform:translate3d(5%,4%,0) scale(1.12)}}
+@keyframes h2oRipple{0%{transform:scale(.7);opacity:.5}70%{opacity:0}100%{transform:scale(1.55);opacity:0}}
+
+@media(max-width:1040px){.planetFace{--droplet:50px}}
+@media(max-width:760px){.planetFace{--droplet:46px}.planetText{font-size:8px}}
+@media(max-width:540px){.planetFace{--droplet:42px}.planetText{display:none}}
+
+/* `.hero *` cannot reach pseudo-elements, so stop these explicitly. */
+@media(prefers-reduced-motion:reduce){.planetIcon::before,.planetFace>i,.core::before,.core::after{animation:none!important}.planetIcon{transition:none!important}}
