@@ -196,8 +196,13 @@ export function KnowledgeUniverseHero({ className = "", autoPlay = true }: Knowl
               <circle cx="360" cy="360" r="116" fill="url(#h2o-core-beam)" opacity="0.24" />
               {Array.from({ length: 12 }).map((_, index) => {
                 const angle = (Math.PI * 2 * index) / 12;
-                const x = 360 + Math.cos(angle) * 285;
-                const y = 360 + Math.sin(angle) * 285;
+                // Math.sin/Math.cos are not required to be correctly rounded, so Node and the
+                // browser can disagree in the last ULP (e.g. ...143504 vs ...143506) and React
+                // reports a hydration mismatch. Rounding to 3dp makes both sides emit the same
+                // string; the visual difference is far below one device pixel.
+                const round = (value: number) => Math.round(value * 1000) / 1000;
+                const x = round(360 + Math.cos(angle) * 285);
+                const y = round(360 + Math.sin(angle) * 285);
                 return <line key={index} x1="360" y1="360" x2={x} y2={y} />;
               })}
             </svg>
