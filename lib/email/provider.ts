@@ -1,5 +1,9 @@
 export type EmailMessage = { to: string; subject: string; html: string; text?: string; replyTo?: string };
 
+export function escapeEmailHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]!);
+}
+
 export async function sendEmail(message: EmailMessage) {
   const provider = process.env.EMAIL_PROVIDER ?? "console";
   if (provider === "console") {

@@ -23,7 +23,7 @@ export async function resolveOrganizationAccess(user: CurrentUser, requestedId?:
   if (!supabase) return null;
   let query = supabase.from("organization_members").select("organization_id,role,status").eq("user_id", user.id).eq("status", "active");
   if (isUuid(requestedId)) query = query.eq("organization_id", requestedId!);
-  const { data, error } = await query.order("joined_at", { ascending: true }).limit(1).maybeSingle();
+  const { data, error } = await query.order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (error || !data) return null;
   if (allowedRoles?.length && !allowedRoles.includes(String(data.role))) return null;
   return { organizationId: String(data.organization_id), role: String(data.role) };

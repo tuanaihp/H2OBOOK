@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/api/public", "/api/health", "/api/readiness", "/api/payments/webhook"];
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
 
 function buildCsp(nonce: string) {
   const production = process.env.NODE_ENV === "production";
@@ -21,8 +21,9 @@ function buildCsp(nonce: string) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data: https://images.unsplash.com https://plus.unsplash.com https://*.r2.dev",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com",
-    "media-src 'self' blob: https://*.r2.dev",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com https://*.videodelivery.net https://*.cloudflarestream.com",
+    "media-src 'self' blob: https://*.r2.dev https://*.videodelivery.net https://*.cloudflarestream.com",
+    "frame-src 'self' https://*.videodelivery.net https://*.cloudflarestream.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
