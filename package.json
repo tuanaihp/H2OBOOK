@@ -1,6 +1,6 @@
 {
   "name": "h2obook-professional-editor",
-  "version": "4.16.0",
+  "version": "4.17.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -50,7 +50,8 @@
     "validate:ui414": "node scripts/validate-ui-414.mjs",
     "validate:design-library": "node scripts/validate-design-library-module.mjs",
     "validate:global-neural": "node scripts/validate-global-neural-system.mjs",
-    "validate:knowledge-universe": "node scripts/validate-knowledge-universe-module.mjs"
+    "validate:knowledge-universe": "node scripts/validate-knowledge-universe-module.mjs",
+    "validate:operations-foundation": "node scripts/validate-operations-foundation.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",

@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
 
 function buildCsp(nonce: string) {
   const production = process.env.NODE_ENV === "production";
