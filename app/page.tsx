@@ -3,22 +3,29 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, Bot, CheckCircle2, ChevronRight, CirclePlay, Compass, GraduationCap, Layers3, LineChart, ShieldCheck, Sparkles, Star, Target, Trophy, UsersRound } from "lucide-react";
 import { BrandBookStack, FutureOrb, IntelligenceBadge, PublicShell, SectionHeading } from "@/components/marketing/public-shell";
 import { formatVnd, learningPaths, membershipPlans, publicBooks, publicCourses, publicStrategies, successStories } from "@/lib/public-site/content";
+import { KnowledgeUniverseHero } from "@/components/knowledge-universe";
+import { isKnowledgeUniverseHeroEnabled } from "@/lib/knowledge-universe/feature";
+
+/** Pre-4.16 public hero. Kept intact so NEXT_PUBLIC_KNOWLEDGE_UNIVERSE_HERO_V1=false restores it verbatim. */
+function LegacyPublicHero() {
+  return <section className="h2o-public-hero">
+    <div className="h2o-public-container h2o-public-hero-grid">
+      <div className="h2o-public-hero-copy">
+        <IntelligenceBadge>H2O AI KNOWLEDGE UNIVERSE</IntelligenceBadge>
+        <h1>Biến kiến thức nghề Makeup thành <em>năng lực làm nghề</em> và một sự nghiệp bền vững.</h1>
+        <p>Học kỹ thuật, luyện thực hành, xây thương hiệu và phát triển công việc trong một hệ sinh thái sách, khóa học và trợ lý học tập thông minh.</p>
+        <div className="h2o-public-hero-actions"><Link className="h2o-public-primary large" href="/academy/learning-paths">Khám phá lộ trình học <ArrowRight/></Link><Link className="h2o-public-secondary large" href="/academy/books"><BookOpen/>Xem thư viện sách</Link></div>
+        <div className="h2o-public-trust-row"><span><strong>10+</strong><small>Năm kinh nghiệm</small></span><span><strong>184+</strong><small>Học viên trong hệ thống</small></span><span><strong>3 trong 1</strong><small>Sách · Học · Kinh doanh</small></span></div>
+      </div>
+      <div className="h2o-public-hero-visual"><BrandBookStack/><FutureOrb/><div className="h2o-floating-progress"><span><Target/>Hành trình của bạn</span><strong>68%</strong><div><i style={{width:"68%"}}/></div><small>Tiếp theo: Makeup cô dâu cấp 2</small></div></div>
+    </div>
+  </section>;
+}
 
 export default function PublicHomePage() {
   if (process.env.NEXT_PUBLIC_PUBLIC_SITE_V2 === "false") redirect("/dashboard");
   return <PublicShell>
-    <section className="h2o-public-hero">
-      <div className="h2o-public-container h2o-public-hero-grid">
-        <div className="h2o-public-hero-copy">
-          <IntelligenceBadge>H2O AI KNOWLEDGE UNIVERSE</IntelligenceBadge>
-          <h1>Biến kiến thức nghề Makeup thành <em>năng lực làm nghề</em> và một sự nghiệp bền vững.</h1>
-          <p>Học kỹ thuật, luyện thực hành, xây thương hiệu và phát triển công việc trong một hệ sinh thái sách, khóa học và trợ lý học tập thông minh.</p>
-          <div className="h2o-public-hero-actions"><Link className="h2o-public-primary large" href="/academy/learning-paths">Khám phá lộ trình học <ArrowRight/></Link><Link className="h2o-public-secondary large" href="/academy/books"><BookOpen/>Xem thư viện sách</Link></div>
-          <div className="h2o-public-trust-row"><span><strong>10+</strong><small>Năm kinh nghiệm</small></span><span><strong>184+</strong><small>Học viên trong hệ thống</small></span><span><strong>3 trong 1</strong><small>Sách · Học · Kinh doanh</small></span></div>
-        </div>
-        <div className="h2o-public-hero-visual"><BrandBookStack/><FutureOrb/><div className="h2o-floating-progress"><span><Target/>Hành trình của bạn</span><strong>68%</strong><div><i style={{width:"68%"}}/></div><small>Tiếp theo: Makeup cô dâu cấp 2</small></div></div>
-      </div>
-    </section>
+    {isKnowledgeUniverseHeroEnabled() ? <KnowledgeUniverseHero/> : <LegacyPublicHero/>}
 
     <section className="h2o-public-section h2o-ecosystem-section"><div className="h2o-public-container"><SectionHeading eyebrow="ONE INTELLIGENT ECOSYSTEM" title="Một hệ sinh thái, ba giá trị tạo nên người làm nghề toàn diện." description="Không chỉ xem video. H2OBOOK kết nối kiến thức, thực hành và chiến lược phát triển nghề trong cùng một hành trình."/><div className="h2o-ecosystem-grid">
       <article><div><BookOpen/></div><span>01</span><h3>Sách chuyên môn</h3><p>Giáo trình có cấu trúc, tìm kiếm, ghi chú, flashcard và cập nhật trực tiếp từ chuyên gia.</p><Link href="/academy/books">Khám phá sách <ArrowRight/></Link></article>

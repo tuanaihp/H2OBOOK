@@ -2,7 +2,10 @@ import { expect, test } from "@playwright/test";
 
 test("public academy is accessible without workspace chrome", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Biến kiến thức nghề Makeup/i })).toBeVisible();
+  // The public hero is now the Knowledge Universe module; the legacy hero copy
+  // ("Biến kiến thức nghề Makeup") only renders when
+  // NEXT_PUBLIC_KNOWLEDGE_UNIVERSE_HERO_V1=false.
+  await expect(page.getByRole("heading", { name: /Một bộ não tri thức/i })).toBeVisible();
   await expect(page.getByText("Strategy Intelligence Hub", { exact: false })).toBeVisible();
   await expect(page.locator(".quantum-sidebar")).toHaveCount(0);
 });
