@@ -18,56 +18,51 @@
 @media(prefers-reduced-motion:reduce){.hero *{animation:none!important;scroll-behavior:auto!important}.primaryAction,.secondaryAction,.planetFace{transition:none!important}}
 
 /* ============================================================================
-   H2O WATER-PLANET REDESIGN
-   Replaces the rectangular planet chips with liquid droplet nodes and gives the
-   core an "ocean seen from orbit" drift. Appended last so it wins on source
-   order; every property it overrides is re-declared per breakpoint below.
+   FRAMELESS PLANET CHIPS + ORBITAL OCEAN CORE
+   Keeps the original horizontal icon+label chip, but strips the visible frame
+   (border, panel background, blur and drop shadow) so nothing rectangular is
+   outlined while orbiting. Appended last, so every property it overrides is
+   re-declared per breakpoint at the end of this block.
    ========================================================================== */
 
-/* Keep every planet label upright. The wrapper spins +360deg (reverse on orbit 2),
-   so the planet must spin the opposite way. The original directions were swapped,
-   which doubled the rotation and rendered labels upside-down mid-orbit. */
+/* Keep every label upright. The orbit wrapper spins +360deg (reversed on orbit
+   2), so the planet must spin the opposite way. The original directions were
+   swapped, which doubled the rotation and left labels upside-down mid-orbit. */
 .planet{animation-direction:normal}
 .planetOrbit2 .planet{animation-direction:reverse}
 
-/* Chip -> droplet + label underneath. */
-.planetFace{--droplet:56px;flex-direction:column;justify-content:center;gap:7px;min-width:0;min-height:0;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none}
+/* The chip itself: layout only, no frame. */
+.planetFace{flex-direction:row;align-items:center;justify-content:flex-start;gap:9px;min-width:0;min-height:0;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none}
 
-.planetIcon{position:relative;overflow:hidden;width:var(--droplet);height:var(--droplet);border-radius:50%;background:radial-gradient(circle at 34% 27%,color-mix(in srgb,var(--planet-color) 60%,#f4ffff) 0%,color-mix(in srgb,var(--planet-color) 44%,#0a1524) 45%,rgba(7,15,29,.94) 100%);color:#f4ffff;box-shadow:inset -7px -9px 16px rgba(2,8,20,.58),inset 6px 7px 15px color-mix(in srgb,var(--planet-color) 32%,transparent),0 0 0 1px color-mix(in srgb,var(--planet-color) 26%,transparent),0 12px 30px rgba(2,9,20,.45),0 0 26px color-mix(in srgb,var(--planet-color) 20%,transparent);transition:box-shadow .25s ease,transform .25s ease}
+/* Icon tile stays a small rounded square; it reads as an icon, not as a frame. */
+.planetIcon{position:relative;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--planet-color) 20%,rgba(14,28,49,.9));color:var(--planet-color);box-shadow:0 8px 20px rgba(2,9,20,.4);transition:box-shadow .22s ease,transform .22s ease}
+.planetIcon>svg{filter:drop-shadow(0 2px 4px rgba(2,9,20,.55))}
 
-/* Water body drifting inside the droplet. */
-.planetIcon::before{content:"";position:absolute;inset:-32%;background:radial-gradient(58% 40% at 30% 30%,color-mix(in srgb,var(--planet-color) 46%,transparent),transparent 70%),radial-gradient(50% 34% at 70% 66%,rgba(255,255,255,.18),transparent 72%);filter:blur(3px);animation:h2oDrift 15s ease-in-out infinite alternate}
+/* Label sits on the starfield with no panel behind it, so it needs its own
+   contrast rather than borrowing it from the removed background. */
+.planetText{display:block;font-size:9px;font-weight:850;letter-spacing:.4px;color:rgba(233,251,255,.94);text-shadow:0 2px 9px rgba(2,10,22,.98),0 0 3px rgba(2,10,22,.9);white-space:nowrap}
 
-/* Specular glint, like light sitting on a water surface. */
-.planetIcon::after{content:"";position:absolute;left:23%;top:15%;width:34%;height:21%;border-radius:50%;background:linear-gradient(140deg,rgba(255,255,255,.6),rgba(255,255,255,0));filter:blur(1.5px)}
+/* Status dot anchors to the icon tile now that there is no panel corner. */
+.planetFace>i{left:29px;top:-3px;right:auto;width:6px;height:6px}
 
-.planetIcon>svg{position:relative;z-index:2;filter:drop-shadow(0 2px 5px rgba(2,9,20,.55))}
-
-.planetText{display:block;text-align:center;font-size:9px;font-weight:800;letter-spacing:.5px;color:rgba(226,248,255,.86);text-shadow:0 2px 9px rgba(2,10,22,.95),0 0 2px rgba(2,10,22,.8);white-space:nowrap}
-
-/* The old corner status dot becomes a ripple spreading off the droplet. */
-.planetFace>i{left:50%;top:calc(var(--droplet)/2);width:var(--droplet);height:var(--droplet);margin:calc(var(--droplet)/-2) 0 0 calc(var(--droplet)/-2);right:auto;border-radius:50%;background:none;border:1px solid color-mix(in srgb,var(--planet-color) 55%,transparent);box-shadow:none;opacity:0;animation:h2oRipple 4.2s ease-out infinite}
-
-/* Hover / active: swell the droplet instead of highlighting a rectangle. */
+/* Active/hover: light up the icon and label instead of a rectangle outline. */
 .planetFace.planetActive{transform:scale(1.06);border:0;box-shadow:none}
-.planetActive .planetIcon{transform:scale(1.04);box-shadow:inset -7px -9px 16px rgba(2,8,20,.5),inset 6px 7px 15px color-mix(in srgb,var(--planet-color) 52%,transparent),0 0 0 2px color-mix(in srgb,var(--planet-color) 52%,transparent),0 14px 34px rgba(2,9,20,.5),0 0 42px color-mix(in srgb,var(--planet-color) 45%,transparent)}
+.planetActive .planetIcon{background:color-mix(in srgb,var(--planet-color) 34%,rgba(14,28,49,.92));box-shadow:0 0 0 2px color-mix(in srgb,var(--planet-color) 50%,transparent),0 12px 28px rgba(2,9,20,.5),0 0 30px color-mix(in srgb,var(--planet-color) 40%,transparent)}
 .planetActive .planetText{color:#fff}
 
-/* Focus must stay at least as visible as before: a hard ring on the droplet. */
+/* Focus must stay at least as visible as it was before the frame was removed. */
 .planet:focus-visible .planetFace{transform:scale(1.06);border:0;box-shadow:none}
-.planet:focus-visible .planetIcon{box-shadow:0 0 0 3px color-mix(in srgb,var(--planet-color) 72%,transparent),0 0 0 6px rgba(3,12,24,.8),inset -7px -9px 16px rgba(2,8,20,.5),0 0 42px color-mix(in srgb,var(--planet-color) 45%,transparent)}
+.planet:focus-visible .planetIcon{box-shadow:0 0 0 3px color-mix(in srgb,var(--planet-color) 75%,transparent),0 0 0 6px rgba(3,12,24,.85),0 0 34px color-mix(in srgb,var(--planet-color) 45%,transparent)}
 
 /* Core: ocean currents seen from orbit. Masked so the blur stays on the sphere. */
 .core::before{content:"";position:absolute;inset:0;z-index:1;border-radius:50%;background:radial-gradient(120% 82% at 20% 22%,rgba(255,255,255,.2),transparent 60%),conic-gradient(from 0deg at 50% 50%,rgba(58,206,224,0) 0deg,rgba(58,206,224,.3) 42deg,rgba(24,120,190,.1) 96deg,rgba(96,236,240,.27) 152deg,rgba(40,80,180,.1) 222deg,rgba(72,220,235,.28) 292deg,rgba(58,206,224,0) 360deg);mix-blend-mode:screen;filter:blur(6px);mask:radial-gradient(circle at 50% 50%,#000 64%,transparent 100%);-webkit-mask:radial-gradient(circle at 50% 50%,#000 64%,transparent 100%);animation:h2oOcean 28s linear infinite}
 .core::after{content:"";position:absolute;inset:0;z-index:1;border-radius:50%;background:radial-gradient(46% 30% at 62% 70%,rgba(180,255,255,.2),transparent 70%),radial-gradient(38% 26% at 30% 62%,rgba(126,110,245,.2),transparent 72%);filter:blur(7px);mask:radial-gradient(circle at 50% 50%,#000 62%,transparent 100%);-webkit-mask:radial-gradient(circle at 50% 50%,#000 62%,transparent 100%);animation:h2oOcean 41s linear infinite reverse}
 
 @keyframes h2oOcean{to{transform:rotate(360deg)}}
-@keyframes h2oDrift{from{transform:translate3d(-4%,-3%,0) scale(1.04)}to{transform:translate3d(5%,4%,0) scale(1.12)}}
-@keyframes h2oRipple{0%{transform:scale(.7);opacity:.5}70%{opacity:0}100%{transform:scale(1.55);opacity:0}}
 
-@media(max-width:1040px){.planetFace{--droplet:50px}}
-@media(max-width:760px){.planetFace{--droplet:46px}.planetText{font-size:8px}}
-@media(max-width:540px){.planetFace{--droplet:42px}.planetText{display:none}}
+@media(max-width:1040px){.planetIcon{width:33px;height:33px}.planetFace>i{left:26px}}
+@media(max-width:760px){.planetIcon{width:31px;height:31px}.planetText{font-size:8px}.planetFace{gap:7px}.planetFace>i{left:24px}}
+@media(max-width:540px){.planetIcon{width:30px;height:30px}.planetText{display:none}.planetFace>i{left:23px}}
 
 /* `.hero *` cannot reach pseudo-elements, so stop these explicitly. */
-@media(prefers-reduced-motion:reduce){.planetIcon::before,.planetFace>i,.core::before,.core::after{animation:none!important}.planetIcon{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.core::before,.core::after{animation:none!important}.planetIcon{transition:none!important}}
