@@ -24,18 +24,18 @@ const domains = [
     { href: "/quizzes", label: "Quiz", icon: FileQuestion }
   ]},
   { id: "create", label: "Create", icon: WandSparkles, href: "/books", links: [
-    { href: "/books", label: "Dự án sách", icon: BookOpen },
-    { href: "/editor/book_makeup_pro", label: "H2OBOOK Studio", icon: WandSparkles },
-    { href: "/blocks", label: "Block Library", icon: Blocks },
-    { href: "/ingestion", label: "Nhập nội dung", icon: Import },
-    { href: "/templates", label: "Template", icon: Boxes },
-    { href: "/clones", label: "Brand Clone", icon: BookCopy },
-    { href: "/brand-kit", label: "Brand Kit", icon: Palette },
-    { href: "/design-library", label: "Thư viện thiết kế", icon: Palette },
     { href: "/assets", label: "Kho tài sản", icon: FolderOpen },
+    { href: "/ingestion", label: "Nhập nội dung", icon: Import },
+    { href: "/blocks", label: "Block Library", icon: Blocks },
+    { href: "/books", label: "Dự án sách", icon: BookOpen },
+    { href: "/brand-kit", label: "Brand Kit", icon: Palette },
+    { href: "/templates", label: "Template", icon: Boxes },
+    { href: "/design-library", label: "Thư viện thiết kế", icon: Palette },
+    { href: "/clones", label: "Brand Clone", icon: BookCopy },
+    { href: "/bulk-publishing", label: "Bulk Publishing", icon: Sheet },
+    { href: "/editor/book_makeup_pro", label: "H2OBOOK Studio", icon: WandSparkles },
     { href: "/content-health", label: "Preflight", icon: HeartPulse },
-    { href: "/publish", label: "Publish Center", icon: Send },
-    { href: "/bulk-publishing", label: "Bulk Publishing", icon: Sheet }
+    { href: "/publish", label: "Publish Center", icon: Send }
   ]},
   { id: "teach", label: "Teach", icon: Users, href: "/students", links: [
     { href: "/students", label: "Học viên", icon: Users },
