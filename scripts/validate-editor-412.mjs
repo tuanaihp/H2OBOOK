@@ -18,7 +18,7 @@ const required = [
 for (const file of required) if (!fs.existsSync(path.join(root, file))) throw new Error(`Missing Editor 4.12 file: ${file}`);
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-if (!/^4\.(1[2-9])\./.test(pkg.version)) throw new Error(`Expected package version 4.12.x through 4.19.x, found ${pkg.version}`);
+if (!/^4\.(?:1[2-9]|[2-9]\d+)\./.test(pkg.version)) throw new Error(`Expected package version 4.12.x or newer, found ${pkg.version}`);
 for (const dependency of ["@tiptap/react", "@tiptap/pm", "@tiptap/starter-kit", "@tiptap/extension-table"]) {
   if (!pkg.dependencies?.[dependency]) throw new Error(`Missing Compose Engine dependency: ${dependency}`);
 }

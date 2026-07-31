@@ -1,0 +1,128 @@
+import type { BusinessSurface, BusinessSurfaceDefinition } from "./types";
+
+export const businessSurfaceRegistry: BusinessSurfaceDefinition[] = [
+  {
+    id: "store",
+    label: "H2OBOOK Store",
+    shortLabel: "Store",
+    description: "Đóng gói sách, template, membership và combo thành sản phẩm có thể bán.",
+    route: "/store",
+    previewRoute: "/business-ops-v1-preview/store",
+    stage: 1,
+    status: "ready",
+    roles: ["owner", "admin", "content_manager"],
+    dependencies: [],
+    inputs: ["book", "template", "membership_plan", "license_policy"],
+    outputs: ["product", "price", "checkout_context"],
+  },
+  {
+    id: "growth-reader",
+    label: "Growth Reader",
+    shortLabel: "Growth",
+    description: "Biến nội dung đọc thử thành lead gate, CTA, UTM và protected embed.",
+    route: "/growth-reader",
+    previewRoute: "/business-ops-v1-preview/growth-reader",
+    stage: 2,
+    status: "ready",
+    roles: ["owner", "admin", "marketing", "content_manager"],
+    dependencies: ["store"],
+    inputs: ["publication", "product", "campaign_config"],
+    outputs: ["lead", "cta_click", "campaign_event"],
+  },
+  {
+    id: "orders",
+    label: "Đơn hàng & Entitlement",
+    shortLabel: "Orders",
+    description: "Xác nhận thanh toán, chống cấp quyền trùng và theo dõi entitlement.",
+    route: "/orders",
+    previewRoute: "/business-ops-v1-preview/orders",
+    stage: 3,
+    status: "ready",
+    roles: ["owner", "admin", "finance"],
+    dependencies: ["store", "growth-reader"],
+    inputs: ["checkout_started", "payment_webhook", "manual_confirmation"],
+    outputs: ["order", "payment", "entitlement", "domain_event"],
+  },
+  {
+    id: "membership",
+    label: "Membership H2OBOOK",
+    shortLabel: "Membership",
+    description: "Quản lý subscription, quota, gia hạn và quyền truy cập thư viện.",
+    route: "/membership",
+    previewRoute: "/business-ops-v1-preview/membership",
+    stage: 4,
+    status: "ready",
+    roles: ["owner", "admin", "finance"],
+    dependencies: ["orders"],
+    inputs: ["membership_order", "subscription_webhook", "plan_quota"],
+    outputs: ["subscription", "membership_entitlement", "renewal_event"],
+  },
+  {
+    id: "licensing",
+    label: "Cấp phép & Royalty",
+    shortLabel: "Licensing",
+    description: "Quản lý quyền clone, số ghế, giới hạn sử dụng và chia sẻ doanh thu.",
+    route: "/licensing",
+    previewRoute: "/business-ops-v1-preview/licensing",
+    stage: 5,
+    status: "ready",
+    roles: ["owner", "admin", "finance"],
+    dependencies: ["orders"],
+    inputs: ["template", "partner", "license_terms", "sales_revenue"],
+    outputs: ["license", "clone_entitlement", "royalty_payout"],
+  },
+  {
+    id: "marketplace-studio",
+    label: "Marketplace Studio",
+    shortLabel: "Marketplace",
+    description: "Đóng gói listing, kiểm tra chất lượng, định giá và chính sách cấp phép.",
+    route: "/marketplace-studio",
+    previewRoute: "/business-ops-v1-preview/marketplace-studio",
+    stage: 6,
+    status: "ready",
+    roles: ["owner", "admin", "content_manager"],
+    dependencies: ["store", "licensing"],
+    inputs: ["template", "content_health_report", "license_defaults"],
+    outputs: ["marketplace_listing", "moderation_request"],
+  },
+  {
+    id: "white-label",
+    label: "Cổng thư viện thương hiệu riêng",
+    shortLabel: "White-label",
+    description: "Tạo portal theo domain, logo, màu, thư viện và membership của từng đối tác.",
+    route: "/white-label",
+    previewRoute: "/business-ops-v1-preview/white-label",
+    stage: 7,
+    status: "ready",
+    roles: ["owner", "admin", "platform_admin"],
+    dependencies: ["membership", "licensing"],
+    inputs: ["brand_profile", "book_entitlements", "member_roster", "domain"],
+    outputs: ["portal", "tenant_config", "domain_status"],
+  },
+  {
+    id: "analytics",
+    label: "Business Analytics",
+    shortLabel: "Analytics",
+    description: "Đo reader, lead, checkout, purchase, entitlement, MRR và royalty từ event thật.",
+    route: "/analytics",
+    previewRoute: "/business-ops-v1-preview/analytics",
+    stage: 8,
+    status: "ready",
+    roles: ["owner", "admin", "finance", "marketing"],
+    dependencies: ["growth-reader", "orders", "membership", "licensing", "white-label"],
+    inputs: ["analytics_event", "order", "subscription", "license", "portal_activity"],
+    outputs: ["business_report", "funnel", "revenue_attribution", "royalty_report"],
+  },
+];
+
+export const businessSurfaces = businessSurfaceRegistry.map((surface) => surface.id);
+
+export function isBusinessSurface(value: string): value is BusinessSurface {
+  return businessSurfaces.includes(value as BusinessSurface);
+}
+
+export function getBusinessSurface(value: BusinessSurface): BusinessSurfaceDefinition {
+  const surface = businessSurfaceRegistry.find((item) => item.id === value);
+  if (!surface) throw new Error(`Unknown business surface: ${value}`);
+  return surface;
+}

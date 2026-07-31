@@ -30,7 +30,7 @@ const api = read("app/api/input/sessions/[id]/preview/route.ts");
 const sql = read("supabase/migrations/0022_h2obook_v4137_production_hardening.sql");
 const compose = read("docker-compose.production.yml");
 const assertions = [
-  [/^4\.(?:13\.(?:[7-9]|[1-9]\d+)|1[4-9]\.\d+)$/.test(pkg.version), "package version must be 4.13.7 or newer"],
+  [/^4\.(?:13\.(?:[7-9]|[1-9]\d+)|(?:1[4-9]|[2-9]\d+)\.\d+)$/.test(pkg.version), "package version must be 4.13.7 or newer"],
   [pkg.scripts?.["validate:input-phase7"]?.includes("validate-input-phase7"), "phase 7 validation script missing"],
   [pkg.scripts?.["test:input-hardening"]?.includes("test-input-hardening-runtime"), "hardening runtime script missing"],
   [hardening.includes("DEFAULT_INPUT_HARDENING_LIMITS") && hardening.includes("redactInputTelemetry"), "limits/redaction missing"],
