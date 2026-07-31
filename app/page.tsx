@@ -5,6 +5,9 @@ import { BrandBookStack, FutureOrb, IntelligenceBadge, PublicShell, SectionHeadi
 import { formatVnd, learningPaths, membershipPlans, publicBooks, publicCourses, publicStrategies, successStories } from "@/lib/public-site/content";
 import { KnowledgeUniverseHero } from "@/components/knowledge-universe";
 import { isKnowledgeUniverseHeroEnabled } from "@/lib/knowledge-universe/feature";
+import { PublicHomeV3 } from "@/components/public-home-v3";
+import { isPublicHomeV3Enabled } from "@/lib/public-home-v3/feature";
+import { loadPublicHomeV3 } from "@/lib/public-home-v3/loader.server";
 
 /** Pre-4.16 public hero. Kept intact so NEXT_PUBLIC_KNOWLEDGE_UNIVERSE_HERO_V1=false restores it verbatim. */
 function LegacyPublicHero() {
@@ -22,8 +25,17 @@ function LegacyPublicHero() {
   </section>;
 }
 
-export default function PublicHomePage() {
+export default async function PublicHomePage() {
   if (process.env.NEXT_PUBLIC_PUBLIC_SITE_V2 === "false") redirect("/dashboard");
+  if (isPublicHomeV3Enabled()) {
+    const viewModel = await loadPublicHomeV3();
+    return <PublicHomeV3 viewModel={viewModel} hero={isKnowledgeUniverseHeroEnabled() ? <KnowledgeUniverseHero/> : undefined}/>;
+  }
+  return <LegacyPublicHomePage/>;
+}
+
+/** Pre-Public-Home-V3 page. Kept intact so NEXT_PUBLIC_PUBLIC_HOME_V3=false restores it verbatim. */
+function LegacyPublicHomePage() {
   return <PublicShell>
     {isKnowledgeUniverseHeroEnabled() ? <KnowledgeUniverseHero/> : <LegacyPublicHero/>}
 
