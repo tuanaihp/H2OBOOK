@@ -25,6 +25,7 @@ import { inspectPdf, reconstructPdfWithWorker, renderPdfFixedLayout, type PdfImp
 import { inspectImage, type ImageInspection } from "@/lib/input/image-import";
 import { ImageSmartImport } from "@/components/editor/image-smart-import";
 import { localizeHtmlAssets, previewHtmlFile } from "@/lib/input/html-import";
+import { EditorCreativeHandoffBridge } from "@/components/creative-publishing-v1";
 
 const panels = [
   { id: "pages", label: "Trang", icon: Layers3 },
@@ -147,6 +148,7 @@ export function EditorWorkspace() {
   };
 
   return <main className="editor-shell">
+    <EditorCreativeHandoffBridge/>
     <header className="editor-topbar">
       <div className="editor-top-left">
         <button className="editor-icon" title="Quay lại" onClick={() => router.push("/books")}><ArrowLeft size={17}/></button>
