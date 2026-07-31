@@ -42,7 +42,7 @@ for (const file of walk(root)) {
   if (/SUPABASE_SERVICE_ROLE_KEY\s*=\s*[^\s]+/.test(content) && !content.includes("SUPABASE_SERVICE_ROLE_KEY=")) failures.push(`Có khả năng chứa secret: ${relative(root, file)}`);
 }
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-if (!/^4\.(?:[1-9]|1[0-9])\.\d+$/.test(packageJson.version)) failures.push("package.json phải ở nhánh Professional 4.1+");
+if (!/^4\.[1-9]\d*\.\d+$/.test(packageJson.version)) failures.push("package.json phải ở nhánh Professional 4.1+");
 const migration1 = readFileSync(join(root, "supabase/migrations/0001_h2obook_core.sql"), "utf8");
 const migration2 = readFileSync(join(root, "supabase/migrations/0002_h2obook_v2_integrated.sql"), "utf8");
 const migration3 = readFileSync(join(root, "supabase/migrations/0003_h2obook_v3_integrated.sql"), "utf8");
