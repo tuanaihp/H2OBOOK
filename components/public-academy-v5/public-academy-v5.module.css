@@ -26,3 +26,158 @@
 @media(max-width:1100px){.membershipGrid{grid-template-columns:1fr}.membershipCard{min-height:0}.membershipCheckout>div{grid-template-columns:1fr;gap:2.5rem}.previewHub>div>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.membershipMain{padding:3.5rem 0}.membershipCard{padding:1.45rem}.membershipCheckout{padding:4rem 0}.formGrid,.enrollmentActions{grid-template-columns:1fr}.enrollmentForm{padding:1.35rem}.membershipFinal{padding:4rem 0}.previewHub>div>div{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}}
+
+/* --- Added: page hero, journey/business CTA, About, catalog list (books/courses/strategies)
+   and Learning Paths classes referenced by public-academy-pages.tsx and catalog-client.tsx but
+   missing from the module as shipped (undefined className -> unstyled pages in production). */
+.pageHero{padding:104px 0 78px;background:radial-gradient(circle at 80% 30%,rgba(77,216,227,.14),transparent 26%),linear-gradient(180deg,#fbf8fa,#f5eef3);text-align:center}
+.pageHero h1{font-family:var(--font-display,Georgia,serif);font-size:56px;line-height:1.06;letter-spacing:-.045em;max-width:900px;margin:18px auto}
+.pageHero p{font-size:15px;line-height:1.65;color:#786671;max-width:760px;margin:0 auto}
+.darkHero{background:radial-gradient(circle at 75% 30%,rgba(73,215,232,.16),transparent 23%),linear-gradient(180deg,#121b2a,#19283a);color:#fff}
+.darkHero p{color:#9faebe}
+
+.journeyCta{padding:38px 0 60px}
+.journeyCta>div{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;border-radius:24px;padding:30px;background:linear-gradient(135deg,#f3e4eb,#eff9fa);border:1px solid #e1d8de}
+.journeyCta small{font-size:9px;letter-spacing:.12em;color:#9c0f50;font-weight:900;display:block}
+.journeyCta h2{font-size:18px;margin:6px 0 0}
+.journeyCta a{display:flex;align-items:center;gap:7px;background:#9c0f50;color:#fff;padding:12px 16px;border-radius:10px;text-decoration:none;font-size:10px;font-weight:900;white-space:nowrap}
+.journeyCta a svg{width:14px}
+.darkCta{background:transparent}
+.darkCta>div{background:#111927;color:#fff;border-color:transparent}
+.darkCta small{color:#57dce6}
+.darkCta a{background:#57dce6;color:#101827}
+
+.businessCta{padding:38px 0 60px}
+.businessCta>div{display:grid;grid-template-columns:50px 1fr auto;align-items:center;gap:20px;border-radius:24px;padding:30px;background:linear-gradient(135deg,#f5ead7,#f5eff4);border:1px solid #e1d8de}
+.businessCta svg:first-child{color:#9c0f50}
+.businessCta small{font-size:9px;letter-spacing:.12em;color:#9c0f50;font-weight:900;display:block}
+.businessCta h2{font-size:18px;margin:6px 0 0}
+.businessCta a{display:flex;align-items:center;gap:7px;background:#9c0f50;color:#fff;padding:12px 16px;border-radius:10px;text-decoration:none;font-size:10px;font-weight:900;white-space:nowrap}
+
+.aboutHero{padding:100px 0;background:radial-gradient(circle at 76% 30%,rgba(76,215,228,.16),transparent 28%),linear-gradient(180deg,#fdf9fb,#f5eef3)}
+.aboutHero>div{display:grid;grid-template-columns:1.15fr .85fr;gap:60px;align-items:center}
+.aboutCopy h1{font-family:var(--font-display,Georgia,serif);font-size:48px;line-height:1.06;letter-spacing:-.04em;margin:18px 0}
+.aboutCopy p{font-size:15px;line-height:1.7;color:#786671;max-width:560px;margin:0 0 24px}
+.founderCard{position:relative;min-height:460px;border-radius:28px;background:linear-gradient(145deg,#191925,#5a1e43);color:#fff;padding:35px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:0 38px 70px rgba(58,22,44,.23)}
+.founderAura{position:absolute;inset:-20% -20% auto auto;width:60%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(73,215,232,.35),transparent 65%)}
+.founderCard>small{position:relative;font-size:8px;color:#59dce6;letter-spacing:.16em}
+.founderCard>strong{position:relative;font-family:var(--font-display,Georgia,serif);font-size:38px;margin:8px 0;font-weight:400}
+.founderCard>p{position:relative;font-size:11px;color:#c9b8c1;line-height:1.6}
+.founderCard>div{position:relative;display:flex;gap:12px;align-items:center;margin-top:18px}
+.founderCard>div>b{font-size:30px}
+.founderCard>div>span{font-size:9px;color:#aab4c0}
+
+.valuesSection{padding:60px 0}
+.valuesGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.valuesGrid article{border:1px solid #e5d9df;border-radius:20px;padding:27px;background:#fff}
+.valuesGrid svg{color:#9c0f50}
+.valuesGrid h2{font-size:17px;margin:12px 0 6px}
+.valuesGrid p{font-size:11px;line-height:1.65;color:#796671}
+
+.methodSection{background:#111927;color:#fff;padding:70px 0}
+.methodSection>div{display:grid;grid-template-columns:.8fr 1.2fr;gap:70px}
+.methodSection small{font-size:8px;color:#57dce6;letter-spacing:.15em}
+.methodSection h2{font-family:var(--font-display,Georgia,serif);font-size:40px;line-height:1.08;margin:10px 0 0}
+.methodSection>div>div:last-child p{font-size:14px;line-height:1.75;color:#9eabb9}
+.methodSection a{display:inline-flex;align-items:center;gap:7px;color:#57dce6;text-decoration:none;font-size:11px;font-weight:900;margin-top:12px}
+
+.catalogMain{padding:56px 0 20px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:34px}
+.searchField{height:48px;min-width:280px;flex:1;max-width:420px;border:1px solid #e1d5dc;border-radius:14px;background:#fff;display:flex;align-items:center;gap:10px;padding:0 15px}
+.searchField svg{width:17px;color:#8a7480;flex:0 0 auto}
+.searchField input{border:0;outline:0;background:transparent;width:100%;font:inherit;font-size:12px}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.filters button{height:40px;border:1px solid #dfd4da;background:#fff;border-radius:12px;padding:0 15px;font-size:11px;font-weight:800;color:#4a2637;cursor:pointer}
+.activeFilter{background:#9c0f50!important;border-color:#9c0f50!important;color:#fff!important}
+.moreFilter{display:flex;align-items:center;gap:6px;font-size:11px;color:#8a7480;font-weight:700}
+.moreFilter svg{width:15px}
+
+.bookGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.bookCard{display:block;text-decoration:none;color:inherit;min-width:0}
+.bookCard:hover .bookCover{transform:translateY(-8px) rotate(-1deg);box-shadow:0 34px 64px rgba(52,21,40,.22)}
+.bookCover{position:relative;height:280px;border-radius:20px;padding:22px;color:#fff;display:flex;flex-direction:column;overflow:hidden;transition:.25s}
+.bookCover span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.bookCover small{font-size:9px;opacity:.7;margin-top:6px}
+.bookCover h2{margin-top:auto;font-size:20px;line-height:1.2}
+.bookBody{padding:18px 5px}
+.bookBody strong{display:block;font-size:15px}
+.bookBody p{font-size:12px;color:#786772;line-height:1.5;min-height:36px;margin:6px 0}
+.metricRow{display:flex;gap:14px}
+.metricRow span{font-size:10px;color:#95838d}
+.bookBody>b{display:block;color:#9c0f50;font-size:14px;margin-top:8px}
+
+.courseGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.courseCard{position:relative;background:#fff;border:1px solid #e5dbe1;border-radius:24px;padding:28px;overflow:hidden;box-shadow:0 14px 32px rgba(58,24,43,.06);transition:.25s}
+.courseCard:hover{transform:translateY(-6px);box-shadow:0 28px 58px rgba(58,24,43,.13)}
+.featuredCard{border-color:#bd6e91;box-shadow:0 0 0 3px rgba(151,35,87,.06),0 20px 44px rgba(83,26,55,.12)}
+.courseAura{height:110px;margin:-28px -28px 24px;position:relative;overflow:hidden}
+.courseAura:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 75% 30%,rgba(255,255,255,.5),transparent 34%),linear-gradient(110deg,rgba(9,18,32,.18),transparent)}
+.courseMeta{display:flex;justify-content:space-between;gap:10px}
+.courseMeta span{font-size:9px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#8b6577}
+.courseCard h2{font-size:22px;margin:14px 0 9px}
+.courseCard>p{font-size:13px;line-height:1.65;color:#76646d;min-height:64px}
+.courseMetrics{display:flex;gap:18px;margin:18px 0}
+.courseMetrics span{display:flex;align-items:center;gap:6px;font-size:10px;color:#71515f;font-weight:750}
+.courseMetrics svg{width:14px}
+.courseCard ul{list-style:none;padding:0;margin:20px 0}
+.courseCard li{display:flex;align-items:center;gap:8px;font-size:11px;color:#5f4a54;margin:8px 0}
+.courseCard li svg{width:14px;color:#3eaa8a;flex:0 0 auto}
+.courseCard footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #eee4e9;padding-top:18px}
+.courseCard footer strong{font-size:16px;color:#9c0f50}
+.courseCard footer a{display:flex;align-items:center;gap:6px;text-decoration:none;color:#4a2637;font-size:11px;font-weight:850}
+.courseCard footer a svg{width:13px}
+
+.strategyGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.strategyCard{display:flex;flex-direction:column;min-height:240px;padding:25px;border:1px solid #e8dde3;border-radius:20px;background:#fff;color:inherit;text-decoration:none;transition:.25s}
+.strategyCard:hover{transform:translateY(-5px);box-shadow:0 22px 46px rgba(70,24,48,.11)}
+.strategyTag{align-self:flex-start;color:#fff;padding:6px 9px;border-radius:20px;font-size:8px;font-weight:900;letter-spacing:.09em}
+.strategyCard h2{font-size:17px;margin:14px 0 8px}
+.strategyCard>p{font-size:12px;line-height:1.6;color:#786671;flex:1}
+.tagRow{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.tagRow small{font-size:9px;color:#8a7480;background:#f5eef2;border-radius:20px;padding:4px 8px}
+.strategyCard footer{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#8a7480;margin-top:auto;padding-top:14px}
+.strategyCard footer svg{width:14px}
+
+.emptyState{grid-column:1/-1;text-align:center;padding:60px 20px;border:1px dashed #e1d5dc;border-radius:20px}
+.emptyState strong{display:block;font-size:15px;margin-bottom:6px}
+.emptyState p{font-size:12px;color:#8a7480;margin-bottom:16px}
+.emptyState button{height:40px;border:1px solid #dfd4da;background:#fff;border-radius:12px;padding:0 18px;font-size:11px;font-weight:800;cursor:pointer}
+
+.pathMain{padding:56px 0 20px;background:#111927;color:#fff}
+.pathTimeline{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
+.pathTimeline article{display:flex;flex-direction:column}
+.pathIndex{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#202a3b;border:1px solid #3b475b;font-size:11px;color:#6ddce8;font-weight:900;margin-bottom:14px}
+.pathCard{position:relative;flex:1;border:1px solid rgba(255,255,255,.1);border-radius:20px;background:rgba(255,255,255,.045);padding:24px}
+.pathCard small{display:block;font-size:9px;letter-spacing:.1em;color:#6ddce8}
+.pathCard h2{font-size:19px;margin:10px 0}
+.pathCard>p{font-size:12px;color:#a6b2c0;line-height:1.55}
+.pathCard ul{list-style:none;padding:0;margin:18px 0}
+.pathCard li{display:flex;align-items:center;gap:8px;font-size:10px;color:#d2dae3;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.pathCard li svg{width:13px;color:#3eaa8a;flex:0 0 auto}
+.pathCard a{display:flex;align-items:center;gap:6px;margin-top:14px;color:#6ddce8;text-decoration:none;font-size:11px;font-weight:800}
+.activePath .pathCard{border-color:rgba(73,215,232,.55);background:linear-gradient(145deg,rgba(73,215,232,.1),rgba(143,124,247,.1));box-shadow:0 0 34px rgba(73,215,232,.1)}
+
+.diagnosticCta{padding:50px 0;background:#0d1522;color:#fff}
+.diagnosticCta>div{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:20px}
+.diagnosticCta svg:first-child{color:#57dce6}
+.diagnosticCta small{font-size:8px;color:#57dce6;letter-spacing:.15em;display:block}
+.diagnosticCta h2{font-size:22px;margin:6px 0}
+.diagnosticCta>div>div>p{font-size:10px;color:#96a6b5}
+.diagnosticCta>div>a{display:flex;align-items:center;gap:7px;padding:12px 15px;border-radius:10px;background:#57dce6;color:#101827;text-decoration:none;font-size:10px;font-weight:900;white-space:nowrap}
+
+@media(max-width:1100px){
+  .aboutHero>div{grid-template-columns:1fr}
+  .valuesGrid{grid-template-columns:repeat(2,1fr)}
+  .methodSection>div{grid-template-columns:1fr;gap:30px}
+  .bookGrid,.courseGrid,.strategyGrid{grid-template-columns:repeat(2,1fr)}
+  .pathTimeline{grid-template-columns:repeat(2,1fr)}
+  .journeyCta>div,.businessCta>div,.diagnosticCta>div{grid-template-columns:1fr;text-align:center}
+}
+@media(max-width:760px){
+  .pageHero{padding:64px 0 48px}
+  .pageHero h1{font-size:36px}
+  .valuesGrid,.bookGrid,.courseGrid,.strategyGrid,.pathTimeline{grid-template-columns:1fr}
+  .toolbar{flex-direction:column;align-items:stretch}
+  .searchField{max-width:none}
+}
