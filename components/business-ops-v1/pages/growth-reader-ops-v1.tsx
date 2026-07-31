@@ -1,0 +1,17 @@
+"use client";
+
+import { useState } from "react";
+import { BarChart3, Eye, FormInput, Link2, LockKeyhole, Save } from "lucide-react";
+import { emitBusinessEvent } from "@/lib/business-ops-v1/events";
+import { BusinessPageHeader, BusinessPipelineBar, Panel } from "../business-ops-shared";
+import styles from "../business-ops-v1.module.css";
+
+export function GrowthReaderOpsV1() {
+  const [enabled, setEnabled] = useState(true);
+  const [leadGate, setLeadGate] = useState(true);
+  const [utm, setUtm] = useState(true);
+  const [crm, setCrm] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const save = () => { setSaved(true); emitBusinessEvent({ name: "business_campaign_saved", surface: "growth-reader", action: "save_campaign", entityId: "campaign-book-pro" }); };
+  return <div className={styles.surface}><BusinessPageHeader eyebrow="GROWTH READER & LEAD CAPTURE" title="Biến sách thành hành trình đọc và bán hàng" description="Lead gate, CTA, protected embed, UTM và CRM event hoạt động độc lập AI." actions={<button className={styles.secondaryButton}><Eye/>Xem Reader</button>}/><BusinessPipelineBar active="growth-reader"/><div className={styles.threeColumn}><Panel title="Chiến dịch" description="Áp dụng theo từng sách." icon={<BarChart3/>}><label className={styles.field}>Sách<select><option>Giáo trình Makeup Chuyên Nghiệp</option><option>Kỹ thuật nền trong trẻo</option></select></label><label className={styles.switchRow}><span><strong>Kích hoạt Growth Reader</strong><small>Cho phép gate và CTA.</small></span><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)}/></label><label className={styles.field}>Số trang đọc thử<input type="number" defaultValue={5}/></label><label className={styles.field}>Gate tại trang<input type="number" defaultValue={6}/></label></Panel><Panel title="Lead Form" description="Chỉ thu thập dữ liệu thật sự cần." icon={<FormInput/>}><div className={styles.chips}><button className={styles.chipActive}>name</button><button className={styles.chipActive}>email</button><button>phone</button><button>company</button></div><label className={styles.switchRow}><span><strong>Yêu cầu lead trước khi tải</strong><small>Download gate.</small></span><input type="checkbox" checked={leadGate} onChange={(event) => setLeadGate(event.target.checked)}/></label><label className={styles.switchRow}><span><strong>Ghi nhận UTM</strong><small>Campaign attribution.</small></span><input type="checkbox" checked={utm} onChange={(event) => setUtm(event.target.checked)}/></label><label className={styles.switchRow}><span><strong>Đưa lead vào CRM webhook</strong><small>Phát domain event.</small></span><input type="checkbox" checked={crm} onChange={(event) => setCrm(event.target.checked)}/></label></Panel><Panel title="CTA & Embed" description="Điều khiển chuyển đổi và tên miền." icon={<LockKeyhole/>}><label className={styles.field}>CTA tại trang<input type="number" defaultValue={10}/></label><label className={styles.field}>Nhãn CTA<input defaultValue="Khám phá khóa học"/></label><label className={styles.field}>Đường dẫn CTA<input defaultValue="/academy/courses"/></label><div className={styles.domainField}><Link2/><input defaultValue="academy.example.com"/><button>Thêm</button></div></Panel></div><div className={styles.saveBar}><span>{saved ? "Đã lưu local + chờ đồng bộ cloud" : "Chưa lưu"}</span><button className={styles.primaryButton} onClick={save}><Save/>Lưu chiến dịch</button></div></div>;
+}

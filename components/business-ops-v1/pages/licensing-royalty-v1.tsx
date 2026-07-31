@@ -1,0 +1,15 @@
+"use client";
+
+import { useState } from "react";
+import { BadgeDollarSign, FileKey2, Landmark, Plus } from "lucide-react";
+import { demoLicenses } from "@/lib/business-ops-v1/data";
+import { emitBusinessEvent } from "@/lib/business-ops-v1/events";
+import { BusinessPageHeader, BusinessPipelineBar, Metric, Panel, StatusBadge, formatVnd } from "../business-ops-shared";
+import styles from "../business-ops-v1.module.css";
+
+export function LicensingRoyaltyV1() {
+  const [payoutStatus, setPayoutStatus] = useState<"pending" | "approved" | "paid">("pending");
+  const revenue = demoLicenses.reduce((sum, item) => sum + item.revenue, 0);
+  const royalty = Math.round(demoLicenses.reduce((sum, item) => sum + item.revenue * item.royaltyRate / 100, 0));
+  return <div className={styles.surface}><BusinessPageHeader eyebrow="CONTENT LICENSING & ROYALTY" title="Cấp phép và chia sẻ doanh thu" description="Quản lý quyền clone, số ghế, giới hạn sử dụng, attribution và payout đối tác." actions={<button className={styles.primaryButton}><Plus/>Tạo hợp đồng</button>}/><BusinessPipelineBar active="licensing"/><div className={styles.metricGrid}><Metric label="Hợp đồng active" value={String(demoLicenses.filter((item) => item.status === "active").length)} note="License đang hiệu lực" icon={<FileKey2/>}/><Metric label="Đối tác" value={String(demoLicenses.length)} note="Được cấp phép" icon={<Landmark/>} tone="blue"/><Metric label="Doanh thu ghi nhận" value={formatVnd(revenue)} note="Theo license ledger" icon={<BadgeDollarSign/>} tone="success"/><Metric label="Royalty dự kiến" value={formatVnd(royalty)} note="Chưa trừ điều chỉnh" icon={<BadgeDollarSign/>} tone="warning"/></div><Panel title="Hợp đồng nội dung" description="Quyền clone, phân phối và giới hạn theo từng đối tác."><div className={styles.licenseList}>{demoLicenses.map((license) => <article key={license.id}><div><strong>{license.partner}</strong><small>{license.template}</small></div><StatusBadge status={license.status}/><span>{license.model}</span><span>{license.seats} ghế</span><span>{license.clonesUsed}/{license.cloneLimit} clone</span><div><strong>{formatVnd(license.revenue)}</strong><small>{license.royaltyRate}% royalty</small></div></article>)}</div></Panel><Panel title="Royalty payout" description="Đối soát theo kỳ và chỉ chuyển tiền sau khi ledger đã khóa."><div className={styles.payoutRow}><div><strong>07/2026</strong><small>ThuyH2O Makeup</small></div><span><small>Doanh thu gộp</small><strong>{formatVnd(12600000)}</strong></span><span><small>Tỷ lệ</small><strong>20%</strong></span><span><small>Thanh toán</small><strong>{formatVnd(2520000)}</strong></span><StatusBadge status={payoutStatus}/><button className={styles.secondaryButton} onClick={() => { setPayoutStatus((current) => current === "pending" ? "approved" : "paid"); emitBusinessEvent({ name: "business_action_clicked", surface: "licensing", action: "advance_payout", entityId: "payout-2026-07" }); }}>{payoutStatus === "pending" ? "Duyệt" : payoutStatus === "approved" ? "Đánh dấu đã trả" : "Đã hoàn tất"}</button></div></Panel></div>;
+}

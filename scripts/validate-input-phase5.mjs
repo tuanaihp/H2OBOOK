@@ -25,7 +25,7 @@ const urlRoute = read("app/api/ingestion/url/route.ts");
 const previewRoute = read("app/api/input/html/preview/route.ts");
 
 const assertions = [
-  [/^4\.(?:13\.[5-9]|1[4-9]\.\d+)/.test(packageJson.version), "package version must be 4.13.5 or newer"],
+  [/^4\.(?:13\.[5-9]|(?:1[4-9]|[2-9]\d+)\.\d+)/.test(packageJson.version), "package version must be 4.13.5 or newer"],
   [Boolean(packageJson.dependencies?.jsdom), "jsdom must be a runtime dependency"],
   [server.includes('from "jsdom"') && server.includes("parseHtmlImport"), "canonical parser must use JSDOM"],
   [server.includes("sanitizeDocument") && server.includes("HTML_SANITIZED"), "sanitization report missing"],
