@@ -14,6 +14,7 @@ import {
 } from "@/lib/academy/service";
 import { escapeEmailHtml, sendEmail } from "@/lib/email/provider";
 import { sendTransactionalEmail } from "@/lib/email/transactional";
+import { syncAdmissionLeadFromApplication } from "@/lib/operations/lead-bridge";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -100,6 +101,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, applicationId: existing?.id, status: existing?.status, duplicate: true });
   }
   if (error || !data) return NextResponse.json({ error: error?.message ?? "APPLICATION_CREATE_FAILED" }, { status: 400 });
+  await syncAdmissionLeadFromApplication(admin, {
+    organizationId: String(organization.id),
+    email,
+    name,
+    phone: body.phone,
+    interest: targetName,
+    stage: "new",
+    note: `Đăng ký công khai: ${targetName}${body.message ? ` — ${body.message.trim()}` : ""}`
+  });
   const emailResult = await sendTransactionalEmail({
     admin,
     organizationId: String(organization.id),

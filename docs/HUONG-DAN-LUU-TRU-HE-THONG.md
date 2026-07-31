@@ -69,7 +69,13 @@ Hiện có **2 hệ thống CRM riêng biệt, chưa nối với nhau** (do làm
 1. **`academy_applications`** — form "Đăng ký học" công khai trên trang chủ/trang khóa học. Luồng: khách điền form → `new` → admin duyệt `approved` → hệ thống mời tạo tài khoản `invited` → khách đặt mật khẩu, thành học viên thật `converted`.
 2. **`admission_leads` + `customer_applications` + `support_tickets` + `approval_requests`** — bộ CRM nội bộ đầy đủ hơn (Operations Center: `/operations`), có pipeline bán hàng (mới → liên hệ → tư vấn → đủ điều kiện → đặt cọc → đã thanh toán → đã ghi danh), có ticket hỗ trợ, có hàng chờ duyệt nội dung.
 
-**Việc cần làm sau này:** nối 2 hệ thống này lại (khi có người nộp form đăng ký công khai, tự động tạo 1 lead trong CRM nội bộ) — hiện chưa làm, vì đây là quyết định nghiệp vụ (2 luồng có thể cố ý tách biệt: 1 cho khách lẻ tự đăng ký, 1 cho đội sale chủ động tìm khách).
+**Đã nối một chiều (2026-07-31):** mỗi khi có người nộp form đăng ký công khai, hệ thống tự động tạo (hoặc cập nhật nếu trùng email) 1 dòng trong `admission_leads` để đội sale/CRM thấy ngay trong `/operations/admissions`. Cầu nối này chỉ *thêm dữ liệu*, không đụng vào luồng duyệt/cấp tài khoản gốc của `academy_applications` — nếu cầu nối lỗi vì lý do gì, việc duyệt hồ sơ và cấp quyền học vẫn chạy bình thường (lỗi bị nuốt âm thầm, có chủ đích).
+
+Ánh xạ trạng thái: nộp form → lead `new`; admin duyệt (cấp tài khoản học viên) → lead `enrolled`; admin từ chối → lead `lost`. Cầu nối tìm lead cũ theo `(organization_id, email, source='academy_public')` để không tạo trùng khi có nhiều lượt cập nhật trên cùng 1 người.
+
+Code: `lib/operations/lead-bridge.ts` (hàm `syncAdmissionLeadFromApplication`), gọi từ `app/api/academy/applications/route.ts` (khi nộp form), `lib/academy/service.ts` hàm `approveAcademyApplication` (khi duyệt), và `app/api/academy/applications/[id]/route.ts` (khi từ chối).
+
+**Lưu ý:** chưa test được với dữ liệu Supabase thật (hệ thống vẫn ở Demo Mode tại thời điểm viết) — cần test lại luồng thật sau khi kết nối Supabase (xem mục 5, bước 7).
 
 **Về phân quyền:** CRM nội bộ có sẵn các vai trò `admissions/support/finance/content_manager` trong thiết kế, nhưng **các vai trò này chưa thực sự tồn tại trong hệ thống tài khoản** — hiện tại chỉ có `owner/admin/teacher/student`. Nghĩa là: hôm nay, chỉ tài khoản `owner`/`admin` truy cập được `/operations`. Muốn có nhân viên CRM/sale/support riêng (không phải admin toàn quyền) thì cần làm thêm 1 bước nâng cấp (thêm vai trò mới vào database).
 
@@ -176,7 +182,7 @@ Hiện có **2 hệ thống CRM riêng biệt, chưa nối với nhau** (do làm
 
 ## 6. Những điều CHƯA làm — biết trước để không bất ngờ
 
-- 2 hệ thống CRM (mục 2.4) chưa nối nhau — cần quyết định nghiệp vụ trước khi nối.
+- 2 hệ thống CRM (mục 2.4) đã nối một chiều (form công khai → CRM nội bộ), nhưng **chưa test với dữ liệu Supabase thật**.
 - Vai trò nhân sự riêng (sale/support/kế toán/content manager) chưa có tài khoản thật — hiện chỉ có owner/admin/teacher/student.
 - Chưa test với dữ liệu/tài khoản Supabase thật trong phiên làm việc này — toàn bộ vẫn đang ở Demo Mode tại thời điểm viết tài liệu này.
 - Redis/Document Worker chưa được cấu hình — nếu bật Production Mode mà không cấu hình Redis, riêng tính năng nhập DOCX/PDF phức tạp sẽ báo lỗi (các phần khác không ảnh hưởng).

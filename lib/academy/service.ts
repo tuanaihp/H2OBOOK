@@ -13,6 +13,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/runtime-config";
 import { escapeEmailHtml, sendEmail } from "@/lib/email/provider";
 import { sendTransactionalEmail } from "@/lib/email/transactional";
+import { syncAdmissionLeadFromApplication } from "@/lib/operations/lead-bridge";
 
 type AdminClient = SupabaseClient;
 
@@ -270,6 +271,16 @@ export async function approveAcademyApplication(applicationId: string, reviewerI
     updated_at: now
   }).eq("id", application.id).select("*").single();
   if (updateError) throw new Error(updateError.message);
+
+  await syncAdmissionLeadFromApplication(admin, {
+    organizationId: String(application.organization_id),
+    email: String(application.email),
+    name: String(application.name),
+    phone: String(application.phone ?? ""),
+    interest: String(application.target_name),
+    stage: "enrolled",
+    note: `Đã duyệt và cấp quyền học ${application.target_name} (đăng ký công khai).`
+  });
 
   const approvalEmail = await sendTransactionalEmail({
     admin,

@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/runtime-config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { academyDemoState } from "@/lib/academy/demo-store";
 import { approveAcademyApplication } from "@/lib/academy/service";
+import { syncAdmissionLeadFromApplication } from "@/lib/operations/lead-bridge";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiUser();
@@ -40,7 +41,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: true, application, mode: "demo" });
   }
   const admin = createSupabaseAdminClient()!;
-  const { data, error } = await admin.from("academy_applications").update({ status: "rejected", reviewed_by: auth.user!.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id).select("id,status").single();
+  const { data, error } = await admin.from("academy_applications").update({ status: "rejected", reviewed_by: auth.user!.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id).select("id,status,organization_id,email,name,phone,target_name").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  await syncAdmissionLeadFromApplication(admin, {
+    organizationId: String(data.organization_id),
+    email: String(data.email),
+    name: String(data.name),
+    phone: String(data.phone ?? ""),
+    interest: String(data.target_name),
+    stage: "lost",
+    note: `Hồ sơ ${data.target_name} bị từ chối (đăng ký công khai).`
+  });
   return NextResponse.json({ ok: true, application: data, mode: "production" });
 }
