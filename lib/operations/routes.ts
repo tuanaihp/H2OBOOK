@@ -1,5 +1,5 @@
 import {
-  Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Building2, CheckCheck, CircleDollarSign,
+  Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Brain, Building2, CheckCheck, CircleDollarSign,
   CloudCog, FileInput, GraduationCap, HeartHandshake, LayoutDashboard, LifeBuoy, ListChecks,
   MessageSquareText, PackageSearch, School, Settings2, ShieldCheck, UsersRound, Workflow
 } from "lucide-react";
@@ -14,6 +14,7 @@ export const customerRoutes = [
 export const instructorRoutes = [
   { href: "/instructor", label: "Command Center", icon: LayoutDashboard },
   { href: "/instructor/classes", label: "Lớp của tôi", icon: School },
+  { href: "/instructor/brain-studio", label: "H2O Brain Studio", icon: Brain },
   { href: "/instructor/assessments", label: "Bài cần chấm", icon: BookOpenCheck },
   { href: "/instructor/students", label: "Tiến độ học viên", icon: UsersRound }
 ];

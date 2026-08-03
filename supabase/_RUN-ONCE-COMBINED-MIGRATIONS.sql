@@ -1,0 +1,3246 @@
+-- H2OBOOK combined migrations 0001-0025, generated for one-shot run in Supabase SQL Editor
+-- Generated 2026-07-31 (v2 — fixes missing public.is_platform_admin() in 0017). Run once on a brand-new/empty Supabase project only.
+
+-- ============================================================
+-- FILE: 0001_h2obook_core.sql
+-- ============================================================
+-- H2OBOOK V1 core schema
+-- Run in Supabase SQL editor or via `supabase db push`.
+create extension if not exists "pgcrypto";
+
+create type public.member_role as enum ('owner','admin','designer','partner','teacher','student');
+create type public.book_status as enum ('draft','published','archived');
+create type public.template_visibility as enum ('private','workspace','marketplace');
+create type public.entitlement_status as enum ('active','expired','revoked');
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null default '',
+  avatar_url text,
+  phone text,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.organizations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  logo_url text,
+  owner_id uuid not null references public.profiles(id),
+  plan_code text not null default 'creator',
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.organization_members (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role public.member_role not null,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  unique(organization_id,user_id)
+);
+
+create table public.brand_profiles (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  expert_name text not null default '',
+  expert_title text not null default '',
+  primary_color text not null default '#6f1d46',
+  secondary_color text not null default '#f6e9ee',
+  accent_color text not null default '#d4a055',
+  heading_font text not null default 'Georgia',
+  body_font text not null default 'Arial',
+  logo_asset_id uuid,
+  avatar_asset_id uuid,
+  contact jsonb not null default '{}'::jsonb,
+  variables jsonb not null default '{}'::jsonb,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.assets (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  uploaded_by uuid references public.profiles(id),
+  asset_type text not null,
+  original_name text not null,
+  storage_key text not null unique,
+  mime_type text not null,
+  size_bytes bigint not null default 0,
+  width integer,
+  height integer,
+  metadata jsonb not null default '{}'::jsonb,
+  status text not null default 'ready',
+  created_at timestamptz not null default now()
+);
+
+alter table public.brand_profiles add constraint brand_logo_asset_fk foreign key (logo_asset_id) references public.assets(id) on delete set null;
+alter table public.brand_profiles add constraint brand_avatar_asset_fk foreign key (avatar_asset_id) references public.assets(id) on delete set null;
+
+create table public.books (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  owner_id uuid not null references public.profiles(id),
+  title text not null,
+  slug text not null,
+  subtitle text not null default '',
+  description text not null default '',
+  author text not null default '',
+  status public.book_status not null default 'draft',
+  cover jsonb not null default '{}'::jsonb,
+  page_width integer not null default 794,
+  page_height integer not null default 1123,
+  current_version integer not null default 1,
+  default_brand_profile_id uuid references public.brand_profiles(id),
+  source_template_id uuid,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,slug)
+);
+
+create table public.book_versions (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references public.books(id) on delete cascade,
+  version_number integer not null,
+  change_note text not null default '',
+  snapshot jsonb,
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now(),
+  published_at timestamptz,
+  unique(book_id,version_number)
+);
+
+create table public.book_pages (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references public.books(id) on delete cascade,
+  name text not null,
+  position integer not null,
+  width integer not null default 794,
+  height integer not null default 1123,
+  background jsonb not null default '{"type":"color","value":"#ffffff"}'::jsonb,
+  thumbnail_asset_id uuid references public.assets(id),
+  revision integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(book_id,position)
+);
+
+create table public.page_elements (
+  id uuid primary key default gen_random_uuid(),
+  page_id uuid not null references public.book_pages(id) on delete cascade,
+  element_type text not null,
+  name text not null,
+  position_index integer not null,
+  transform jsonb not null,
+  content jsonb not null default '{}'::jsonb,
+  style jsonb not null default '{}'::jsonb,
+  binding jsonb not null default '{}'::jsonb,
+  permissions jsonb not null default '{"canEditContent":true,"canMove":true,"canResize":true,"canDelete":true,"canChangeColor":true}'::jsonb,
+  locked boolean not null default false,
+  hidden boolean not null default false,
+  revision integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(page_id,position_index)
+);
+
+create table public.templates (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  source_book_id uuid not null references public.books(id) on delete cascade,
+  name text not null,
+  slug text not null,
+  category text not null default 'education',
+  visibility public.template_visibility not null default 'private',
+  clone_mode text not null default 'linked' check (clone_mode in ('linked','independent')),
+  version_number integer not null default 1,
+  price_vnd bigint not null default 0,
+  status text not null default 'draft',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,slug)
+);
+
+alter table public.books add constraint books_source_template_fk foreign key (source_template_id) references public.templates(id) on delete set null;
+
+create table public.book_clones (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.templates(id),
+  source_book_id uuid not null references public.books(id),
+  target_book_id uuid not null references public.books(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  brand_profile_id uuid not null references public.brand_profiles(id),
+  clone_mode text not null check (clone_mode in ('linked','independent')),
+  source_version integer not null,
+  last_synced_version integer not null,
+  status text not null default 'ready',
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now(),
+  unique(target_book_id)
+);
+
+create table public.clone_overrides (
+  id uuid primary key default gen_random_uuid(),
+  book_clone_id uuid not null references public.book_clones(id) on delete cascade,
+  source_element_id uuid not null,
+  target_element_id uuid not null,
+  override_type text not null,
+  override_data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(book_clone_id,source_element_id)
+);
+
+create table public.publications (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references public.books(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  slug text not null unique,
+  access_type text not null default 'private' check (access_type in ('public','private','paid','membership')),
+  download_allowed boolean not null default false,
+  watermark_enabled boolean not null default true,
+  status text not null default 'published',
+  published_at timestamptz not null default now(),
+  expires_at timestamptz
+);
+
+create table public.entitlements (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  resource_type text not null,
+  resource_id uuid not null,
+  permission text not null,
+  source_type text not null,
+  source_id uuid,
+  starts_at timestamptz not null default now(),
+  expires_at timestamptz,
+  status public.entitlement_status not null default 'active',
+  created_at timestamptz not null default now()
+);
+
+create table public.reading_progress (
+  id uuid primary key default gen_random_uuid(),
+  publication_id uuid not null references public.publications(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  current_page_id uuid references public.book_pages(id),
+  progress_percent numeric(5,2) not null default 0,
+  last_read_at timestamptz not null default now(),
+  completed_at timestamptz,
+  unique(publication_id,user_id)
+);
+
+create table public.reader_notes (
+  id uuid primary key default gen_random_uuid(),
+  publication_id uuid not null references public.publications(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  page_id uuid not null references public.book_pages(id) on delete cascade,
+  selection jsonb,
+  content text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.import_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id),
+  source_asset_id uuid references public.assets(id),
+  target_book_id uuid references public.books(id) on delete cascade,
+  import_mode text not null,
+  status text not null default 'queued',
+  progress integer not null default 0 check (progress between 0 and 100),
+  result jsonb not null default '{}'::jsonb,
+  error_message text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.audit_logs (
+  id bigint generated always as identity primary key,
+  organization_id uuid references public.organizations(id) on delete cascade,
+  actor_id uuid references public.profiles(id),
+  action text not null,
+  resource_type text not null,
+  resource_id uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- Helper functions
+create or replace function public.is_org_member(org_id uuid)
+returns boolean language sql stable security definer set search_path=public as $$
+  select exists(select 1 from public.organization_members m where m.organization_id=org_id and m.user_id=auth.uid() and m.status='active');
+$$;
+create or replace function public.has_org_role(org_id uuid, allowed public.member_role[])
+returns boolean language sql stable security definer set search_path=public as $$
+  select exists(select 1 from public.organization_members m where m.organization_id=org_id and m.user_id=auth.uid() and m.role=any(allowed) and m.status='active');
+$$;
+
+-- RLS
+alter table public.profiles enable row level security;
+alter table public.organizations enable row level security;
+alter table public.organization_members enable row level security;
+alter table public.brand_profiles enable row level security;
+alter table public.assets enable row level security;
+alter table public.books enable row level security;
+alter table public.book_versions enable row level security;
+alter table public.book_pages enable row level security;
+alter table public.page_elements enable row level security;
+alter table public.templates enable row level security;
+alter table public.book_clones enable row level security;
+alter table public.clone_overrides enable row level security;
+alter table public.publications enable row level security;
+alter table public.entitlements enable row level security;
+alter table public.reading_progress enable row level security;
+alter table public.reader_notes enable row level security;
+alter table public.import_jobs enable row level security;
+alter table public.audit_logs enable row level security;
+
+create policy "profile self read" on public.profiles for select using (id=auth.uid());
+create policy "profile self update" on public.profiles for update using (id=auth.uid()) with check (id=auth.uid());
+create policy "org member read" on public.organizations for select using (public.is_org_member(id));
+create policy "org owner update" on public.organizations for update using (public.has_org_role(id,array['owner','admin']::public.member_role[]));
+create policy "members same org read" on public.organization_members for select using (public.is_org_member(organization_id));
+create policy "members admin write" on public.organization_members for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "brands org read" on public.brand_profiles for select using (public.is_org_member(organization_id));
+create policy "brands editor write" on public.brand_profiles for all using (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[]));
+create policy "assets org read" on public.assets for select using (public.is_org_member(organization_id));
+create policy "assets org insert" on public.assets for insert with check (public.is_org_member(organization_id) and uploaded_by=auth.uid());
+create policy "books org read" on public.books for select using (public.is_org_member(organization_id));
+create policy "books editor write" on public.books for all using (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[]));
+create policy "versions via book" on public.book_versions for select using (exists(select 1 from public.books b where b.id=book_id and public.is_org_member(b.organization_id)));
+create policy "pages via book read" on public.book_pages for select using (exists(select 1 from public.books b where b.id=book_id and public.is_org_member(b.organization_id)));
+create policy "pages via book write" on public.book_pages for all using (exists(select 1 from public.books b where b.id=book_id and public.has_org_role(b.organization_id,array['owner','admin','designer','partner']::public.member_role[]))) with check (exists(select 1 from public.books b where b.id=book_id and public.has_org_role(b.organization_id,array['owner','admin','designer','partner']::public.member_role[])));
+create policy "elements via page read" on public.page_elements for select using (exists(select 1 from public.book_pages p join public.books b on b.id=p.book_id where p.id=page_id and public.is_org_member(b.organization_id)));
+create policy "elements via page write" on public.page_elements for all using (exists(select 1 from public.book_pages p join public.books b on b.id=p.book_id where p.id=page_id and public.has_org_role(b.organization_id,array['owner','admin','designer','partner']::public.member_role[]))) with check (exists(select 1 from public.book_pages p join public.books b on b.id=p.book_id where p.id=page_id and public.has_org_role(b.organization_id,array['owner','admin','designer','partner']::public.member_role[])));
+create policy "templates visible" on public.templates for select using (visibility='marketplace' or public.is_org_member(organization_id));
+create policy "templates editor write" on public.templates for all using (public.has_org_role(organization_id,array['owner','admin','designer']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer']::public.member_role[]));
+create policy "publications public or member" on public.publications for select using (access_type='public' or public.is_org_member(organization_id) or exists(select 1 from public.entitlements e where e.user_id=auth.uid() and e.resource_type='publication' and e.resource_id=id and e.status='active' and (e.expires_at is null or e.expires_at>now())));
+create policy "entitlements self read" on public.entitlements for select using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "progress self" on public.reading_progress for all using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "notes self" on public.reader_notes for all using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "jobs org read" on public.import_jobs for select using (public.is_org_member(organization_id));
+create policy "jobs self insert" on public.import_jobs for insert with check (public.is_org_member(organization_id) and user_id=auth.uid());
+create policy "audit admin read" on public.audit_logs for select using (organization_id is null or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+-- Auth profile trigger
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
+begin insert into public.profiles(id,full_name,avatar_url) values(new.id,coalesce(new.raw_user_meta_data->>'full_name',''),new.raw_user_meta_data->>'avatar_url'); return new; end; $$;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+
+create index books_org_idx on public.books(organization_id,updated_at desc);
+create index pages_book_idx on public.book_pages(book_id,position);
+create index elements_page_idx on public.page_elements(page_id,position_index);
+create index entitlements_user_idx on public.entitlements(user_id,status,expires_at);
+create index progress_user_idx on public.reading_progress(user_id,last_read_at desc);
+
+
+-- Transactional workspace bootstrap. Call with supabase.rpc('create_workspace', ...).
+create or replace function public.create_workspace(workspace_name text, workspace_slug text)
+returns uuid language plpgsql security definer set search_path=public as $$
+declare new_org_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  insert into public.organizations(name,slug,owner_id) values(workspace_name,workspace_slug,auth.uid()) returning id into new_org_id;
+  insert into public.organization_members(organization_id,user_id,role) values(new_org_id,auth.uid(),'owner');
+  return new_org_id;
+end; $$;
+grant execute on function public.create_workspace(text,text) to authenticated;
+
+create policy "org self bootstrap" on public.organizations for insert with check (owner_id=auth.uid());
+create policy "versions editor insert" on public.book_versions for insert with check (exists(select 1 from public.books b where b.id=book_id and public.has_org_role(b.organization_id,array['owner','admin','designer','partner']::public.member_role[])) and created_by=auth.uid());
+create policy "clones org read" on public.book_clones for select using (public.is_org_member(organization_id));
+create policy "clones partner write" on public.book_clones for all using (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[]) and created_by=auth.uid());
+create policy "clone overrides via clone" on public.clone_overrides for all using (exists(select 1 from public.book_clones c where c.id=book_clone_id and public.has_org_role(c.organization_id,array['owner','admin','designer','partner']::public.member_role[]))) with check (exists(select 1 from public.book_clones c where c.id=book_clone_id and public.has_org_role(c.organization_id,array['owner','admin','designer','partner']::public.member_role[])));
+create policy "publications editor write" on public.publications for all using (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[]));
+create policy "jobs self update" on public.import_jobs for update using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+-- ============================================================
+-- FILE: 0002_h2obook_v2_integrated.sql
+-- ============================================================
+-- H2OBOOK V2 integrated migration
+-- Extends V1 in-place. Run after 0001_h2obook_core.sql.
+
+begin;
+
+alter table public.books add column if not exists slug text;
+alter table public.books add column if not exists subtitle text;
+alter table public.books add column if not exists category text default 'Chưa phân loại';
+alter table public.books add column if not exists tags text[] default '{}';
+alter table public.books add column if not exists price numeric(14,2) default 0;
+alter table public.books add column if not exists visibility text default 'workspace' check (visibility in ('private','workspace','public'));
+alter table public.books add column if not exists reading_minutes integer default 0;
+alter table public.books add column if not exists version_number integer default 1;
+alter table public.books add column if not exists brand_profile_id uuid references public.brand_profiles(id) on delete set null;
+alter table public.books add column if not exists published_at timestamptz;
+alter table public.books add column if not exists archived_at timestamptz;
+create unique index if not exists books_org_slug_unique on public.books(organization_id,slug) where slug is not null and archived_at is null;
+
+alter table public.book_pages add column if not exists page_type text default 'blank';
+alter table public.book_pages add column if not exists chapter text;
+alter table public.book_pages add column if not exists presenter_notes text;
+alter table public.book_pages add column if not exists hidden boolean default false;
+alter table public.book_pages add column if not exists master_page_id uuid references public.book_pages(id) on delete set null;
+
+alter table public.page_elements add column if not exists source_element_id uuid references public.page_elements(id) on delete set null;
+alter table public.page_elements add column if not exists source_revision integer default 0;
+alter table public.page_elements add column if not exists local_revision integer default 0;
+alter table public.page_elements add column if not exists hidden boolean default false;
+
+create table if not exists public.template_versions (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.templates(id) on delete cascade,
+  source_book_version_id uuid references public.book_versions(id) on delete set null,
+  version_number integer not null,
+  release_note text,
+  status text not null default 'draft' check (status in ('draft','published','retired')),
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  published_at timestamptz,
+  unique(template_id,version_number)
+);
+
+create table if not exists public.template_bindings (
+  id uuid primary key default gen_random_uuid(),
+  template_version_id uuid not null references public.template_versions(id) on delete cascade,
+  page_element_id uuid not null references public.page_elements(id) on delete cascade,
+  variable_key text not null,
+  binding_type text not null default 'value',
+  fallback_value text,
+  required boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique(template_version_id,page_element_id,variable_key)
+);
+
+create table if not exists public.template_element_permissions (
+  id uuid primary key default gen_random_uuid(),
+  template_version_id uuid not null references public.template_versions(id) on delete cascade,
+  page_element_id uuid not null references public.page_elements(id) on delete cascade,
+  can_edit_content boolean not null default true,
+  can_replace_asset boolean not null default true,
+  can_change_color boolean not null default true,
+  can_change_font boolean not null default true,
+  can_move boolean not null default true,
+  can_resize boolean not null default true,
+  can_rotate boolean not null default true,
+  can_delete boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique(template_version_id,page_element_id)
+);
+
+alter table public.book_clones add column if not exists clone_mode text default 'linked' check (clone_mode in ('linked','independent'));
+alter table public.book_clones add column if not exists source_version integer default 1;
+alter table public.book_clones add column if not exists current_template_version integer default 1;
+alter table public.book_clones add column if not exists sync_status text default 'synced' check (sync_status in ('synced','update_available','conflict','syncing','failed'));
+alter table public.book_clones add column if not exists last_synced_at timestamptz;
+alter table public.book_clones add column if not exists partner_name text;
+
+create table if not exists public.clone_sync_events (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_clone_id uuid not null references public.book_clones(id) on delete cascade,
+  from_template_version integer not null,
+  to_template_version integer not null,
+  status text not null default 'queued' check (status in ('queued','preview','applying','completed','failed','rolled_back')),
+  conflict_count integer not null default 0,
+  change_summary jsonb not null default '{}'::jsonb,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table if not exists public.clone_conflicts (
+  id uuid primary key default gen_random_uuid(),
+  clone_sync_event_id uuid not null references public.clone_sync_events(id) on delete cascade,
+  source_page_id uuid references public.book_pages(id) on delete set null,
+  source_element_id uuid references public.page_elements(id) on delete set null,
+  target_page_id uuid references public.book_pages(id) on delete set null,
+  target_element_id uuid references public.page_elements(id) on delete set null,
+  conflict_type text not null,
+  source_value jsonb,
+  target_value jsonb,
+  resolution text check (resolution in ('use_source','keep_target','manual','skip')),
+  resolved_by uuid references public.profiles(id) on delete set null,
+  resolved_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  publication_id uuid not null references public.publications(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  page_id uuid not null references public.book_pages(id) on delete cascade,
+  note text,
+  created_at timestamptz not null default now(),
+  unique(publication_id,user_id,page_id)
+);
+
+create table if not exists public.libraries (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  slug text not null,
+  description text,
+  status text not null default 'active' check (status in ('active','hidden','archived')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,slug)
+);
+
+create table if not exists public.library_publications (
+  library_id uuid not null references public.libraries(id) on delete cascade,
+  publication_id uuid not null references public.publications(id) on delete cascade,
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  primary key(library_id,publication_id)
+);
+
+create table if not exists public.classes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  code text not null,
+  teacher_id uuid references public.profiles(id) on delete set null,
+  start_date date,
+  end_date date,
+  status text not null default 'upcoming' check (status in ('upcoming','active','completed','archived')),
+  color text default '#6f1d46',
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,code)
+);
+
+create table if not exists public.class_members (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role text not null default 'student' check (role in ('teacher','assistant','student')),
+  status text not null default 'active' check (status in ('invited','active','paused','completed','removed')),
+  joined_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(class_id,user_id)
+);
+
+create table if not exists public.class_books (
+  class_id uuid not null references public.classes(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  publication_id uuid references public.publications(id) on delete set null,
+  required boolean not null default true,
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  primary key(class_id,book_id)
+);
+
+create table if not exists public.assignments (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  class_id uuid not null references public.classes(id) on delete cascade,
+  book_id uuid references public.books(id) on delete set null,
+  page_id uuid references public.book_pages(id) on delete set null,
+  title text not null,
+  instructions text,
+  due_at timestamptz,
+  max_score numeric(8,2) not null default 100,
+  status text not null default 'draft' check (status in ('draft','published','closed','archived')),
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.assignment_submissions (
+  id uuid primary key default gen_random_uuid(),
+  assignment_id uuid not null references public.assignments(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  content text,
+  asset_ids uuid[] not null default '{}',
+  score numeric(8,2),
+  feedback text,
+  status text not null default 'draft' check (status in ('draft','submitted','late','graded','returned')),
+  submitted_at timestamptz,
+  graded_by uuid references public.profiles(id) on delete set null,
+  graded_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(assignment_id,student_id)
+);
+
+create table if not exists public.quizzes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  chapter_name text,
+  title text not null,
+  passing_score numeric(5,2) not null default 70,
+  time_limit_minutes integer not null default 15,
+  status text not null default 'draft' check (status in ('draft','published','archived')),
+  settings jsonb not null default '{}'::jsonb,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.quiz_questions (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes(id) on delete cascade,
+  question_type text not null check (question_type in ('single','multiple','true_false','short_text')),
+  content text not null,
+  options jsonb not null default '[]'::jsonb,
+  correct_answers jsonb not null default '[]'::jsonb,
+  explanation text,
+  score numeric(8,2) not null default 1,
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  answers jsonb not null default '{}'::jsonb,
+  score numeric(8,2),
+  passed boolean,
+  started_at timestamptz not null default now(),
+  submitted_at timestamptz
+);
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  product_type text not null check (product_type in ('book','template','membership','bundle')),
+  reference_id uuid,
+  name text not null,
+  slug text not null,
+  description text,
+  cover_asset_id uuid references public.assets(id) on delete set null,
+  price numeric(14,2) not null default 0,
+  compare_at_price numeric(14,2),
+  currency text not null default 'VND',
+  billing_interval text check (billing_interval in ('month','year')),
+  status text not null default 'draft' check (status in ('draft','active','hidden','archived')),
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,slug)
+);
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  order_code text not null unique,
+  buyer_id uuid references public.profiles(id) on delete set null,
+  customer_name text not null,
+  customer_email text not null,
+  subtotal numeric(14,2) not null default 0,
+  discount numeric(14,2) not null default 0,
+  total numeric(14,2) not null default 0,
+  currency text not null default 'VND',
+  payment_method text,
+  payment_provider text,
+  provider_transaction_id text,
+  payment_status text not null default 'pending' check (payment_status in ('pending','paid','failed','refunded','cancelled')),
+  order_status text not null default 'created' check (order_status in ('created','processing','fulfilled','cancelled','refunded')),
+  paid_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete restrict,
+  product_name text not null,
+  quantity integer not null default 1 check (quantity > 0),
+  unit_price numeric(14,2) not null,
+  total numeric(14,2) not null,
+  entitlement_config jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.memberships (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  product_id uuid references public.products(id) on delete set null,
+  plan_name text not null,
+  price numeric(14,2) not null default 0,
+  currency text not null default 'VND',
+  billing_interval text not null check (billing_interval in ('month','year')),
+  status text not null default 'trial' check (status in ('trial','active','past_due','cancelled','expired')),
+  starts_at timestamptz not null default now(),
+  renews_at timestamptz,
+  expires_at timestamptz,
+  provider_subscription_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  title text not null,
+  message text not null,
+  notification_type text not null default 'system',
+  href text,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.analytics_events (
+  id bigint generated always as identity primary key,
+  organization_id uuid references public.organizations(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  anonymous_id text,
+  event_name text not null,
+  resource_type text,
+  resource_id uuid,
+  session_id text,
+  properties jsonb not null default '{}'::jsonb,
+  occurred_at timestamptz not null default now()
+);
+
+create index if not exists template_versions_template_idx on public.template_versions(template_id,version_number desc);
+create index if not exists clone_sync_events_clone_idx on public.clone_sync_events(book_clone_id,created_at desc);
+create index if not exists class_members_user_idx on public.class_members(user_id,status);
+create index if not exists assignments_class_idx on public.assignments(class_id,due_at);
+create index if not exists submissions_student_idx on public.assignment_submissions(student_id,status);
+create index if not exists quiz_attempts_user_idx on public.quiz_attempts(user_id,started_at desc);
+create index if not exists orders_org_created_idx on public.orders(organization_id,created_at desc);
+create index if not exists orders_payment_status_idx on public.orders(payment_status);
+create index if not exists memberships_user_status_idx on public.memberships(user_id,status);
+create index if not exists notifications_user_read_idx on public.notifications(user_id,read_at,created_at desc);
+create index if not exists analytics_org_event_time_idx on public.analytics_events(organization_id,event_name,occurred_at desc);
+
+alter table public.template_versions enable row level security;
+alter table public.template_bindings enable row level security;
+alter table public.template_element_permissions enable row level security;
+alter table public.clone_sync_events enable row level security;
+alter table public.clone_conflicts enable row level security;
+alter table public.bookmarks enable row level security;
+alter table public.libraries enable row level security;
+alter table public.library_publications enable row level security;
+alter table public.classes enable row level security;
+alter table public.class_members enable row level security;
+alter table public.class_books enable row level security;
+alter table public.assignments enable row level security;
+alter table public.assignment_submissions enable row level security;
+alter table public.quizzes enable row level security;
+alter table public.quiz_questions enable row level security;
+alter table public.quiz_attempts enable row level security;
+alter table public.products enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+alter table public.memberships enable row level security;
+alter table public.notifications enable row level security;
+alter table public.analytics_events enable row level security;
+
+create policy "template versions visible" on public.template_versions for select using (
+  exists(select 1 from public.templates t where t.id=template_id and (t.visibility='marketplace' or public.is_org_member(t.organization_id)))
+);
+create policy "template versions editor write" on public.template_versions for all using (
+  exists(select 1 from public.templates t where t.id=template_id and public.has_org_role(t.organization_id,array['owner','admin','designer']::public.member_role[]))
+) with check (
+  exists(select 1 from public.templates t where t.id=template_id and public.has_org_role(t.organization_id,array['owner','admin','designer']::public.member_role[]))
+);
+create policy "template bindings visible" on public.template_bindings for select using (
+  exists(select 1 from public.template_versions tv join public.templates t on t.id=tv.template_id where tv.id=template_version_id and (t.visibility='marketplace' or public.is_org_member(t.organization_id)))
+);
+create policy "template bindings editor write" on public.template_bindings for all using (
+  exists(select 1 from public.template_versions tv join public.templates t on t.id=tv.template_id where tv.id=template_version_id and public.has_org_role(t.organization_id,array['owner','admin','designer']::public.member_role[]))
+) with check (
+  exists(select 1 from public.template_versions tv join public.templates t on t.id=tv.template_id where tv.id=template_version_id and public.has_org_role(t.organization_id,array['owner','admin','designer']::public.member_role[]))
+);
+create policy "template permissions visible" on public.template_element_permissions for select using (
+  exists(select 1 from public.template_versions tv join public.templates t on t.id=tv.template_id where tv.id=template_version_id and (t.visibility='marketplace' or public.is_org_member(t.organization_id)))
+);
+create policy "template permissions editor write" on public.template_element_permissions for all using (
+  exists(select 1 from public.template_versions tv join public.templates t on t.id=tv.template_id where tv.id=template_version_id and public.has_org_role(t.organization_id,array['owner','admin','designer']::public.member_role[]))
+) with check (
+  exists(select 1 from public.template_versions tv join public.templates t on t.id=tv.template_id where tv.id=template_version_id and public.has_org_role(t.organization_id,array['owner','admin','designer']::public.member_role[]))
+);
+create policy "clone sync org read" on public.clone_sync_events for select using (public.is_org_member(organization_id));
+create policy "clone sync editor write" on public.clone_sync_events for all using (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[]));
+create policy "clone conflicts via event" on public.clone_conflicts for all using (
+  exists(select 1 from public.clone_sync_events e where e.id=clone_sync_event_id and public.has_org_role(e.organization_id,array['owner','admin','designer','partner']::public.member_role[]))
+) with check (
+  exists(select 1 from public.clone_sync_events e where e.id=clone_sync_event_id and public.has_org_role(e.organization_id,array['owner','admin','designer','partner']::public.member_role[]))
+);
+create policy "bookmarks self" on public.bookmarks for all using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "libraries org read" on public.libraries for select using (public.is_org_member(organization_id));
+create policy "libraries admin write" on public.libraries for all using (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "library publications via library" on public.library_publications for all using (exists(select 1 from public.libraries l where l.id=library_id and public.is_org_member(l.organization_id))) with check (exists(select 1 from public.libraries l where l.id=library_id and public.has_org_role(l.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "classes org read" on public.classes for select using (public.is_org_member(organization_id) or exists(select 1 from public.class_members cm where cm.class_id=id and cm.user_id=auth.uid() and cm.status in ('active','completed')));
+create policy "classes teacher write" on public.classes for all using (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "class members scoped read" on public.class_members for select using (user_id=auth.uid() or exists(select 1 from public.classes c where c.id=class_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "class members teacher write" on public.class_members for all using (exists(select 1 from public.classes c where c.id=class_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[]))) with check (exists(select 1 from public.classes c where c.id=class_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "class books scoped" on public.class_books for select using (exists(select 1 from public.classes c where c.id=class_id and (public.is_org_member(c.organization_id) or exists(select 1 from public.class_members cm where cm.class_id=c.id and cm.user_id=auth.uid() and cm.status='active'))));
+create policy "class books teacher write" on public.class_books for all using (exists(select 1 from public.classes c where c.id=class_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[]))) with check (exists(select 1 from public.classes c where c.id=class_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "assignments class read" on public.assignments for select using (public.is_org_member(organization_id) or exists(select 1 from public.class_members cm where cm.class_id=class_id and cm.user_id=auth.uid() and cm.status='active'));
+create policy "assignments teacher write" on public.assignments for all using (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "submissions student read" on public.assignment_submissions for select using (student_id=auth.uid() or exists(select 1 from public.assignments a where a.id=assignment_id and public.has_org_role(a.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "submissions student insert" on public.assignment_submissions for insert with check (student_id=auth.uid());
+create policy "submissions teacher update" on public.assignment_submissions for update using (student_id=auth.uid() or exists(select 1 from public.assignments a where a.id=assignment_id and public.has_org_role(a.organization_id,array['owner','admin','teacher']::public.member_role[]))) with check (student_id=auth.uid() or exists(select 1 from public.assignments a where a.id=assignment_id and public.has_org_role(a.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "quizzes scoped read" on public.quizzes for select using (public.is_org_member(organization_id) or exists(select 1 from public.entitlements e where e.user_id=auth.uid() and e.resource_type='book' and e.resource_id=book_id and e.status='active'));
+create policy "quizzes teacher write" on public.quizzes for all using (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "quiz questions via quiz" on public.quiz_questions for select using (exists(select 1 from public.quizzes q where q.id=quiz_id and (public.is_org_member(q.organization_id) or exists(select 1 from public.entitlements e where e.user_id=auth.uid() and e.resource_type='book' and e.resource_id=q.book_id and e.status='active'))));
+create policy "quiz questions teacher write" on public.quiz_questions for all using (exists(select 1 from public.quizzes q where q.id=quiz_id and public.has_org_role(q.organization_id,array['owner','admin','teacher']::public.member_role[]))) with check (exists(select 1 from public.quizzes q where q.id=quiz_id and public.has_org_role(q.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "quiz attempts self" on public.quiz_attempts for all using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "products public read" on public.products for select using (status='active' or public.is_org_member(organization_id));
+create policy "products admin write" on public.products for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "orders buyer or admin read" on public.orders for select using (buyer_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "orders admin write" on public.orders for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "order items via order" on public.order_items for select using (exists(select 1 from public.orders o where o.id=order_id and (o.buyer_id=auth.uid() or public.has_org_role(o.organization_id,array['owner','admin']::public.member_role[]))));
+create policy "order items admin write" on public.order_items for all using (exists(select 1 from public.orders o where o.id=order_id and public.has_org_role(o.organization_id,array['owner','admin']::public.member_role[]))) with check (exists(select 1 from public.orders o where o.id=order_id and public.has_org_role(o.organization_id,array['owner','admin']::public.member_role[])));
+create policy "memberships self or admin read" on public.memberships for select using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "memberships admin write" on public.memberships for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "notifications self" on public.notifications for all using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "analytics insert" on public.analytics_events for insert with check (organization_id is null or public.is_org_member(organization_id) or auth.uid() is null);
+create policy "analytics admin read" on public.analytics_events for select using (organization_id is not null and public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create or replace function public.mark_order_paid(p_order_id uuid, p_transaction_id text default null)
+returns void language plpgsql security definer set search_path=public as $$
+declare
+  v_order public.orders%rowtype;
+  v_item record;
+  v_expiry timestamptz;
+begin
+  select * into v_order from public.orders where id=p_order_id for update;
+  if not found then raise exception 'Order not found'; end if;
+  if v_order.payment_status='paid' then return; end if;
+  update public.orders set payment_status='paid',order_status='fulfilled',provider_transaction_id=coalesce(p_transaction_id,provider_transaction_id),paid_at=now(),updated_at=now() where id=p_order_id;
+  if v_order.buyer_id is null then return; end if;
+  for v_item in select oi.*,p.product_type,p.reference_id,p.billing_interval from public.order_items oi join public.products p on p.id=oi.product_id where oi.order_id=p_order_id loop
+    v_expiry := case when v_item.billing_interval='month' then now()+interval '1 month' when v_item.billing_interval='year' then now()+interval '1 year' else null end;
+    insert into public.entitlements(user_id,organization_id,resource_type,resource_id,permission,source_type,source_id,starts_at,expires_at,status)
+    values(v_order.buyer_id,v_order.organization_id,v_item.product_type,v_item.reference_id,'access','order',p_order_id,now(),v_expiry,'active')
+    on conflict do nothing;
+  end loop;
+end;
+$$;
+
+commit;
+
+-- ============================================================
+-- FILE: 0003_h2obook_v3_integrated.sql
+-- ============================================================
+-- H2OBOOK V3 integrated migration
+-- Extends the same V1/V2 database. Run after 0001 and 0002.
+
+begin;
+
+create table if not exists public.review_requests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  title text not null,
+  stage text not null default 'content' check (stage in ('content','design','brand','legal','final')),
+  status text not null default 'draft' check (status in ('draft','in_review','changes_requested','approved','published')),
+  requested_by uuid references public.profiles(id) on delete set null,
+  assignee_ids uuid[] not null default '{}',
+  due_at timestamptz,
+  checklist jsonb not null default '[]'::jsonb,
+  approved_by uuid references public.profiles(id) on delete set null,
+  approved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.review_comments (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  review_id uuid not null references public.review_requests(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  page_id uuid references public.book_pages(id) on delete set null,
+  element_id uuid references public.page_elements(id) on delete set null,
+  author_id uuid references public.profiles(id) on delete set null,
+  message text not null,
+  resolved boolean not null default false,
+  resolved_by uuid references public.profiles(id) on delete set null,
+  resolved_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.collaboration_sessions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  session_key text not null,
+  locked_page_ids uuid[] not null default '{}',
+  started_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(book_id,session_key)
+);
+
+create table if not exists public.collaboration_presence (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.collaboration_sessions(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  page_id uuid references public.book_pages(id) on delete set null,
+  cursor_json jsonb not null default '{}'::jsonb,
+  status text not null default 'online' check (status in ('online','idle','offline')),
+  last_seen_at timestamptz not null default now(),
+  unique(session_id,user_id)
+);
+
+create table if not exists public.ai_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid references public.books(id) on delete set null,
+  requested_by uuid references public.profiles(id) on delete set null,
+  job_type text not null check (job_type in ('outline','rewrite','quiz','summary','brand_copy','translate','accessibility')),
+  prompt text not null,
+  output text,
+  provider text not null default 'gateway',
+  provider_job_id text,
+  status text not null default 'queued' check (status in ('queued','processing','completed','failed','cancelled')),
+  usage_json jsonb not null default '{}'::jsonb,
+  error_message text,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table if not exists public.automation_rules (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  trigger_event text not null,
+  actions jsonb not null default '[]'::jsonb,
+  conditions jsonb not null default '{}'::jsonb,
+  status text not null default 'active' check (status in ('active','paused','archived')),
+  run_count integer not null default 0,
+  error_count integer not null default 0,
+  last_run_at timestamptz,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.automation_runs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  rule_id uuid not null references public.automation_rules(id) on delete cascade,
+  event_name text not null,
+  event_payload jsonb not null default '{}'::jsonb,
+  status text not null default 'queued' check (status in ('queued','running','completed','failed','skipped')),
+  action_results jsonb not null default '[]'::jsonb,
+  error_message text,
+  started_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table if not exists public.license_agreements (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  template_id uuid not null references public.templates(id) on delete restrict,
+  licensee_organization_id uuid references public.organizations(id) on delete set null,
+  licensee_name text not null,
+  license_model text not null check (license_model in ('one_time','subscription','revenue_share')),
+  price numeric(14,2) not null default 0,
+  revenue_share_percent numeric(5,2) not null default 0 check (revenue_share_percent between 0 and 100),
+  seat_limit integer not null default 1,
+  clone_limit integer not null default 1,
+  clones_used integer not null default 0,
+  status text not null default 'draft' check (status in ('draft','active','expired','suspended')),
+  starts_at timestamptz not null default now(),
+  expires_at timestamptz,
+  terms_json jsonb not null default '{}'::jsonb,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.royalty_payouts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  license_id uuid not null references public.license_agreements(id) on delete cascade,
+  period_start date not null,
+  period_end date not null,
+  gross_revenue numeric(14,2) not null default 0,
+  rate numeric(5,2) not null default 0,
+  amount numeric(14,2) not null default 0,
+  status text not null default 'pending' check (status in ('pending','approved','paid','cancelled')),
+  approved_by uuid references public.profiles(id) on delete set null,
+  approved_at timestamptz,
+  paid_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(license_id,period_start,period_end)
+);
+
+create table if not exists public.white_label_portals (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  slug text not null,
+  custom_domain text,
+  logo_asset_id uuid references public.assets(id) on delete set null,
+  primary_color text not null default '#6f1d46',
+  accent_color text not null default '#e8a8c3',
+  theme text not null default 'light' check (theme in ('light','dark','system')),
+  status text not null default 'draft' check (status in ('draft','active','maintenance')),
+  settings_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,slug),
+  unique(custom_domain)
+);
+
+create table if not exists public.white_label_portal_books (
+  portal_id uuid not null references public.white_label_portals(id) on delete cascade,
+  publication_id uuid not null references public.publications(id) on delete cascade,
+  position integer not null default 0,
+  featured boolean not null default false,
+  primary key(portal_id,publication_id)
+);
+
+create table if not exists public.content_health_reports (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  book_version_id uuid references public.book_versions(id) on delete set null,
+  score integer not null check (score between 0 and 100),
+  readability integer not null check (readability between 0 and 100),
+  accessibility integer not null check (accessibility between 0 and 100),
+  brand_consistency integer not null check (brand_consistency between 0 and 100),
+  image_quality integer not null check (image_quality between 0 and 100),
+  broken_links integer not null default 0,
+  warnings jsonb not null default '[]'::jsonb,
+  scan_metadata jsonb not null default '{}'::jsonb,
+  scanned_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists review_requests_org_status_idx on public.review_requests(organization_id,status,updated_at desc);
+create index if not exists review_requests_book_idx on public.review_requests(book_id,created_at desc);
+create index if not exists review_comments_review_idx on public.review_comments(review_id,resolved,created_at desc);
+create index if not exists collaboration_sessions_book_idx on public.collaboration_sessions(book_id,updated_at desc);
+create index if not exists collaboration_presence_session_idx on public.collaboration_presence(session_id,status,last_seen_at desc);
+create index if not exists ai_jobs_org_status_idx on public.ai_jobs(organization_id,status,created_at desc);
+create index if not exists automation_rules_org_status_idx on public.automation_rules(organization_id,status);
+create index if not exists automation_runs_rule_idx on public.automation_runs(rule_id,started_at desc);
+create index if not exists license_agreements_org_status_idx on public.license_agreements(organization_id,status);
+create index if not exists royalty_payouts_license_idx on public.royalty_payouts(license_id,status,period_end desc);
+create index if not exists white_label_portals_org_idx on public.white_label_portals(organization_id,status);
+create index if not exists content_health_book_idx on public.content_health_reports(book_id,created_at desc);
+
+alter table public.review_requests enable row level security;
+alter table public.review_comments enable row level security;
+alter table public.collaboration_sessions enable row level security;
+alter table public.collaboration_presence enable row level security;
+alter table public.ai_jobs enable row level security;
+alter table public.automation_rules enable row level security;
+alter table public.automation_runs enable row level security;
+alter table public.license_agreements enable row level security;
+alter table public.royalty_payouts enable row level security;
+alter table public.white_label_portals enable row level security;
+alter table public.white_label_portal_books enable row level security;
+alter table public.content_health_reports enable row level security;
+
+create policy "reviews org read" on public.review_requests for select using (public.is_org_member(organization_id));
+create policy "reviews editor write" on public.review_requests for all using (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
+create policy "review comments org read" on public.review_comments for select using (public.is_org_member(organization_id));
+create policy "review comments org insert" on public.review_comments for insert with check (public.is_org_member(organization_id) and (author_id is null or author_id=auth.uid()));
+create policy "review comments author or reviewer update" on public.review_comments for update using (author_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check (public.is_org_member(organization_id));
+
+create policy "collaboration sessions org" on public.collaboration_sessions for all using (public.is_org_member(organization_id)) with check (public.is_org_member(organization_id));
+create policy "collaboration presence via session" on public.collaboration_presence for all using (exists(select 1 from public.collaboration_sessions s where s.id=session_id and public.is_org_member(s.organization_id))) with check (user_id=auth.uid() and exists(select 1 from public.collaboration_sessions s where s.id=session_id and public.is_org_member(s.organization_id)));
+
+create policy "ai jobs org read" on public.ai_jobs for select using (public.is_org_member(organization_id));
+create policy "ai jobs org insert" on public.ai_jobs for insert with check (public.is_org_member(organization_id) and (requested_by is null or requested_by=auth.uid()));
+create policy "ai jobs admin update" on public.ai_jobs for update using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.is_org_member(organization_id));
+
+create policy "automation rules admin" on public.automation_rules for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "automation runs admin read" on public.automation_runs for select using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "automation runs service insert" on public.automation_runs for insert with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "licenses org read" on public.license_agreements for select using (public.is_org_member(organization_id) or licensee_organization_id in (select organization_id from public.organization_members where user_id=auth.uid() and status='active'));
+create policy "licenses owner admin write" on public.license_agreements for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "royalties owner admin" on public.royalty_payouts for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "portals public read active" on public.white_label_portals for select using (status='active' or public.is_org_member(organization_id));
+create policy "portals admin write" on public.white_label_portals for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "portal books public read" on public.white_label_portal_books for select using (exists(select 1 from public.white_label_portals p where p.id=portal_id and (p.status='active' or public.is_org_member(p.organization_id))));
+create policy "portal books admin write" on public.white_label_portal_books for all using (exists(select 1 from public.white_label_portals p where p.id=portal_id and public.has_org_role(p.organization_id,array['owner','admin']::public.member_role[]))) with check (exists(select 1 from public.white_label_portals p where p.id=portal_id and public.has_org_role(p.organization_id,array['owner','admin']::public.member_role[])));
+
+create policy "health reports org read" on public.content_health_reports for select using (public.is_org_member(organization_id));
+create policy "health reports editor write" on public.content_health_reports for all using (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
+
+create or replace function public.approve_review(p_review_id uuid)
+returns void language plpgsql security definer set search_path=public as $$
+declare
+  v_review public.review_requests%rowtype;
+begin
+  select * into v_review from public.review_requests where id=p_review_id for update;
+  if not found then raise exception 'Review not found'; end if;
+  if not public.has_org_role(v_review.organization_id,array['owner','admin','designer','teacher']::public.member_role[]) then raise exception 'Forbidden'; end if;
+  update public.review_requests set status='approved',approved_by=auth.uid(),approved_at=now(),updated_at=now() where id=p_review_id;
+end;
+$$;
+
+create or replace function public.mark_royalty_paid(p_payout_id uuid)
+returns void language plpgsql security definer set search_path=public as $$
+declare
+  v_payout public.royalty_payouts%rowtype;
+begin
+  select * into v_payout from public.royalty_payouts where id=p_payout_id for update;
+  if not found then raise exception 'Payout not found'; end if;
+  if not public.has_org_role(v_payout.organization_id,array['owner','admin']::public.member_role[]) then raise exception 'Forbidden'; end if;
+  update public.royalty_payouts set status='paid',paid_at=now() where id=p_payout_id;
+end;
+$$;
+
+commit;
+
+-- ============================================================
+-- FILE: 0004_h2obook_production_core.sql
+-- ============================================================
+begin;
+
+create table if not exists public.workspace_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  created_by uuid references public.profiles(id) on delete set null,
+  client_version bigint not null,
+  payload jsonb not null,
+  checksum text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.document_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  requested_by uuid references public.profiles(id) on delete set null,
+  job_type text not null check (job_type in ('pdf_import','docx_import','ocr','thumbnail','pdf_export','health_scan')),
+  status text not null default 'queued' check (status in ('queued','processing','completed','failed','cancelled')),
+  progress integer not null default 0 check (progress between 0 and 100),
+  input jsonb not null default '{}'::jsonb,
+  output jsonb,
+  error_code text,
+  error_message text,
+  external_job_id text,
+  attempts integer not null default 0,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.document_job_events (
+  id bigint generated always as identity primary key,
+  job_id uuid not null references public.document_jobs(id) on delete cascade,
+  event_type text not null,
+  message text,
+  progress integer check (progress between 0 and 100),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.payment_events (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null,
+  provider_event_id text not null,
+  provider_transaction_id text,
+  event_type text not null,
+  payload jsonb not null,
+  status text not null default 'received' check (status in ('received','processed','ignored','failed')),
+  error_message text,
+  processed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(provider,provider_event_id)
+);
+
+create table if not exists public.user_devices (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  device_hash text not null,
+  device_name text,
+  last_ip inet,
+  last_user_agent text,
+  trusted boolean not null default false,
+  revoked_at timestamptz,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  unique(user_id,device_hash)
+);
+
+create table if not exists public.security_events (
+  id bigint generated always as identity primary key,
+  organization_id uuid references public.organizations(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  event_type text not null,
+  severity text not null default 'info' check (severity in ('info','warning','critical')),
+  ip_address inet,
+  user_agent text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists workspace_snapshots_org_created_idx on public.workspace_snapshots(organization_id,created_at desc);
+create index if not exists document_jobs_org_status_idx on public.document_jobs(organization_id,status,created_at desc);
+create index if not exists document_job_events_job_idx on public.document_job_events(job_id,created_at);
+create index if not exists payment_events_tx_idx on public.payment_events(provider_transaction_id,created_at desc);
+create index if not exists user_devices_user_idx on public.user_devices(user_id,last_seen_at desc);
+create index if not exists security_events_org_idx on public.security_events(organization_id,severity,created_at desc);
+
+alter table public.workspace_snapshots enable row level security;
+alter table public.document_jobs enable row level security;
+alter table public.document_job_events enable row level security;
+alter table public.payment_events enable row level security;
+alter table public.user_devices enable row level security;
+alter table public.security_events enable row level security;
+
+create policy "snapshots org read" on public.workspace_snapshots for select using (public.is_org_member(organization_id));
+create policy "snapshots org insert" on public.workspace_snapshots for insert with check (public.is_org_member(organization_id) and (created_by is null or created_by=auth.uid()));
+create policy "snapshots admin delete" on public.workspace_snapshots for delete using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "document jobs org read" on public.document_jobs for select using (public.is_org_member(organization_id));
+create policy "document jobs member insert" on public.document_jobs for insert with check (public.is_org_member(organization_id) and (requested_by is null or requested_by=auth.uid()));
+create policy "document jobs editor update" on public.document_jobs for update using (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check (public.is_org_member(organization_id));
+create policy "job events org read" on public.document_job_events for select using (exists(select 1 from public.document_jobs j where j.id=job_id and public.is_org_member(j.organization_id)));
+
+create policy "payment events admin read" on public.payment_events for select using (exists(select 1 from public.orders o where o.provider_transaction_id=payment_events.provider_transaction_id and public.has_org_role(o.organization_id,array['owner','admin']::public.member_role[])));
+create policy "devices own read" on public.user_devices for select using (user_id=auth.uid());
+create policy "devices own update" on public.user_devices for update using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "security events admin read" on public.security_events for select using (organization_id is not null and public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create or replace function public.revoke_expired_entitlements()
+returns integer language plpgsql security definer set search_path=public as $$
+declare v_count integer;
+begin
+  update public.entitlements set status='expired'
+  where status='active' and expires_at is not null and expires_at<=now();
+  get diagnostics v_count=row_count;
+  return v_count;
+end;
+$$;
+
+create or replace function public.prune_workspace_snapshots(p_organization_id uuid, p_keep integer default 30)
+returns integer language plpgsql security definer set search_path=public as $$
+declare v_count integer;
+begin
+  if not public.has_org_role(p_organization_id,array['owner','admin']::public.member_role[]) then raise exception 'Forbidden'; end if;
+  with doomed as (
+    select id from public.workspace_snapshots where organization_id=p_organization_id
+    order by created_at desc offset greatest(p_keep,1)
+  ) delete from public.workspace_snapshots where id in (select id from doomed);
+  get diagnostics v_count=row_count;
+  return v_count;
+end;
+$$;
+
+commit;
+
+-- ============================================================
+-- FILE: 0005_h2obook_security_hardening.sql
+-- ============================================================
+begin;
+
+drop policy if exists "snapshots org read" on public.workspace_snapshots;
+drop policy if exists "snapshots org insert" on public.workspace_snapshots;
+drop policy if exists "snapshots admin delete" on public.workspace_snapshots;
+create policy "snapshots admin read" on public.workspace_snapshots for select using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "snapshots admin insert" on public.workspace_snapshots for insert with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]) and created_by=auth.uid());
+create policy "snapshots admin delete" on public.workspace_snapshots for delete using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create unique index if not exists entitlements_active_source_unique
+on public.entitlements(user_id,resource_type,resource_id,source_type,source_id)
+where status='active';
+
+create index if not exists entitlements_user_active_idx on public.entitlements(user_id,status,expires_at);
+create index if not exists orders_provider_transaction_idx on public.orders(payment_provider,provider_transaction_id);
+create index if not exists publications_access_idx on public.publications(status,access_type,published_at desc);
+
+alter table public.books add column if not exists client_key text;
+alter table public.book_pages add column if not exists client_key text;
+alter table public.book_pages add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.page_elements add column if not exists client_key text;
+create unique index if not exists books_org_client_key_unique on public.books(organization_id,client_key) where client_key is not null;
+create unique index if not exists pages_book_client_key_unique on public.book_pages(book_id,client_key) where client_key is not null;
+create unique index if not exists elements_page_client_key_unique on public.page_elements(page_id,client_key) where client_key is not null;
+
+alter table public.assets add column if not exists checksum text;
+alter table public.assets add column if not exists quarantine_status text not null default 'clean' check (quarantine_status in ('pending','clean','blocked'));
+alter table public.assets add column if not exists deleted_at timestamptz;
+alter table public.books add column if not exists deleted_at timestamptz;
+alter table public.templates add column if not exists deleted_at timestamptz;
+
+create table if not exists public.pending_access_grants (
+  id uuid primary key default gen_random_uuid(),
+  email text not null check (email=lower(email)),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  resource_type text not null,
+  resource_id uuid not null,
+  permission text not null default 'access',
+  source_type text not null,
+  source_id uuid,
+  expires_at timestamptz,
+  status text not null default 'pending' check (status in ('pending','claimed','revoked','expired')),
+  claimed_by uuid references public.profiles(id) on delete set null,
+  claimed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(email,resource_type,resource_id,source_type,source_id)
+);
+create index if not exists pending_access_email_status_idx on public.pending_access_grants(email,status,created_at desc);
+alter table public.pending_access_grants enable row level security;
+create policy "pending grants admin read" on public.pending_access_grants for select using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "pending grants admin manage" on public.pending_access_grants for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+-- Replace the V1 profile trigger function so a public owner signup receives an isolated workspace automatically.
+-- Existing invited accounts are not allowed to join an organization through untrusted signup metadata.
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  v_org_id uuid;
+  v_name text;
+  v_slug text;
+begin
+  v_name := nullif(trim(coalesce(new.raw_user_meta_data->>'full_name','')), '');
+  insert into public.profiles(id,full_name,avatar_url)
+  values(new.id,coalesce(v_name,''),new.raw_user_meta_data->>'avatar_url')
+  on conflict(id) do update set full_name=excluded.full_name,avatar_url=excluded.avatar_url,updated_at=now();
+
+  if coalesce(new.raw_user_meta_data->>'role','owner')='owner' and not exists(select 1 from public.organization_members where user_id=new.id) then
+    v_slug := trim(both '-' from regexp_replace(lower(coalesce(v_name,split_part(new.email,'@',1),'h2obook')), '[^a-z0-9]+', '-', 'g')) || '-' || substr(replace(new.id::text,'-',''),1,8);
+    insert into public.organizations(name,slug,owner_id)
+    values(coalesce(v_name,'H2OBOOK Workspace'),v_slug,new.id) returning id into v_org_id;
+    insert into public.organization_members(organization_id,user_id,role,status) values(v_org_id,new.id,'owner','active');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.can_access_publication(p_publication_id uuid)
+returns boolean language sql stable security definer set search_path=public as $$
+  select exists(
+    select 1 from public.publications p
+    where p.id=p_publication_id and p.status='published' and (
+      p.access_type='public' or
+      public.is_org_member(p.organization_id) or
+      exists(select 1 from public.entitlements e where e.user_id=auth.uid() and e.status='active' and (e.expires_at is null or e.expires_at>now()) and ((e.resource_type='publication' and e.resource_id=p.id) or (e.resource_type='book' and e.resource_id=p.book_id)))
+    )
+  );
+$$;
+
+
+
+create or replace function public.mark_order_paid(p_order_id uuid, p_transaction_id text default null)
+returns void language plpgsql security definer set search_path=public as $$
+declare
+  v_order public.orders%rowtype;
+  v_item record;
+  v_expiry timestamptz;
+  v_resource_id uuid;
+begin
+  select * into v_order from public.orders where id=p_order_id for update;
+  if not found then raise exception 'Order not found'; end if;
+  if v_order.payment_status='paid' then return; end if;
+  update public.orders set payment_status='paid',order_status='fulfilled',provider_transaction_id=coalesce(p_transaction_id,provider_transaction_id),paid_at=now(),updated_at=now() where id=p_order_id;
+  for v_item in select oi.*,p.product_type,p.reference_id,p.billing_interval,p.name as plan_name from public.order_items oi join public.products p on p.id=oi.product_id where oi.order_id=p_order_id loop
+    v_expiry := case when v_item.billing_interval='month' then now()+interval '1 month' when v_item.billing_interval='year' then now()+interval '1 year' else null end;
+    v_resource_id := coalesce(v_item.reference_id,v_item.product_id);
+    if v_order.buyer_id is null then
+      insert into public.pending_access_grants(email,organization_id,resource_type,resource_id,permission,source_type,source_id,expires_at,status)
+      values(lower(v_order.customer_email),v_order.organization_id,v_item.product_type,v_resource_id,'access','order',p_order_id,v_expiry,'pending')
+      on conflict(email,resource_type,resource_id,source_type,source_id) do nothing;
+    else
+      insert into public.entitlements(user_id,organization_id,resource_type,resource_id,permission,source_type,source_id,starts_at,expires_at,status)
+      values(v_order.buyer_id,v_order.organization_id,v_item.product_type,v_resource_id,'access','order',p_order_id,now(),v_expiry,'active')
+      on conflict do nothing;
+      if v_item.product_type='membership' then
+        insert into public.memberships(organization_id,user_id,product_id,plan_name,price,currency,billing_interval,status,starts_at,renews_at,expires_at)
+        values(v_order.organization_id,v_order.buyer_id,v_item.product_id,v_item.plan_name,v_item.unit_price,v_order.currency,coalesce(v_item.billing_interval,'month'),'active',now(),v_expiry,v_expiry)
+        on conflict do nothing;
+      end if;
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.claim_my_pending_access()
+returns integer language plpgsql security definer set search_path=public as $$
+declare
+  v_email text;
+  v_grant record;
+  v_count integer := 0;
+  v_product record;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  select lower(email) into v_email from auth.users where id=auth.uid();
+  if v_email is null then return 0; end if;
+  for v_grant in select * from public.pending_access_grants where lower(email)=v_email and status='pending' for update loop
+    insert into public.entitlements(user_id,organization_id,resource_type,resource_id,permission,source_type,source_id,starts_at,expires_at,status)
+    values(auth.uid(),v_grant.organization_id,v_grant.resource_type,v_grant.resource_id,v_grant.permission,v_grant.source_type,v_grant.source_id,now(),v_grant.expires_at,'active')
+    on conflict do nothing;
+    if v_grant.resource_type='membership' and v_grant.source_id is not null then
+      select p.id,p.name,p.price,p.currency,p.billing_interval into v_product
+      from public.order_items oi join public.products p on p.id=oi.product_id
+      where oi.order_id=v_grant.source_id and coalesce(p.reference_id,p.id)=v_grant.resource_id limit 1;
+      if found then
+        insert into public.memberships(organization_id,user_id,product_id,plan_name,price,currency,billing_interval,status,starts_at,renews_at,expires_at)
+        values(v_grant.organization_id,auth.uid(),v_product.id,v_product.name,v_product.price,v_product.currency,coalesce(v_product.billing_interval,'month'),'active',now(),v_grant.expires_at,v_grant.expires_at)
+        on conflict do nothing;
+      end if;
+    end if;
+    update public.pending_access_grants set status='claimed',claimed_by=auth.uid(),claimed_at=now() where id=v_grant.id;
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+
+create or replace function public.save_book_document(p_organization_id uuid, p_client_key text, p_slug text, p_payload jsonb)
+returns uuid language plpgsql security definer set search_path=public as $$
+declare
+  v_book_id uuid;
+  v_page_id uuid;
+  v_page jsonb;
+  v_element jsonb;
+  v_page_position integer := 0;
+  v_element_position integer;
+  v_version integer;
+begin
+  if not public.has_org_role(p_organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]) then
+    raise exception 'Forbidden';
+  end if;
+  if p_client_key is null or p_client_key='' or coalesce(p_payload->>'title','')='' then raise exception 'Invalid book payload'; end if;
+
+  select id,current_version into v_book_id,v_version from public.books where organization_id=p_organization_id and client_key=p_client_key for update;
+  if v_book_id is null then
+    insert into public.books(organization_id,owner_id,client_key,title,slug,subtitle,description,author,status,cover,page_width,page_height,current_version,updated_at)
+    values(
+      p_organization_id,auth.uid(),p_client_key,p_payload->>'title',p_slug,
+      coalesce(p_payload->>'subtitle',''),coalesce(p_payload->>'description',''),coalesce(p_payload->>'author',''),
+      (case when p_payload->>'status'='published' then 'published' when p_payload->>'status'='archived' then 'archived' else 'draft' end)::public.book_status,
+      jsonb_build_object('value',coalesce(p_payload->>'cover','')),
+      coalesce(((p_payload->'pages'->0)->>'width')::integer,794),
+      coalesce(((p_payload->'pages'->0)->>'height')::integer,1123),1,now()
+    ) returning id,current_version into v_book_id,v_version;
+  else
+    v_version := coalesce(v_version,0) + 1;
+    update public.books set
+      title=p_payload->>'title',subtitle=coalesce(p_payload->>'subtitle',''),description=coalesce(p_payload->>'description',''),
+      author=coalesce(p_payload->>'author',''),status=(case when p_payload->>'status'='published' then 'published' when p_payload->>'status'='archived' then 'archived' else 'draft' end)::public.book_status,
+      cover=jsonb_build_object('value',coalesce(p_payload->>'cover','')),
+      page_width=coalesce(((p_payload->'pages'->0)->>'width')::integer,page_width),
+      page_height=coalesce(((p_payload->'pages'->0)->>'height')::integer,page_height),current_version=v_version,updated_at=now()
+    where id=v_book_id;
+  end if;
+
+  delete from public.book_pages where book_id=v_book_id;
+  for v_page in select value from jsonb_array_elements(coalesce(p_payload->'pages','[]'::jsonb)) loop
+    insert into public.book_pages(book_id,client_key,name,position,width,height,background,metadata,revision,updated_at)
+    values(
+      v_book_id,v_page->>'id',coalesce(v_page->>'name','Trang'),v_page_position,
+      coalesce((v_page->>'width')::integer,794),coalesce((v_page->>'height')::integer,1123),
+      jsonb_build_object('type','color','value',coalesce(v_page->>'background','#ffffff')),
+      jsonb_strip_nulls(jsonb_build_object('pageType',v_page->>'pageType','chapter',v_page->>'chapter','notes',v_page->>'notes','hidden',(v_page->>'hidden')::boolean,'masterPageId',v_page->>'masterPageId')),
+      1,now()
+    ) returning id into v_page_id;
+    v_element_position := 0;
+    for v_element in select value from jsonb_array_elements(coalesce(v_page->'elements','[]'::jsonb)) loop
+      insert into public.page_elements(page_id,client_key,element_type,name,position_index,transform,content,style,binding,permissions,locked,hidden,revision,updated_at)
+      values(
+        v_page_id,v_element->>'id',v_element->>'type',coalesce(v_element->>'name','Element'),v_element_position,
+        jsonb_build_object('x',coalesce((v_element->>'x')::numeric,0),'y',coalesce((v_element->>'y')::numeric,0),'width',coalesce((v_element->>'width')::numeric,100),'height',coalesce((v_element->>'height')::numeric,100),'rotation',coalesce((v_element->>'rotation')::numeric,0),'opacity',coalesce((v_element->>'opacity')::numeric,1)),
+        jsonb_strip_nulls(jsonb_build_object('text',v_element->>'text','sourceText',v_element->>'sourceText','imageUrl',v_element->>'imageUrl','qrValue',v_element->>'qrValue','sourceQrValue',v_element->>'sourceQrValue')),
+        jsonb_strip_nulls(jsonb_build_object('fill',v_element->>'fill','stroke',v_element->>'stroke','strokeWidth',(v_element->>'strokeWidth')::numeric,'dash',v_element->'dash','fontSize',(v_element->>'fontSize')::numeric,'fontFamily',v_element->>'fontFamily','fontWeight',(v_element->>'fontWeight')::numeric,'fontStyle',v_element->>'fontStyle','textDecoration',v_element->>'textDecoration','lineHeight',(v_element->>'lineHeight')::numeric,'letterSpacing',(v_element->>'letterSpacing')::numeric,'align',v_element->>'align','verticalAlign',v_element->>'verticalAlign','imageFit',v_element->>'imageFit','cornerRadius',(v_element->>'cornerRadius')::numeric,'shadow',v_element->'shadow')),
+        jsonb_strip_nulls(jsonb_build_object('key',v_element->>'bindingKey','fallback',v_element->>'bindingFallback','sourceElementId',v_element->>'sourceElementId','sourceRevision',(v_element->>'sourceRevision')::integer,'localRevision',(v_element->>'localRevision')::integer)),
+        coalesce(v_element->'permissions','{"canEditContent":true,"canMove":true,"canResize":true,"canDelete":true,"canChangeColor":true}'::jsonb),
+        coalesce((v_element->>'locked')::boolean,false),coalesce((v_element->>'hidden')::boolean,false),greatest(1,coalesce((v_element->>'localRevision')::integer,1)),now()
+      );
+      v_element_position := v_element_position + 1;
+    end loop;
+    v_page_position := v_page_position + 1;
+  end loop;
+
+  insert into public.book_versions(book_id,version_number,change_note,snapshot,created_by)
+  values(v_book_id,coalesce(v_version,1),'Cloud save',jsonb_build_object('clientKey',p_client_key,'pageCount',v_page_position,'savedAt',now()),auth.uid());
+  return v_book_id;
+end;
+$$;
+
+create or replace function public.audit_critical_change()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  insert into public.audit_logs(organization_id,actor_id,action,resource_type,resource_id,metadata)
+  values(coalesce(new.organization_id,old.organization_id),auth.uid(),tg_op||'_'||tg_table_name,tg_table_name,coalesce(new.id,old.id),jsonb_build_object('old',to_jsonb(old),'new',to_jsonb(new)));
+  return coalesce(new,old);
+end;
+$$;
+
+do $$ begin
+  if not exists(select 1 from pg_trigger where tgname='audit_orders_critical') then
+    create trigger audit_orders_critical after update on public.orders for each row when (old.payment_status is distinct from new.payment_status) execute function public.audit_critical_change();
+  end if;
+  if not exists(select 1 from pg_trigger where tgname='audit_memberships_critical') then
+    create trigger audit_memberships_critical after update on public.memberships for each row when (old.status is distinct from new.status) execute function public.audit_critical_change();
+  end if;
+end $$;
+
+commit;
+
+-- ============================================================
+-- FILE: 0006_h2obook_v4_smart_core.sql
+-- ============================================================
+begin;
+
+create table if not exists public.smart_core_settings (
+  organization_id uuid primary key references public.organizations(id) on delete cascade,
+  ai_enabled boolean not null default false,
+  assist_mode text not null default 'local' check (assist_mode in ('local','external','off')),
+  offline_first boolean not null default true,
+  auto_generate_study_cards boolean not null default true,
+  reduce_motion boolean not null default false,
+  high_contrast boolean not null default false,
+  focus_mode boolean not null default false,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.learning_goals (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  book_id uuid references public.books(id) on delete set null,
+  title text not null,
+  description text not null default '',
+  progress smallint not null default 0 check (progress between 0 and 100),
+  status text not null default 'active' check (status in ('active','completed','paused')),
+  target_date timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.learning_notes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  page_id uuid references public.book_pages(id) on delete set null,
+  title text not null,
+  content text not null default '',
+  tags text[] not null default '{}',
+  pinned boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.flashcards (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  book_id uuid references public.books(id) on delete cascade,
+  page_id uuid references public.book_pages(id) on delete set null,
+  front text not null,
+  back text not null,
+  tags text[] not null default '{}',
+  difficulty smallint not null default 2 check (difficulty between 1 and 5),
+  next_review_at timestamptz not null default now(),
+  interval_days integer not null default 1 check (interval_days between 1 and 3650),
+  review_count integer not null default 0,
+  correct_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.study_sessions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  book_id uuid references public.books(id) on delete set null,
+  goal_id uuid references public.learning_goals(id) on delete set null,
+  mode text not null check (mode in ('read','review','practice','reflect')),
+  duration_minutes integer not null default 0 check (duration_minutes between 0 and 1440),
+  completed_items integer not null default 0,
+  note text,
+  started_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table if not exists public.knowledge_sources (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  created_by uuid references auth.users(id) on delete set null,
+  title text not null,
+  source_type text not null check (source_type in ('book','pdf','docx','image','audio','video','url','note')),
+  status text not null default 'ready' check (status in ('ready','processing','error')),
+  book_id uuid references public.books(id) on delete set null,
+  asset_id uuid references public.assets(id) on delete set null,
+  source_url text,
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.reusable_blocks (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid references public.organizations(id) on delete cascade,
+  created_by uuid references auth.users(id) on delete set null,
+  name text not null,
+  category text not null check (category in ('lesson','practice','marketing','profile','assessment')),
+  description text not null default '',
+  block_schema jsonb not null default '{}'::jsonb,
+  preview_asset_id uuid references public.assets(id) on delete set null,
+  is_system boolean not null default false,
+  status text not null default 'active' check (status in ('active','archived')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists learning_goals_user_status_idx on public.learning_goals(user_id,status);
+create index if not exists learning_notes_book_user_idx on public.learning_notes(book_id,user_id);
+create index if not exists flashcards_due_idx on public.flashcards(user_id,next_review_at);
+create index if not exists study_sessions_user_started_idx on public.study_sessions(user_id,started_at desc);
+create index if not exists knowledge_sources_org_type_idx on public.knowledge_sources(organization_id,source_type);
+create index if not exists reusable_blocks_org_category_idx on public.reusable_blocks(organization_id,category);
+
+alter table public.smart_core_settings enable row level security;
+alter table public.learning_goals enable row level security;
+alter table public.learning_notes enable row level security;
+alter table public.flashcards enable row level security;
+alter table public.study_sessions enable row level security;
+alter table public.knowledge_sources enable row level security;
+alter table public.reusable_blocks enable row level security;
+
+create policy "smart settings org read" on public.smart_core_settings for select using (public.is_org_member(organization_id));
+create policy "smart settings admin write" on public.smart_core_settings for all using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "learning goals own" on public.learning_goals for all using (user_id=auth.uid() and public.is_org_member(organization_id)) with check (user_id=auth.uid() and public.is_org_member(organization_id));
+create policy "learning notes own" on public.learning_notes for all using (user_id=auth.uid() and public.is_org_member(organization_id)) with check (user_id=auth.uid() and public.is_org_member(organization_id));
+create policy "flashcards own" on public.flashcards for all using (user_id=auth.uid() and public.is_org_member(organization_id)) with check (user_id=auth.uid() and public.is_org_member(organization_id));
+create policy "study sessions own" on public.study_sessions for all using (user_id=auth.uid() and public.is_org_member(organization_id)) with check (user_id=auth.uid() and public.is_org_member(organization_id));
+
+create policy "knowledge sources org read" on public.knowledge_sources for select using (public.is_org_member(organization_id));
+create policy "knowledge sources editor write" on public.knowledge_sources for all using (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
+
+create policy "blocks visible" on public.reusable_blocks for select using (is_system or public.is_org_member(organization_id));
+create policy "blocks editor write" on public.reusable_blocks for all using (organization_id is not null and public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check (organization_id is not null and public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
+
+create or replace function public.review_flashcard(p_card_id uuid, p_remembered boolean)
+returns public.flashcards
+language plpgsql
+security invoker
+set search_path=public
+as $$
+declare
+  v_card public.flashcards;
+  v_interval integer;
+begin
+  select * into v_card from public.flashcards where id=p_card_id and user_id=auth.uid() for update;
+  if v_card.id is null then raise exception 'FLASHCARD_NOT_FOUND'; end if;
+  v_interval := case when p_remembered then least(60,greatest(1,round(v_card.interval_days*2.2)::integer)) else 1 end;
+  update public.flashcards set
+    review_count=review_count+1,
+    correct_count=correct_count+case when p_remembered then 1 else 0 end,
+    difficulty=case when p_remembered then greatest(1,difficulty-1) else least(5,difficulty+1) end,
+    interval_days=v_interval,
+    next_review_at=now()+(v_interval||' days')::interval,
+    updated_at=now()
+  where id=p_card_id returning * into v_card;
+  return v_card;
+end;
+$$;
+
+comment on table public.smart_core_settings is 'H2OBOOK V4 settings. AI remains optional and disabled by default.';
+comment on table public.flashcards is 'Offline-first spaced repetition cards; no model API is required.';
+comment on table public.reusable_blocks is 'Reusable content blocks inspired by professional authoring systems.';
+
+commit;
+
+-- ============================================================
+-- FILE: 0007_h2obook_v41_production_foundation.sql
+-- ============================================================
+-- H2OBOOK 4.1 Production Foundation
+-- Domain events, optimistic revisions, consistent updated_at and realtime publication.
+
+create table if not exists public.domain_events (
+  id bigint generated always as identity primary key,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  resource_type text not null,
+  resource_id uuid,
+  event_name text not null,
+  payload jsonb not null default '{}'::jsonb,
+  occurred_at timestamptz not null default now()
+);
+
+create index if not exists domain_events_org_time_idx on public.domain_events(organization_id, occurred_at desc);
+create index if not exists domain_events_resource_idx on public.domain_events(resource_type, resource_id, occurred_at desc);
+
+alter table public.domain_events enable row level security;
+
+drop policy if exists domain_events_select on public.domain_events;
+create policy domain_events_select on public.domain_events for select using (public.is_org_member(organization_id));
+drop policy if exists domain_events_insert on public.domain_events;
+create policy domain_events_insert on public.domain_events for insert with check (public.is_org_member(organization_id));
+
+create or replace function public.touch_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'brand_profiles','templates','classes','assignments','quizzes','review_requests',
+    'automation_rules','license_agreements','white_label_portals','learning_goals',
+    'flashcards','knowledge_sources','reusable_blocks'
+  ] loop
+    execute format('drop trigger if exists %I_touch_updated_at on public.%I', table_name, table_name);
+    execute format('create trigger %I_touch_updated_at before update on public.%I for each row execute function public.touch_updated_at()', table_name, table_name);
+  end loop;
+end $$;
+
+create or replace function public.capture_domain_event()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  org_id uuid;
+  row_id uuid;
+  event_kind text;
+begin
+  org_id := coalesce((to_jsonb(new)->>'organization_id')::uuid, (to_jsonb(old)->>'organization_id')::uuid);
+  row_id := coalesce((to_jsonb(new)->>'id')::uuid, (to_jsonb(old)->>'id')::uuid);
+  event_kind := lower(tg_op);
+  if org_id is not null then
+    insert into public.domain_events(organization_id, actor_id, resource_type, resource_id, event_name, payload)
+    values(org_id, auth.uid(), tg_table_name, row_id, event_kind, jsonb_build_object('new', to_jsonb(new), 'old', to_jsonb(old)));
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'brand_profiles','templates','book_clones','classes','assignments','quizzes','review_requests',
+    'automation_rules','license_agreements','royalty_payouts','white_label_portals','notifications',
+    'learning_goals','flashcards','knowledge_sources','reusable_blocks'
+  ] loop
+    execute format('drop trigger if exists %I_domain_event on public.%I', table_name, table_name);
+    execute format('create trigger %I_domain_event after insert or update or delete on public.%I for each row execute function public.capture_domain_event()', table_name, table_name);
+  end loop;
+end $$;
+
+-- Realtime is optional; duplicate_object is ignored when a table is already published.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'brand_profiles','templates','book_clones','classes','assignments','quizzes','review_requests',
+    'automation_rules','license_agreements','royalty_payouts','white_label_portals','notifications',
+    'learning_goals','flashcards','knowledge_sources','reusable_blocks','domain_events'
+  ] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', table_name);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;
+
+-- ============================================================
+-- FILE: 0008_h2obook_v42_semantic_content.sql
+-- ============================================================
+-- H2OBOOK 4.2 Semantic Content & Asset Architecture
+
+create table if not exists public.book_documents (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null unique references public.books(id) on delete cascade,
+  title text not null,
+  language text not null default 'vi',
+  metadata jsonb not null default '{}'::jsonb,
+  version integer not null default 1,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.content_nodes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  document_id uuid not null references public.book_documents(id) on delete cascade,
+  parent_id uuid references public.content_nodes(id) on delete cascade,
+  node_type text not null check (node_type in ('chapter','section','heading','paragraph','list','list_item','image','table','quote','quiz','footnote','citation','divider','callout','interactive')),
+  position integer not null default 0,
+  text_content jsonb not null default '[]'::jsonb,
+  attrs jsonb not null default '{}'::jsonb,
+  version integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.content_node_versions (
+  id bigint generated always as identity primary key,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  node_id uuid not null references public.content_nodes(id) on delete cascade,
+  version integer not null,
+  snapshot jsonb not null,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique(node_id,version)
+);
+
+create table if not exists public.content_styles (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid references public.books(id) on delete cascade,
+  name text not null,
+  style_type text not null check (style_type in ('paragraph','character','table','object')),
+  properties jsonb not null default '{}'::jsonb,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,book_id,name,style_type)
+);
+
+create table if not exists public.layout_profiles (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  name text not null,
+  profile_type text not null check (profile_type in ('web','mobile','print_a4','print_a5','square','workbook','presenter','epub_reflow','epub_fixed')),
+  page_width numeric(12,3) not null,
+  page_height numeric(12,3) not null,
+  unit text not null default 'px' check (unit in ('px','pt','mm')),
+  margins jsonb not null default '{"top":0,"right":0,"bottom":0,"left":0}'::jsonb,
+  bleed jsonb not null default '{"top":0,"right":0,"bottom":0,"left":0}'::jsonb,
+  columns integer not null default 1 check (columns between 1 and 12),
+  column_gap numeric(12,3) not null default 0,
+  settings jsonb not null default '{}'::jsonb,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.master_pages (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  layout_profile_id uuid not null references public.layout_profiles(id) on delete cascade,
+  name text not null,
+  page_schema jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.flow_chains (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  layout_profile_id uuid not null references public.layout_profiles(id) on delete cascade,
+  name text not null,
+  content_node_id uuid references public.content_nodes(id) on delete set null,
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.layout_frames (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  layout_profile_id uuid not null references public.layout_profiles(id) on delete cascade,
+  page_id uuid references public.book_pages(id) on delete cascade,
+  master_page_id uuid references public.master_pages(id) on delete set null,
+  frame_type text not null check (frame_type in ('text','image','decoration','header','footer')),
+  x numeric(12,3) not null,
+  y numeric(12,3) not null,
+  width numeric(12,3) not null,
+  height numeric(12,3) not null,
+  flow_chain_id uuid references public.flow_chains(id) on delete set null,
+  content_node_id uuid references public.content_nodes(id) on delete set null,
+  style_id uuid references public.content_styles(id) on delete set null,
+  locked boolean not null default false,
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.citations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  document_id uuid not null references public.book_documents(id) on delete cascade,
+  node_id uuid references public.content_nodes(id) on delete cascade,
+  citation_key text not null,
+  citation_style text not null default 'apa',
+  source_data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(document_id,citation_key)
+);
+
+create table if not exists public.footnotes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  document_id uuid not null references public.book_documents(id) on delete cascade,
+  node_id uuid references public.content_nodes(id) on delete cascade,
+  marker text not null,
+  content jsonb not null default '[]'::jsonb,
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.asset_variants (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  asset_id uuid not null references public.assets(id) on delete cascade,
+  variant_type text not null check (variant_type in ('thumbnail','editor','reader','print','webp','avif')),
+  storage_key text not null,
+  mime_type text not null,
+  width integer,
+  height integer,
+  size_bytes bigint not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(asset_id,variant_type)
+);
+
+create index if not exists content_nodes_document_tree_idx on public.content_nodes(document_id,parent_id,position);
+create index if not exists layout_profiles_book_idx on public.layout_profiles(book_id,profile_type);
+create index if not exists layout_frames_profile_page_idx on public.layout_frames(layout_profile_id,page_id);
+create index if not exists asset_variants_asset_idx on public.asset_variants(asset_id,variant_type);
+
+alter table public.book_documents enable row level security;
+alter table public.content_nodes enable row level security;
+alter table public.content_node_versions enable row level security;
+alter table public.content_styles enable row level security;
+alter table public.layout_profiles enable row level security;
+alter table public.master_pages enable row level security;
+alter table public.flow_chains enable row level security;
+alter table public.layout_frames enable row level security;
+alter table public.citations enable row level security;
+alter table public.footnotes enable row level security;
+alter table public.asset_variants enable row level security;
+
+do $$
+declare table_name text;
+begin
+  foreach table_name in array array['book_documents','content_nodes','content_node_versions','content_styles','layout_profiles','master_pages','flow_chains','layout_frames','citations','footnotes','asset_variants'] loop
+    execute format('drop policy if exists %I_member_select on public.%I',table_name,table_name);
+    execute format('create policy %I_member_select on public.%I for select using (public.is_org_member(organization_id))',table_name,table_name);
+    execute format('drop policy if exists %I_editor_write on public.%I',table_name,table_name);
+    execute format('create policy %I_editor_write on public.%I for all using (public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check (public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',table_name,table_name);
+  end loop;
+end $$;
+
+create or replace function public.capture_content_node_version()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if tg_op='UPDATE' and (old.text_content is distinct from new.text_content or old.attrs is distinct from new.attrs or old.parent_id is distinct from new.parent_id or old.position is distinct from new.position) then
+    insert into public.content_node_versions(organization_id,node_id,version,snapshot,created_by)
+    values(old.organization_id,old.id,old.version,to_jsonb(old),auth.uid())
+    on conflict(node_id,version) do nothing;
+    new.version=old.version+1;
+  end if;
+  new.updated_at=now();
+  return new;
+end;
+$$;
+
+drop trigger if exists content_nodes_version_trigger on public.content_nodes;
+create trigger content_nodes_version_trigger before update on public.content_nodes for each row execute function public.capture_content_node_version();
+
+create or replace function public.save_book_semantic_document(
+  p_organization_id uuid,
+  p_book_id uuid,
+  p_title text,
+  p_language text,
+  p_metadata jsonb,
+  p_version integer,
+  p_nodes jsonb
+) returns uuid language plpgsql security invoker set search_path=public as $$
+declare
+  v_document_id uuid;
+  item jsonb;
+begin
+  if not public.has_org_role(p_organization_id,array['owner','admin','designer']::public.member_role[]) then
+    raise exception 'FORBIDDEN';
+  end if;
+  if not exists(select 1 from public.books where id=p_book_id and organization_id=p_organization_id) then
+    raise exception 'BOOK_NOT_FOUND';
+  end if;
+  insert into public.book_documents(organization_id,book_id,title,language,metadata,version,created_by)
+  values(p_organization_id,p_book_id,p_title,coalesce(p_language,'vi'),coalesce(p_metadata,'{}'::jsonb),greatest(coalesce(p_version,1),1),auth.uid())
+  on conflict(book_id) do update set title=excluded.title,language=excluded.language,metadata=excluded.metadata,version=excluded.version,updated_at=now()
+  returning id into v_document_id;
+
+  delete from public.content_nodes where document_id=v_document_id;
+  for item in select value from jsonb_array_elements(coalesce(p_nodes,'[]'::jsonb)) loop
+    insert into public.content_nodes(id,organization_id,document_id,parent_id,node_type,position,text_content,attrs,version)
+    values(
+      (item->>'id')::uuid,p_organization_id,v_document_id,nullif(item->>'parentId','')::uuid,
+      item->>'type',coalesce((item->>'position')::integer,0),coalesce(item->'text','[]'::jsonb),
+      coalesce(item->'attrs','{}'::jsonb),greatest(coalesce((item->>'version')::integer,1),1)
+    );
+  end loop;
+  return v_document_id;
+end;
+$$;
+
+grant execute on function public.save_book_semantic_document(uuid,uuid,text,text,jsonb,integer,jsonb) to authenticated;
+
+-- ============================================================
+-- FILE: 0009_h2obook_v43_authoring_editor.sql
+-- ============================================================
+-- H2OBOOK 4.3 Professional Authoring Editor
+
+create table if not exists public.editor_operations (
+  id bigint generated always as identity primary key,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  transaction_id uuid not null default gen_random_uuid(),
+  operation_type text not null,
+  forward_patch jsonb not null,
+  inverse_patch jsonb not null,
+  sequence_number bigint not null,
+  created_at timestamptz not null default now(),
+  unique(book_id,sequence_number)
+);
+
+create table if not exists public.editor_comments (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  document_id uuid references public.book_documents(id) on delete cascade,
+  content_node_id uuid references public.content_nodes(id) on delete cascade,
+  page_id uuid references public.book_pages(id) on delete cascade,
+  element_id uuid,
+  anchor jsonb not null default '{}'::jsonb,
+  body text not null,
+  status text not null default 'open' check(status in ('open','resolved','archived')),
+  created_by uuid references public.profiles(id) on delete set null,
+  resolved_by uuid references public.profiles(id) on delete set null,
+  resolved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.track_changes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  document_id uuid not null references public.book_documents(id) on delete cascade,
+  node_id uuid references public.content_nodes(id) on delete cascade,
+  author_id uuid references public.profiles(id) on delete set null,
+  change_type text not null check(change_type in ('insert','delete','format','move')),
+  before_value jsonb,
+  after_value jsonb,
+  status text not null default 'pending' check(status in ('pending','accepted','rejected')),
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.qr_codes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid references public.books(id) on delete cascade,
+  element_id text,
+  destination_url text not null,
+  tracking_code text not null unique,
+  error_correction text not null default 'H' check(error_correction in ('L','M','Q','H')),
+  scan_count bigint not null default 0,
+  last_scanned_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.preflight_reports (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  book_id uuid not null references public.books(id) on delete cascade,
+  book_version_id uuid references public.book_versions(id) on delete set null,
+  profile_type text not null default 'web',
+  passed boolean not null default false,
+  error_count integer not null default 0,
+  warning_count integer not null default 0,
+  issues jsonb not null default '[]'::jsonb,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists editor_operations_book_sequence_idx on public.editor_operations(book_id,sequence_number desc);
+create index if not exists editor_comments_book_status_idx on public.editor_comments(book_id,status,created_at desc);
+create index if not exists track_changes_document_status_idx on public.track_changes(document_id,status,created_at);
+create index if not exists preflight_reports_book_created_idx on public.preflight_reports(book_id,created_at desc);
+
+alter table public.editor_operations enable row level security;
+alter table public.editor_comments enable row level security;
+alter table public.track_changes enable row level security;
+alter table public.qr_codes enable row level security;
+alter table public.preflight_reports enable row level security;
+
+do $$ declare table_name text;
+begin
+  foreach table_name in array array['editor_operations','editor_comments','track_changes','qr_codes','preflight_reports'] loop
+    execute format('create policy %I_member_select on public.%I for select using (public.is_org_member(organization_id))',table_name,table_name);
+    execute format('create policy %I_editor_write on public.%I for all using (public.has_org_role(organization_id,array[''owner'',''admin'',''designer'',''teacher'']::public.member_role[])) with check (public.has_org_role(organization_id,array[''owner'',''admin'',''designer'',''teacher'']::public.member_role[]))',table_name,table_name);
+  end loop;
+end $$;
+
+-- ============================================================
+-- FILE: 0010_h2obook_v44_publishing_engine.sql
+-- ============================================================
+-- H2OBOOK 4.4 Professional Publishing Engine
+create table if not exists public.publishing_profiles(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid references public.books(id) on delete cascade,name text not null,profile_type text not null,settings jsonb not null default '{}'::jsonb,is_default boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
+);
+create table if not exists public.publishing_jobs(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,book_version_id uuid references public.book_versions(id) on delete set null,profile_id text not null,format text not null check(format in ('pdf_web','pdf_print','epub_reflow','epub_fixed','scorm12','scorm2004','xapi')),status text not null default 'queued' check(status in ('queued','processing','completed','failed','cancelled')),progress integer not null default 0,queue_job_id text,input jsonb not null default '{}'::jsonb,output jsonb not null default '{}'::jsonb,error_message text,created_by uuid references public.profiles(id) on delete set null,started_at timestamptz,completed_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
+);
+create table if not exists public.publishing_artifacts(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,publishing_job_id uuid not null references public.publishing_jobs(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,format text not null,storage_key text not null,mime_type text not null,size_bytes bigint not null default 0,checksum text,metadata jsonb not null default '{}'::jsonb,created_at timestamptz not null default now()
+);
+create table if not exists public.lms_packages(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,artifact_id uuid references public.publishing_artifacts(id) on delete set null,standard text not null check(standard in ('scorm12','scorm2004','xapi','lti13')),completion_rule jsonb not null default '{}'::jsonb,grade_rule jsonb not null default '{}'::jsonb,created_at timestamptz not null default now()
+);
+create index if not exists publishing_jobs_org_status_idx on public.publishing_jobs(organization_id,status,created_at desc);create index if not exists publishing_artifacts_book_idx on public.publishing_artifacts(book_id,created_at desc);
+alter table public.publishing_profiles enable row level security;alter table public.publishing_jobs enable row level security;alter table public.publishing_artifacts enable row level security;alter table public.lms_packages enable row level security;
+do $$ declare t text;begin foreach t in array array['publishing_profiles','publishing_jobs','publishing_artifacts','lms_packages'] loop execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
+
+-- ============================================================
+-- FILE: 0011_h2obook_v45_universal_ingestion.sql
+-- ============================================================
+-- H2OBOOK 4.5 Universal Content Ingestion
+create table if not exists public.ingestion_sources(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,source_type text not null,source_url text,title text not null,asset_id uuid references public.assets(id) on delete set null,content_hash text,metadata jsonb not null default '{}'::jsonb,status text not null default 'ready' check(status in ('pending','ready','blocked','failed')),created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
+);
+create table if not exists public.ingestion_runs(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,source_id uuid references public.ingestion_sources(id) on delete set null,source_type text not null,source_url text,title text not null,status text not null default 'queued' check(status in ('queued','extracting','normalizing','previewed','approved','completed','failed','cancelled')),progress integer not null default 0,preview jsonb not null default '{}'::jsonb,settings jsonb not null default '{}'::jsonb,error_message text,book_id uuid references public.books(id) on delete set null,created_by uuid references public.profiles(id) on delete set null,started_at timestamptz,completed_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
+);
+create table if not exists public.ingestion_segments(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,run_id uuid not null references public.ingestion_runs(id) on delete cascade,segment_type text not null,position integer not null,source_text text,normalized_node jsonb not null default '{}'::jsonb,confidence numeric(5,4),manual_status text not null default 'unreviewed' check(manual_status in ('unreviewed','accepted','edited','rejected')),created_at timestamptz not null default now()
+);
+create table if not exists public.ingestion_mappings(
+ id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,run_id uuid not null references public.ingestion_runs(id) on delete cascade,source_path text not null,target_node_type text not null,rules jsonb not null default '{}'::jsonb,created_at timestamptz not null default now()
+);
+create index if not exists ingestion_runs_org_status_idx on public.ingestion_runs(organization_id,status,created_at desc);create index if not exists ingestion_segments_run_position_idx on public.ingestion_segments(run_id,position);
+alter table public.ingestion_sources enable row level security;alter table public.ingestion_runs enable row level security;alter table public.ingestion_segments enable row level security;alter table public.ingestion_mappings enable row level security;
+do $$ declare t text;begin foreach t in array array['ingestion_sources','ingestion_runs','ingestion_segments','ingestion_mappings'] loop execute format('drop policy if exists %I_read on public.%I',t,t);execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('drop policy if exists %I_write on public.%I',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
+
+-- ============================================================
+-- FILE: 0012_h2obook_v46_data_automation.sql
+-- ============================================================
+-- H2OBOOK 4.6 Data Automation and Bulk Publishing
+create table if not exists public.data_sources(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,name text not null,source_type text not null check(source_type in ('csv','excel','google_sheets','api','form')),source_url text,asset_id uuid references public.assets(id) on delete set null,headers jsonb not null default '[]'::jsonb,row_count integer not null default 0,content_hash text,settings jsonb not null default '{}'::jsonb,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.bulk_generation_jobs(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,template_book_id uuid not null references public.books(id) on delete cascade,data_source_id uuid references public.data_sources(id) on delete set null,name text not null,status text not null default 'draft' check(status in ('draft','previewed','approved','queued','running','paused','completed','failed','cancelled')),row_count integer not null default 0,success_count integer not null default 0,error_count integer not null default 0,current_row integer not null default 0,mapping jsonb not null default '{}'::jsonb,settings jsonb not null default '{}'::jsonb,error_message text,created_by uuid references public.profiles(id) on delete set null,started_at timestamptz,completed_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.bulk_generation_items(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,job_id uuid not null references public.bulk_generation_jobs(id) on delete cascade,row_number integer not null,row_data jsonb not null,generated_book_id uuid references public.books(id) on delete set null,artifact_ids uuid[] not null default '{}',status text not null default 'pending' check(status in ('pending','valid','invalid','generating','completed','failed','skipped')),warnings jsonb not null default '[]'::jsonb,error_message text,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(job_id,row_number));
+create table if not exists public.template_data_mappings(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,template_book_id uuid not null references public.books(id) on delete cascade,name text not null,mapping jsonb not null default '{}'::jsonb,conditional_rules jsonb not null default '[]'::jsonb,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create index if not exists bulk_jobs_org_status_idx on public.bulk_generation_jobs(organization_id,status,created_at desc);create index if not exists bulk_items_job_row_idx on public.bulk_generation_items(job_id,row_number);
+alter table public.data_sources enable row level security;alter table public.bulk_generation_jobs enable row level security;alter table public.bulk_generation_items enable row level security;alter table public.template_data_mappings enable row level security;
+do $$ declare t text;begin foreach t in array array['data_sources','bulk_generation_jobs','bulk_generation_items','template_data_mappings'] loop execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
+
+-- ============================================================
+-- FILE: 0013_h2obook_v47_growth_reader.sql
+-- ============================================================
+-- H2OBOOK 4.7 Growth Reader and Content Commerce
+create table if not exists public.reader_campaigns(id uuid primary key default gen_random_uuid(),client_key text unique,organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,name text not null,status text not null default 'draft' check(status in ('draft','active','paused','archived')),preview_pages integer not null default 5,lead_gate_page integer,lead_fields jsonb not null default '["name","email"]'::jsonb,download_requires_lead boolean not null default false,cta_page integer,cta_label text,cta_url text,utm_capture boolean not null default true,crm_webhook_enabled boolean not null default false,settings jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.reader_leads(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,campaign_id uuid references public.reader_campaigns(id) on delete set null,email text not null,name text,phone text,company text,utm jsonb not null default '{}'::jsonb,session_id text,consent jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),unique(campaign_id,email));
+create table if not exists public.protected_embeds(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,enabled boolean not null default true,allowed_domains text[] not null default '{}',token_ttl_seconds integer not null default 600,settings jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(book_id));
+create table if not exists public.reader_ctas(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,campaign_id uuid not null references public.reader_campaigns(id) on delete cascade,page_number integer not null,label text not null,target_url text not null,cta_type text not null default 'button',settings jsonb not null default '{}'::jsonb,created_at timestamptz not null default now());
+create table if not exists public.reader_sessions(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,campaign_id uuid references public.reader_campaigns(id) on delete set null,user_id uuid references public.profiles(id) on delete set null,anonymous_id text,utm jsonb not null default '{}'::jsonb,referrer text,started_at timestamptz not null default now(),ended_at timestamptz,last_page integer not null default 1,max_page integer not null default 1,lead_id uuid references public.reader_leads(id) on delete set null,created_at timestamptz not null default now());
+create index if not exists reader_campaigns_book_status_idx on public.reader_campaigns(book_id,status);create index if not exists reader_leads_org_created_idx on public.reader_leads(organization_id,created_at desc);create index if not exists reader_sessions_book_started_idx on public.reader_sessions(book_id,started_at desc);
+alter table public.reader_campaigns enable row level security;alter table public.reader_leads enable row level security;alter table public.protected_embeds enable row level security;alter table public.reader_ctas enable row level security;alter table public.reader_sessions enable row level security;
+do $$ declare t text;begin foreach t in array array['reader_campaigns','reader_leads','protected_embeds','reader_ctas','reader_sessions'] loop execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
+
+-- ============================================================
+-- FILE: 0014_h2obook_v48_education_collaboration.sql
+-- ============================================================
+-- H2OBOOK 4.8 Education Collaboration and Accessibility
+create table if not exists public.student_remixes(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,master_book_id uuid not null references public.books(id) on delete cascade,master_version_id uuid references public.book_versions(id) on delete set null,student_id uuid not null references public.profiles(id) on delete cascade,class_id uuid references public.classes(id) on delete set null,status text not null default 'draft' check(status in ('draft','submitted','reviewed','returned')),progress integer not null default 0,submitted_at timestamptz,reviewed_at timestamptz,reviewed_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(master_book_id,student_id,class_id));
+create table if not exists public.remix_responses(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,remix_id uuid not null references public.student_remixes(id) on delete cascade,page_id text not null,block_id text,response_type text not null check(response_type in ('text','image','file','checklist')),text_response text,asset_id uuid references public.assets(id) on delete set null,status text not null default 'draft' check(status in ('draft','submitted','reviewed')),teacher_feedback text,score numeric(6,2),created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.class_progress_cells(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,class_id uuid not null references public.classes(id) on delete cascade,student_id uuid not null references public.profiles(id) on delete cascade,assignment_id uuid references public.assignments(id) on delete cascade,book_id uuid references public.books(id) on delete cascade,page_id text,status text not null default 'not_started' check(status in ('not_started','in_progress','submitted','reviewed','late')),progress integer not null default 0,score numeric(6,2),last_activity_at timestamptz,updated_at timestamptz not null default now(),unique(class_id,student_id,assignment_id,page_id));
+create table if not exists public.accessibility_profiles(id uuid primary key default gen_random_uuid(),user_id uuid not null references public.profiles(id) on delete cascade,font_scale numeric(4,2) not null default 1,high_contrast boolean not null default false,dyslexia_friendly boolean not null default false,reduced_motion boolean not null default false,text_to_speech_rate numeric(4,2) not null default 1,settings jsonb not null default '{}'::jsonb,updated_at timestamptz not null default now(),unique(user_id));
+create table if not exists public.accessibility_reports(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,book_version_id uuid references public.book_versions(id) on delete set null,score integer not null default 0,issues jsonb not null default '[]'::jsonb,reading_order jsonb not null default '[]'::jsonb,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now());
+create index if not exists remixes_student_status_idx on public.student_remixes(student_id,status,updated_at desc);create index if not exists class_progress_matrix_idx on public.class_progress_cells(class_id,student_id,assignment_id);
+alter table public.student_remixes enable row level security;alter table public.remix_responses enable row level security;alter table public.class_progress_cells enable row level security;alter table public.accessibility_profiles enable row level security;alter table public.accessibility_reports enable row level security;
+create policy remixes_student_read on public.student_remixes for select using(student_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy remixes_student_write on public.student_remixes for all using(student_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check(student_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy responses_read on public.remix_responses for select using(exists(select 1 from public.student_remixes r where r.id=remix_id and (r.student_id=auth.uid() or public.has_org_role(r.organization_id,array['owner','admin','teacher']::public.member_role[]))));create policy responses_write on public.remix_responses for all using(exists(select 1 from public.student_remixes r where r.id=remix_id and (r.student_id=auth.uid() or public.has_org_role(r.organization_id,array['owner','admin','teacher']::public.member_role[])))) with check(public.is_org_member(organization_id));
+create policy class_progress_read on public.class_progress_cells for select using(student_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy class_progress_write on public.class_progress_cells for all using(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy accessibility_profile_self on public.accessibility_profiles for all using(user_id=auth.uid()) with check(user_id=auth.uid());create policy accessibility_reports_read on public.accessibility_reports for select using(public.is_org_member(organization_id));create policy accessibility_reports_write on public.accessibility_reports for all using(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
+
+-- ============================================================
+-- FILE: 0015_h2obook_v49_analytics_event_engine.sql
+-- ============================================================
+-- H2OBOOK 4.9 Analytics Event Engine
+alter table public.analytics_events add column if not exists event_id uuid;alter table public.analytics_events add column if not exists resource_client_key text;alter table public.analytics_events add column if not exists received_at timestamptz not null default now();alter table public.analytics_events add column if not exists schema_version integer not null default 1;
+create unique index if not exists analytics_event_id_unique on public.analytics_events(event_id) where event_id is not null;create index if not exists analytics_session_idx on public.analytics_events(session_id,occurred_at);create index if not exists analytics_resource_client_idx on public.analytics_events(resource_client_key,event_name,occurred_at desc);
+create table if not exists public.analytics_consents(id uuid primary key default gen_random_uuid(),organization_id uuid references public.organizations(id) on delete cascade,user_id uuid references public.profiles(id) on delete cascade,anonymous_id text,analytics_allowed boolean not null default true,marketing_allowed boolean not null default false,source text not null default 'reader',updated_at timestamptz not null default now(),check(user_id is not null or anonymous_id is not null));
+create table if not exists public.analytics_daily_rollups(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,event_date date not null,book_id uuid references public.books(id) on delete cascade,metrics jsonb not null default '{}'::jsonb,updated_at timestamptz not null default now(),unique(organization_id,event_date,book_id));
+create table if not exists public.analytics_funnel_definitions(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,name text not null,steps jsonb not null default '[]'::jsonb,window_days integer not null default 30,active boolean not null default true,created_at timestamptz not null default now());
+alter table public.analytics_consents enable row level security;alter table public.analytics_daily_rollups enable row level security;alter table public.analytics_funnel_definitions enable row level security;
+create policy analytics_consent_self on public.analytics_consents for all using(user_id=auth.uid() or (organization_id is not null and public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))) with check(user_id=auth.uid() or (organization_id is not null and public.has_org_role(organization_id,array['owner','admin']::public.member_role[])));
+create policy analytics_rollups_read on public.analytics_daily_rollups for select using(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy analytics_rollups_write on public.analytics_daily_rollups for all using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy funnel_read on public.analytics_funnel_definitions for select using(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy funnel_write on public.analytics_funnel_definitions for all using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+-- ============================================================
+-- FILE: 0016_h2obook_v410_optional_ai_assistance.sql
+-- ============================================================
+-- H2OBOOK 4.10 Optional AI Assistance: disabled by default
+create table if not exists public.optional_ai_policies(id uuid primary key default gen_random_uuid(),organization_id uuid not null unique references public.organizations(id) on delete cascade,enabled boolean not null default false,default_mode text not null default 'local' check(default_mode in ('local','external')),monthly_budget_usd numeric(12,4) not null default 0,spent_usd numeric(12,6) not null default 0,billing_period date not null default date_trunc('month',now())::date,max_prompt_characters integer not null default 60000,cache_enabled boolean not null default true,allowed_tasks text[] not null default array['outline','rewrite','quiz','summary','brand_copy','translate','accessibility'],allow_image_input boolean not null default false,allow_external_sources boolean not null default false,settings jsonb not null default '{}'::jsonb,updated_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.optional_ai_usage(id bigint generated always as identity primary key,organization_id uuid not null references public.organizations(id) on delete cascade,user_id uuid references public.profiles(id) on delete set null,task_type text not null,provider text not null,model text,input_tokens integer not null default 0,output_tokens integer not null default 0,cost_usd numeric(12,6) not null default 0,cache_hit boolean not null default false,request_hash text,created_at timestamptz not null default now());
+create table if not exists public.optional_ai_cache(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,cache_key text not null,task_type text not null,provider text not null,output text not null,usage jsonb not null default '{}'::jsonb,expires_at timestamptz not null,created_at timestamptz not null default now(),unique(organization_id,cache_key));
+create index if not exists optional_ai_usage_org_month_idx on public.optional_ai_usage(organization_id,created_at desc);create index if not exists optional_ai_cache_expiry_idx on public.optional_ai_cache(expires_at);
+alter table public.optional_ai_policies enable row level security;alter table public.optional_ai_usage enable row level security;alter table public.optional_ai_cache enable row level security;
+create policy optional_ai_policy_read on public.optional_ai_policies for select using(public.is_org_member(organization_id));create policy optional_ai_policy_write on public.optional_ai_policies for all using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy optional_ai_usage_read on public.optional_ai_usage for select using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));create policy optional_ai_usage_insert on public.optional_ai_usage for insert with check(public.is_org_member(organization_id));
+create policy optional_ai_cache_read on public.optional_ai_cache for select using(public.is_org_member(organization_id));create policy optional_ai_cache_write on public.optional_ai_cache for all using(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
+create or replace function public.increment_optional_ai_spend(p_organization_id uuid,p_amount numeric) returns void language plpgsql security definer set search_path=public as $$begin if not public.is_org_member(p_organization_id) then raise exception 'workspace forbidden';end if;update public.optional_ai_policies set spent_usd=case when billing_period=date_trunc('month',now())::date then spent_usd+greatest(p_amount,0) else greatest(p_amount,0) end,billing_period=date_trunc('month',now())::date,updated_at=now() where organization_id=p_organization_id;end$$;revoke all on function public.increment_optional_ai_spend(uuid,numeric) from public;grant execute on function public.increment_optional_ai_spend(uuid,numeric) to authenticated;
+
+-- ============================================================
+-- FILE: 0017_h2obook_v411_marketplace_enterprise.sql
+-- ============================================================
+-- H2OBOOK 4.11 Marketplace and Enterprise Scale
+-- platform_admin is not yet a real role in public.member_role (see 0001_h2obook_core.sql) or in
+-- any accounts table, so this returns false until a follow-up migration introduces a real
+-- platform-admin account model. Until then, marketplace moderation and SLA-incident writes are
+-- deny-by-default for every authenticated user, which matches NEXT_PUBLIC_PLATFORM_ADMIN_V1=false.
+create or replace function public.is_platform_admin()
+returns boolean language sql stable as $$
+  select false;
+$$;
+
+create table if not exists public.marketplace_listings(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,owner_id uuid references public.profiles(id) on delete set null,slug text not null unique,title text not null,description text not null default '',cover_asset_id uuid references public.assets(id) on delete set null,listing_type text not null check(listing_type in ('book','template','bundle','membership','license')),resource_id uuid,resource_client_key text,price numeric(14,2) not null default 0,currency text not null default 'VND',status text not null default 'draft' check(status in ('draft','submitted','in_review','changes_requested','published','suspended','archived')),quality_score integer not null default 0,rating numeric(3,2) not null default 0,review_count integer not null default 0,preview_config jsonb not null default '{}'::jsonb,license_config jsonb not null default '{}'::jsonb,moderation_notes text,published_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.marketplace_listing_versions(id uuid primary key default gen_random_uuid(),listing_id uuid not null references public.marketplace_listings(id) on delete cascade,version_number integer not null,snapshot jsonb not null,change_note text,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),unique(listing_id,version_number));
+create table if not exists public.marketplace_reviews(id uuid primary key default gen_random_uuid(),listing_id uuid not null references public.marketplace_listings(id) on delete cascade,reviewer_id uuid not null references public.profiles(id) on delete cascade,rating integer not null check(rating between 1 and 5),title text,body text,status text not null default 'published' check(status in ('pending','published','hidden','reported')),verified_purchase boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(listing_id,reviewer_id));
+create table if not exists public.marketplace_moderation_cases(id uuid primary key default gen_random_uuid(),listing_id uuid not null references public.marketplace_listings(id) on delete cascade,status text not null default 'open' check(status in ('open','reviewing','approved','changes_requested','rejected','closed')),checks jsonb not null default '[]'::jsonb,assigned_to uuid references public.profiles(id) on delete set null,decision text,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.enterprise_org_units(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,parent_id uuid references public.enterprise_org_units(id) on delete cascade,name text not null,unit_type text not null default 'team',settings jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.sso_configurations(id uuid primary key default gen_random_uuid(),organization_id uuid not null unique references public.organizations(id) on delete cascade,provider_type text not null check(provider_type in ('saml','oidc')),enabled boolean not null default false,issuer text,authorization_url text,token_url text,certificate text,client_id text,client_secret_encrypted text,domain_allowlist text[] not null default '{}',settings jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.public_api_keys(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,name text not null,key_prefix text not null,key_hash text not null unique,scopes text[] not null default '{}',last_used_at timestamptz,expires_at timestamptz,revoked_at timestamptz,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now());
+create table if not exists public.webhook_endpoints(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,name text not null,url text not null,events text[] not null default '{}',secret_hash text not null,enabled boolean not null default true,last_success_at timestamptz,last_failure_at timestamptz,failure_count integer not null default 0,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.webhook_deliveries(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,endpoint_id uuid not null references public.webhook_endpoints(id) on delete cascade,event_id uuid,event_type text not null,payload jsonb not null,status text not null default 'queued' check(status in ('queued','sending','delivered','retry','failed','cancelled')),attempt_count integer not null default 0,next_attempt_at timestamptz not null default now(),response_status integer,response_body text,created_at timestamptz not null default now(),delivered_at timestamptz);
+create table if not exists public.usage_quotas(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,metric text not null,period text not null default 'month',limit_value bigint not null,used_value bigint not null default 0,warning_percent integer not null default 85,period_started_at timestamptz not null default date_trunc('month',now()),period_ends_at timestamptz not null default date_trunc('month',now())+interval '1 month',updated_at timestamptz not null default now(),unique(organization_id,metric,period_started_at));
+create table if not exists public.data_retention_policies(id uuid primary key default gen_random_uuid(),organization_id uuid not null unique references public.organizations(id) on delete cascade,analytics_days integer not null default 365,audit_days integer not null default 730,deleted_content_days integer not null default 30,legal_hold boolean not null default false,settings jsonb not null default '{}'::jsonb,updated_at timestamptz not null default now());
+create table if not exists public.sla_incidents(id uuid primary key default gen_random_uuid(),organization_id uuid references public.organizations(id) on delete cascade,service text not null,severity text not null check(severity in ('minor','major','critical')),status text not null default 'open' check(status in ('open','monitoring','resolved')),started_at timestamptz not null default now(),resolved_at timestamptz,summary text not null,impact text,created_at timestamptz not null default now());
+create index if not exists marketplace_listing_status_idx on public.marketplace_listings(status,published_at desc);create index if not exists webhook_delivery_queue_idx on public.webhook_deliveries(status,next_attempt_at);create index if not exists api_keys_org_idx on public.public_api_keys(organization_id,revoked_at);
+alter table public.marketplace_listings enable row level security;alter table public.marketplace_listing_versions enable row level security;alter table public.marketplace_reviews enable row level security;alter table public.marketplace_moderation_cases enable row level security;alter table public.enterprise_org_units enable row level security;alter table public.sso_configurations enable row level security;alter table public.public_api_keys enable row level security;alter table public.webhook_endpoints enable row level security;alter table public.webhook_deliveries enable row level security;alter table public.usage_quotas enable row level security;alter table public.data_retention_policies enable row level security;alter table public.sla_incidents enable row level security;
+create policy marketplace_public_read on public.marketplace_listings for select using(status='published' or public.is_org_member(organization_id));create policy marketplace_owner_write on public.marketplace_listings for all using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));create policy listing_versions_read on public.marketplace_listing_versions for select using(exists(select 1 from public.marketplace_listings l where l.id=listing_id and (l.status='published' or public.is_org_member(l.organization_id))));create policy listing_versions_write on public.marketplace_listing_versions for all using(exists(select 1 from public.marketplace_listings l where l.id=listing_id and public.has_org_role(l.organization_id,array['owner','admin']::public.member_role[]))) with check(true);
+create policy marketplace_reviews_read on public.marketplace_reviews for select using(status='published' or reviewer_id=auth.uid());create policy marketplace_reviews_write on public.marketplace_reviews for all using(reviewer_id=auth.uid()) with check(reviewer_id=auth.uid());create policy moderation_admin on public.marketplace_moderation_cases for all using(public.is_platform_admin()) with check(public.is_platform_admin());
+do $$ declare t text;begin foreach t in array array['enterprise_org_units','sso_configurations','public_api_keys','webhook_endpoints','webhook_deliveries','usage_quotas','data_retention_policies'] loop execute format('create policy %I_read on public.%I for select using(public.has_org_role(organization_id,array[''owner'',''admin'']::public.member_role[]))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'']::public.member_role[]))',t,t);end loop;end $$;
+create policy sla_admin_read on public.sla_incidents for select using(organization_id is null or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));create policy sla_platform_write on public.sla_incidents for all using(public.is_platform_admin()) with check(public.is_platform_admin());
+
+-- ============================================================
+-- FILE: 0018_h2obook_v411_final_hardening.sql
+-- ============================================================
+-- H2OBOOK 4.11 final integration hardening
+-- Encrypted webhook secrets, transactional delivery enqueue and public API usage accounting.
+
+alter table public.webhook_endpoints add column if not exists secret_ciphertext text;
+alter table public.webhook_deliveries add column if not exists last_error text;
+alter table public.webhook_deliveries add column if not exists request_id uuid not null default gen_random_uuid();
+alter table public.webhook_deliveries add column if not exists domain_event_id bigint references public.domain_events(id) on delete cascade;
+create unique index if not exists webhook_delivery_endpoint_domain_event_unique on public.webhook_deliveries(endpoint_id,domain_event_id) where domain_event_id is not null;
+
+create or replace function public.enqueue_domain_webhook_delivery()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  insert into public.webhook_deliveries(organization_id,endpoint_id,domain_event_id,event_type,payload,status,next_attempt_at)
+  select new.organization_id,e.id,new.id,
+         case when position('.' in new.event_name)>0 then new.event_name else new.resource_type||'.'||new.event_name end,
+         jsonb_build_object(
+           'id',new.id,
+           'organizationId',new.organization_id,
+           'actorId',new.actor_id,
+           'resourceType',new.resource_type,
+           'resourceId',new.resource_id,
+           'eventName',new.event_name,
+           'payload',new.payload,
+           'occurredAt',new.occurred_at
+         ),
+         'queued',now()
+  from public.webhook_endpoints e
+  where e.organization_id=new.organization_id
+    and e.enabled=true
+    and e.secret_ciphertext is not null
+    and (
+      '*'=any(e.events)
+      or new.event_name=any(e.events)
+      or (new.resource_type||'.'||new.event_name)=any(e.events)
+    )
+  on conflict(endpoint_id,domain_event_id) where domain_event_id is not null do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists domain_event_webhook_enqueue on public.domain_events;
+create trigger domain_event_webhook_enqueue after insert on public.domain_events
+for each row execute function public.enqueue_domain_webhook_delivery();
+
+create or replace function public.claim_webhook_deliveries(p_limit integer default 10)
+returns setof public.webhook_deliveries
+language plpgsql security definer set search_path=public as $$
+begin
+  return query
+  with candidates as (
+    select id from public.webhook_deliveries
+    where status in ('queued','retry') and next_attempt_at<=now()
+    order by next_attempt_at,created_at
+    for update skip locked
+    limit greatest(1,least(p_limit,100))
+  )
+  update public.webhook_deliveries d
+  set status='sending',attempt_count=d.attempt_count+1
+  from candidates c
+  where d.id=c.id
+  returning d.*;
+end;
+$$;
+
+revoke all on function public.claim_webhook_deliveries(integer) from public,anon,authenticated;
+grant execute on function public.claim_webhook_deliveries(integer) to service_role;
+
+-- ============================================================
+-- FILE: 0019_h2obook_v4133_pdf_dual_import.sql
+-- ============================================================
+-- H2OBOOK 4.13.3 — PDF Dual Import
+-- Add the semantic PDF reconstruction job while preserving all legacy document jobs.
+
+alter table public.document_jobs
+  drop constraint if exists document_jobs_job_type_check;
+
+alter table public.document_jobs
+  add constraint document_jobs_job_type_check
+  check (job_type in ('pdf_import','pdf_reconstruct','docx_import','ocr','thumbnail','pdf_export','health_scan'));
+
+create index if not exists document_jobs_pdf_reconstruct_idx
+  on public.document_jobs (organization_id, created_at desc)
+  where job_type = 'pdf_reconstruct';
+
+comment on column public.document_jobs.job_type is
+  'Document processing job. pdf_reconstruct converts native PDF text/images/tables into BookDocument; ocr is deterministic Tesseract fallback for scanned pages.';
+
+-- ============================================================
+-- FILE: 0020_h2obook_v4134_image_smart_import.sql
+-- ============================================================
+-- H2OBOOK 4.13.4 — Image Smart Import
+-- Stores deterministic image variants and region plans without introducing AI dependencies.
+
+create table if not exists public.asset_variants (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  asset_id uuid not null references public.assets(id) on delete cascade,
+  variant_type text not null check (variant_type in ('thumbnail','preview','crop','print')),
+  storage_key text not null unique,
+  mime_type text not null,
+  size_bytes bigint not null default 0,
+  width integer,
+  height integer,
+  checksum text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(asset_id, variant_type, storage_key)
+);
+
+create table if not exists public.image_import_regions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  asset_id uuid not null references public.assets(id) on delete cascade,
+  book_client_key text,
+  region_kind text not null check (region_kind in ('text','image','ignore')),
+  reading_order integer not null default 0,
+  bounds jsonb not null,
+  label text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.asset_variants enable row level security;
+alter table public.image_import_regions enable row level security;
+
+create policy "asset variants org read" on public.asset_variants for select
+  using (public.is_org_member(organization_id));
+create policy "asset variants editor write" on public.asset_variants for all
+  using (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]));
+create policy "image regions org read" on public.image_import_regions for select
+  using (public.is_org_member(organization_id));
+create policy "image regions editor write" on public.image_import_regions for all
+  using (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]));
+
+create index if not exists asset_variants_asset_idx on public.asset_variants(asset_id,variant_type);
+create index if not exists image_import_regions_asset_idx on public.image_import_regions(asset_id,reading_order);
+
+comment on table public.asset_variants is 'Generated image variants such as WebP thumbnails and manual crops.';
+comment on table public.image_import_regions is 'Deterministic region plan used by Image Smart Import OCR/crop workflow.';
+
+create or replace function public.replace_image_import_regions(
+  p_organization_id uuid,
+  p_asset_id uuid,
+  p_book_client_key text,
+  p_regions jsonb
+) returns integer
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  inserted_count integer := 0;
+begin
+  if not public.has_org_role(p_organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]) then
+    raise exception 'WORKSPACE_FORBIDDEN';
+  end if;
+  if not exists (
+    select 1 from public.assets
+    where id = p_asset_id and organization_id = p_organization_id and deleted_at is null
+  ) then
+    raise exception 'ASSET_NOT_FOUND';
+  end if;
+
+  delete from public.image_import_regions
+  where organization_id = p_organization_id and asset_id = p_asset_id;
+
+  insert into public.image_import_regions(
+    organization_id, asset_id, book_client_key, region_kind, reading_order,
+    bounds, label, metadata, created_by
+  )
+  select
+    p_organization_id,
+    p_asset_id,
+    p_book_client_key,
+    case when item->>'kind' in ('text','image','ignore') then item->>'kind' else 'ignore' end,
+    greatest(0, coalesce((item->>'order')::integer, ordinal::integer - 1)),
+    jsonb_build_object(
+      'x', greatest(0, coalesce((item->>'x')::numeric, 0)),
+      'y', greatest(0, coalesce((item->>'y')::numeric, 0)),
+      'width', greatest(1, coalesce((item->>'width')::numeric, 1)),
+      'height', greatest(1, coalesce((item->>'height')::numeric, 1))
+    ),
+    nullif(left(coalesce(item->>'label',''),200),''),
+    jsonb_build_object('clientRegionId', item->>'id'),
+    auth.uid()
+  from jsonb_array_elements(coalesce(p_regions,'[]'::jsonb)) with ordinality as region(item, ordinal);
+
+  get diagnostics inserted_count = row_count;
+  return inserted_count;
+end;
+$$;
+
+grant execute on function public.replace_image_import_regions(uuid,uuid,text,jsonb) to authenticated;
+
+-- ============================================================
+-- FILE: 0021_h2obook_v4136_input_orchestrator.sql
+-- ============================================================
+-- H2OBOOK 4.13.6 — Unified Input Orchestrator, Preview, Commit, Retry and Recovery
+
+create table if not exists public.input_sessions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  requested_by uuid not null references public.profiles(id) on delete cascade,
+  idempotency_key text not null,
+  source_format text not null check (source_format in ('docx','pdf','png','jpeg','html','markdown','txt','url')),
+  import_mode text not null check (import_mode in ('fixed_layout','editable_content','asset','full_page','ocr','manual_regions')),
+  status text not null default 'created' check (status in ('created','detected','validating','uploading','scanning','queued','processing','preview','correcting','committing','completed','recovery_required','failed','cancelled')),
+  progress integer not null default 0 check (progress between 0 and 100),
+  source jsonb not null default '{}'::jsonb,
+  destination jsonb not null default '{"type":"new_book"}'::jsonb,
+  preview_document jsonb,
+  corrections jsonb not null default '[]'::jsonb,
+  design_payload jsonb,
+  warnings jsonb not null default '[]'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  attempt integer not null default 0 check (attempt between 0 and 10),
+  cancellation_requested boolean not null default false,
+  retryable boolean not null default true,
+  last_error_code text,
+  last_error_message text,
+  external_job_id text,
+  target_book_id uuid references public.books(id) on delete set null,
+  expected_document_version integer,
+  commit_result jsonb,
+  recovery_token_hash text,
+  expires_at timestamptz,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,idempotency_key)
+);
+
+create table if not exists public.input_session_events (
+  id bigint generated always as identity primary key,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  session_id uuid not null references public.input_sessions(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  event_name text not null,
+  status text not null,
+  progress integer not null default 0,
+  payload jsonb not null default '{}'::jsonb,
+  occurred_at timestamptz not null default now()
+);
+
+create index if not exists input_sessions_org_updated_idx on public.input_sessions(organization_id,updated_at desc);
+create index if not exists input_sessions_status_idx on public.input_sessions(organization_id,status,updated_at desc);
+create index if not exists input_sessions_job_idx on public.input_sessions(external_job_id) where external_job_id is not null;
+create index if not exists input_session_events_session_idx on public.input_session_events(session_id,occurred_at);
+
+alter table public.input_sessions enable row level security;
+alter table public.input_session_events enable row level security;
+
+drop policy if exists input_sessions_member_select on public.input_sessions;
+create policy input_sessions_member_select on public.input_sessions for select using (public.is_org_member(organization_id));
+drop policy if exists input_sessions_editor_write on public.input_sessions;
+create policy input_sessions_editor_write on public.input_sessions for all
+  using (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]));
+drop policy if exists input_session_events_member_select on public.input_session_events;
+create policy input_session_events_member_select on public.input_session_events for select using (public.is_org_member(organization_id));
+drop policy if exists input_session_events_editor_insert on public.input_session_events;
+create policy input_session_events_editor_insert on public.input_session_events for insert
+  with check (public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[]));
+
+-- Semantic parsers already emit table row/cell nodes. Keep database constraints aligned.
+alter table public.content_nodes drop constraint if exists content_nodes_node_type_check;
+alter table public.content_nodes add constraint content_nodes_node_type_check check (node_type in (
+  'chapter','section','heading','paragraph','list','list_item','image','table','table_row','table_cell',
+  'quote','quiz','footnote','citation','divider','callout','interactive'
+));
+
+create or replace function public.log_input_session_event(
+  p_session_id uuid,
+  p_event_name text,
+  p_payload jsonb default '{}'::jsonb
+) returns bigint language plpgsql security invoker set search_path=public as $$
+declare v_session public.input_sessions; v_id bigint;
+begin
+  select * into v_session from public.input_sessions where id=p_session_id;
+  if v_session.id is null or not public.is_org_member(v_session.organization_id) then raise exception 'INPUT_SESSION_NOT_FOUND'; end if;
+  insert into public.input_session_events(organization_id,session_id,actor_id,event_name,status,progress,payload)
+  values(v_session.organization_id,v_session.id,auth.uid(),p_event_name,v_session.status,v_session.progress,coalesce(p_payload,'{}'::jsonb)) returning id into v_id;
+  return v_id;
+end;
+$$;
+
+grant execute on function public.log_input_session_event(uuid,text,jsonb) to authenticated;
+
+create or replace function public.commit_input_session(
+  p_session_id uuid,
+  p_title text,
+  p_language text,
+  p_metadata jsonb,
+  p_version integer,
+  p_nodes jsonb,
+  p_design_payload jsonb default null,
+  p_client_key text default null,
+  p_slug text default null
+) returns jsonb language plpgsql security invoker set search_path=public as $$
+declare
+  v_session public.input_sessions;
+  v_book_id uuid;
+  v_document_id uuid;
+  v_document_version integer;
+  v_destination text;
+  v_client_key text;
+  v_result jsonb;
+  item jsonb;
+begin
+  select * into v_session from public.input_sessions where id=p_session_id for update;
+  if v_session.id is null then raise exception 'INPUT_SESSION_NOT_FOUND'; end if;
+  if not public.has_org_role(v_session.organization_id,array['owner','admin','designer']::public.member_role[]) then raise exception 'FORBIDDEN'; end if;
+  if v_session.status='completed' then return coalesce(v_session.commit_result,'{}'::jsonb) || jsonb_build_object('alreadyCommitted',true); end if;
+  if v_session.status not in ('preview','correcting','committing','recovery_required','failed') then raise exception 'INPUT_SESSION_NOT_COMMITTABLE'; end if;
+  if exists(select 1 from jsonb_array_elements(coalesce(v_session.warnings,'[]'::jsonb)) w where w->>'severity'='error') then raise exception 'IMPORT_PREVIEW_BLOCKED'; end if;
+
+  update public.input_sessions set status='committing',progress=95,updated_at=now(),last_error_code=null,last_error_message=null where id=v_session.id;
+  v_destination:=coalesce(v_session.destination->>'type','new_book');
+  v_client_key:=coalesce(nullif(p_client_key,''),'import-'||replace(v_session.id::text,'-',''));
+
+  if v_destination='new_book' then
+    insert into public.books(organization_id,owner_id,client_key,title,slug,status,current_version,updated_at)
+    values(v_session.organization_id,auth.uid(),v_client_key,coalesce(nullif(p_title,''),'Tài liệu nhập'),coalesce(nullif(p_slug,''),'import-'||left(replace(v_session.id::text,'-',''),18)),'draft',1,now())
+    on conflict(organization_id,client_key) where client_key is not null do update set updated_at=now()
+    returning id into v_book_id;
+  else
+    v_book_id:=coalesce(v_session.target_book_id,nullif(v_session.destination->>'targetBookId','')::uuid);
+    if v_book_id is null then raise exception 'INPUT_TARGET_BOOK_REQUIRED'; end if;
+    if not exists(select 1 from public.books where id=v_book_id and organization_id=v_session.organization_id and deleted_at is null) then raise exception 'BOOK_NOT_FOUND'; end if;
+  end if;
+
+  if p_design_payload is not null then
+    select public.save_book_document(v_session.organization_id,v_client_key,coalesce(nullif(p_slug,''),'import-'||left(replace(v_session.id::text,'-',''),18)),p_design_payload) into v_book_id;
+    v_result:=jsonb_build_object('sessionId',v_session.id,'bookId',v_book_id,'clientKey',v_client_key,'destination',v_destination,'committedAt',now(),'openPath','/editor/'||v_client_key);
+  else
+    select version into v_document_version from public.book_documents where book_id=v_book_id for update;
+    if v_session.expected_document_version is not null and coalesce(v_document_version,0)<>v_session.expected_document_version then raise exception 'INPUT_VERSION_CONFLICT'; end if;
+
+    insert into public.book_documents(organization_id,book_id,title,language,metadata,version,created_by)
+    values(v_session.organization_id,v_book_id,coalesce(nullif(p_title,''),'Tài liệu nhập'),coalesce(nullif(p_language,''),'vi'),coalesce(p_metadata,'{}'::jsonb),greatest(coalesce(p_version,1),coalesce(v_document_version,0)+1),auth.uid())
+    on conflict(book_id) do update set title=excluded.title,language=excluded.language,metadata=excluded.metadata,version=excluded.version,updated_at=now()
+    returning id,version into v_document_id,v_document_version;
+
+    delete from public.content_nodes where document_id=v_document_id;
+    for item in select value from jsonb_array_elements(coalesce(p_nodes,'[]'::jsonb)) loop
+      insert into public.content_nodes(id,organization_id,document_id,parent_id,node_type,position,text_content,attrs,version)
+      values((item->>'id')::uuid,v_session.organization_id,v_document_id,nullif(item->>'parentId','')::uuid,item->>'type',coalesce((item->>'position')::integer,0),coalesce(item->'text','[]'::jsonb),coalesce(item->'attrs','{}'::jsonb),greatest(coalesce((item->>'version')::integer,1),1));
+    end loop;
+    update public.books set title=coalesce(nullif(p_title,''),title),updated_at=now() where id=v_book_id;
+    v_result:=jsonb_build_object('sessionId',v_session.id,'bookId',v_book_id,'clientKey',coalesce((select client_key from public.books where id=v_book_id),v_client_key),'documentId',v_document_id,'documentVersion',v_document_version,'destination',v_destination,'committedAt',now(),'openPath','/editor/'||coalesce((select client_key from public.books where id=v_book_id),v_book_id::text)||'?mode=compose');
+  end if;
+
+  update public.input_sessions set status='completed',progress=100,target_book_id=v_book_id,commit_result=v_result,completed_at=now(),updated_at=now(),retryable=false where id=v_session.id;
+  insert into public.input_session_events(organization_id,session_id,actor_id,event_name,status,progress,payload)
+  values(v_session.organization_id,v_session.id,auth.uid(),'session.completed','completed',100,v_result);
+  insert into public.domain_events(organization_id,actor_id,resource_type,resource_id,event_name,payload)
+  values(v_session.organization_id,auth.uid(),'input_session',v_session.id,'input.committed',v_result);
+  insert into public.analytics_events(event_id,organization_id,user_id,event_name,resource_type,resource_id,resource_client_key,properties,occurred_at)
+  values(gen_random_uuid(),v_session.organization_id,auth.uid(),'input_committed','book',v_book_id,coalesce(v_result->>'clientKey',v_book_id::text),jsonb_build_object('format',v_session.source_format,'mode',v_session.import_mode,'destination',v_destination,'sessionId',v_session.id),now());
+  return v_result;
+exception when others then
+  update public.input_sessions set status='recovery_required',progress=95,retryable=true,last_error_code=sqlstate,last_error_message=sqlerrm,updated_at=now() where id=p_session_id and status<>'completed';
+  insert into public.input_session_events(organization_id,session_id,actor_id,event_name,status,progress,payload)
+  select organization_id,id,auth.uid(),'session.commit_recovery_required','recovery_required',95,jsonb_build_object('code',sqlstate,'message',sqlerrm) from public.input_sessions where id=p_session_id;
+  return jsonb_build_object('error',sqlerrm,'code',sqlstate,'recoveryRequired',true,'sessionId',p_session_id);
+end;
+$$;
+
+grant execute on function public.commit_input_session(uuid,text,text,jsonb,integer,jsonb,jsonb,text,text) to authenticated;
+
+-- Realtime enables recovery from another tab/device.
+do $$ begin
+  begin alter publication supabase_realtime add table public.input_sessions; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.input_session_events; exception when duplicate_object then null; end;
+end $$;
+
+-- ============================================================
+-- FILE: 0022_h2obook_v4137_production_hardening.sql
+-- ============================================================
+-- H2OBOOK 4.13.7 — Production Validation & Hardening
+
+alter table public.input_sessions add column if not exists trace_id text;
+alter table public.input_sessions add column if not exists heartbeat_at timestamptz;
+alter table public.input_sessions add column if not exists processing_deadline_at timestamptz;
+alter table public.input_sessions add column if not exists lease_owner text;
+alter table public.input_sessions add column if not exists metrics jsonb not null default '{}'::jsonb;
+alter table public.input_sessions add column if not exists security_summary jsonb not null default '{}'::jsonb;
+alter table public.input_session_events add column if not exists trace_id text;
+
+update public.input_sessions
+set trace_id = coalesce(trace_id, 'itr_' || replace(id::text,'-','')),
+    heartbeat_at = coalesce(heartbeat_at, updated_at),
+    processing_deadline_at = coalesce(processing_deadline_at, updated_at + interval '45 minutes')
+where trace_id is null or heartbeat_at is null or processing_deadline_at is null;
+
+alter table public.input_sessions alter column trace_id set not null;
+create unique index if not exists input_sessions_trace_id_idx on public.input_sessions(trace_id);
+create index if not exists input_sessions_recovery_idx on public.input_sessions(status,heartbeat_at,processing_deadline_at)
+  where status in ('queued','processing','committing');
+create index if not exists input_session_events_trace_idx on public.input_session_events(trace_id,occurred_at desc) where trace_id is not null;
+
+alter table public.input_sessions drop constraint if exists input_sessions_attempt_hardened_check;
+alter table public.input_sessions add constraint input_sessions_attempt_hardened_check check (attempt between 0 and 5) not valid;
+alter table public.input_sessions drop constraint if exists input_sessions_preview_size_check;
+alter table public.input_sessions add constraint input_sessions_preview_size_check check (preview_document is null or pg_column_size(preview_document) <= 31457280) not valid;
+alter table public.input_sessions drop constraint if exists input_sessions_corrections_size_check;
+alter table public.input_sessions add constraint input_sessions_corrections_size_check check (pg_column_size(corrections) <= 6291456) not valid;
+alter table public.input_sessions drop constraint if exists input_sessions_design_size_check;
+alter table public.input_sessions add constraint input_sessions_design_size_check check (design_payload is null or pg_column_size(design_payload) <= 62914560) not valid;
+alter table public.input_sessions drop constraint if exists input_sessions_metadata_size_check;
+alter table public.input_sessions add constraint input_sessions_metadata_size_check check (pg_column_size(metadata) <= 3145728) not valid;
+alter table public.input_sessions drop constraint if exists input_sessions_warning_size_check;
+alter table public.input_sessions add constraint input_sessions_warning_size_check check (pg_column_size(warnings) <= 2097152) not valid;
+
+create or replace function public.guard_input_session_payload()
+returns trigger language plpgsql set search_path=public as $$
+begin
+  if tg_op = 'UPDATE' and (new.organization_id <> old.organization_id or new.requested_by <> old.requested_by or new.idempotency_key <> old.idempotency_key) then
+    raise exception 'INPUT_SESSION_IDENTITY_IMMUTABLE';
+  end if;
+  new.updated_at := now();
+  new.trace_id := coalesce(nullif(new.trace_id,''), 'itr_' || replace(new.id::text,'-',''));
+  new.heartbeat_at := coalesce(new.heartbeat_at, now());
+  if new.processing_deadline_at is null then new.processing_deadline_at := now() + interval '45 minutes'; end if;
+  if length(coalesce(new.idempotency_key,'')) > 240 then raise exception 'INPUT_IDEMPOTENCY_KEY_TOO_LONG'; end if;
+  if pg_column_size(new.source) > 2097152 then raise exception 'INPUT_SOURCE_METADATA_TOO_LARGE'; end if;
+  if pg_column_size(new.destination) > 65536 then raise exception 'INPUT_DESTINATION_TOO_LARGE'; end if;
+  if jsonb_typeof(new.corrections) <> 'array' then raise exception 'INPUT_CORRECTIONS_INVALID'; end if;
+  if jsonb_array_length(new.corrections) > 5000 then raise exception 'INPUT_CORRECTION_LIMIT_EXCEEDED'; end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_input_session_payload_trigger on public.input_sessions;
+create trigger guard_input_session_payload_trigger before insert or update on public.input_sessions
+for each row execute function public.guard_input_session_payload();
+
+-- Do not allow browser clients to mutate another member's sessions or change organization/requester fields.
+drop policy if exists input_sessions_editor_write on public.input_sessions;
+drop policy if exists input_sessions_creator_insert on public.input_sessions;
+create policy input_sessions_creator_insert on public.input_sessions for insert
+  with check (
+    requested_by = auth.uid()
+    and public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[])
+  );
+drop policy if exists input_sessions_owner_update on public.input_sessions;
+create policy input_sessions_owner_update on public.input_sessions for update
+  using (
+    public.has_org_role(organization_id,array['owner','admin']::public.member_role[])
+    or (requested_by = auth.uid() and public.has_org_role(organization_id,array['designer','partner','teacher']::public.member_role[]))
+  )
+  with check (
+    public.has_org_role(organization_id,array['owner','admin']::public.member_role[])
+    or (requested_by = auth.uid() and public.has_org_role(organization_id,array['designer','partner','teacher']::public.member_role[]))
+  );
+
+drop policy if exists input_session_events_editor_insert on public.input_session_events;
+create policy input_session_events_editor_insert on public.input_session_events for insert
+  with check (
+    actor_id = auth.uid()
+    and public.has_org_role(organization_id,array['owner','admin','designer','partner','teacher']::public.member_role[])
+    and exists(select 1 from public.input_sessions s where s.id=session_id and s.organization_id=organization_id)
+  );
+
+create or replace function public.touch_input_session(
+  p_session_id uuid,
+  p_progress integer default null,
+  p_metrics jsonb default '{}'::jsonb,
+  p_lease_owner text default null
+) returns boolean language plpgsql security invoker set search_path=public as $$
+declare v_org uuid;
+begin
+  select organization_id into v_org from public.input_sessions where id=p_session_id;
+  if v_org is null then return false; end if;
+  if auth.role() <> 'service_role' and not public.has_org_role(v_org,array['owner','admin','designer','partner','teacher']::public.member_role[]) then raise exception 'FORBIDDEN'; end if;
+  update public.input_sessions
+  set heartbeat_at=now(), progress=coalesce(greatest(progress,least(99,greatest(0,p_progress))),progress),
+      metrics=coalesce(metrics,'{}'::jsonb)||coalesce(p_metrics,'{}'::jsonb), lease_owner=coalesce(p_lease_owner,lease_owner), updated_at=now()
+  where id=p_session_id and status not in ('completed','cancelled');
+  return found;
+end;
+$$;
+grant execute on function public.touch_input_session(uuid,integer,jsonb,text) to authenticated,service_role;
+
+create or replace function public.commit_input_session_hardened(
+  p_session_id uuid,
+  p_title text,
+  p_language text,
+  p_metadata jsonb,
+  p_version integer,
+  p_nodes jsonb,
+  p_design_payload jsonb default null,
+  p_client_key text default null,
+  p_slug text default null
+) returns jsonb language plpgsql security invoker set search_path=public as $$
+begin
+  if length(coalesce(p_title,'')) > 500 then raise exception 'INPUT_TITLE_TOO_LONG'; end if;
+  if jsonb_typeof(coalesce(p_nodes,'[]'::jsonb)) <> 'array' then raise exception 'IMPORT_NODES_INVALID'; end if;
+  if jsonb_array_length(coalesce(p_nodes,'[]'::jsonb)) > 50000 then raise exception 'IMPORT_NODE_LIMIT_EXCEEDED'; end if;
+  if pg_column_size(coalesce(p_nodes,'[]'::jsonb)) > 31457280 then raise exception 'IMPORT_NODES_TOO_LARGE'; end if;
+  if pg_column_size(coalesce(p_metadata,'{}'::jsonb)) > 2097152 then raise exception 'IMPORT_METADATA_TOO_LARGE'; end if;
+  if p_design_payload is not null and pg_column_size(p_design_payload) > 62914560 then raise exception 'INPUT_DESIGN_PAYLOAD_TOO_LARGE'; end if;
+  return public.commit_input_session(p_session_id,p_title,p_language,p_metadata,p_version,p_nodes,p_design_payload,p_client_key,p_slug);
+end;
+$$;
+grant execute on function public.commit_input_session_hardened(uuid,text,text,jsonb,integer,jsonb,jsonb,text,text) to authenticated;
+
+create or replace function public.recover_stale_input_sessions(p_limit integer default 100)
+returns table(session_id uuid, organization_id uuid, previous_status text, error_code text)
+language plpgsql security definer set search_path=public as $$
+begin
+  if auth.role() <> 'service_role' then raise exception 'SERVICE_ROLE_REQUIRED'; end if;
+  return query
+  with candidates as (
+    select id,organization_id,status
+    from public.input_sessions
+    where status in ('queued','processing','committing')
+      and (
+        processing_deadline_at < now()
+        or heartbeat_at < now() - interval '5 minutes'
+      )
+    order by updated_at
+    limit least(greatest(p_limit,1),500)
+    for update skip locked
+  ), updated as (
+    update public.input_sessions s
+    set status='recovery_required', retryable=true, lease_owner=null,
+        last_error_code=case when s.processing_deadline_at < now() then 'INPUT_PROCESSING_TIMEOUT' else 'INPUT_HEARTBEAT_STALE' end,
+        last_error_message='Phiên nhập bị gián đoạn và đã được chuyển sang trạng thái khôi phục.', updated_at=now()
+    from candidates c where s.id=c.id
+    returning s.id,s.organization_id,c.status,s.last_error_code,s.trace_id,s.progress
+  ), events as (
+    insert into public.input_session_events(organization_id,session_id,event_name,status,progress,trace_id,payload)
+    select u.organization_id,u.id,'session.recovery_required','recovery_required',u.progress,u.trace_id,jsonb_build_object('errorCode',u.last_error_code,'source','stale-session-sweeper')
+    from updated u returning session_id
+  )
+  select u.id,u.organization_id,u.status,u.last_error_code from updated u;
+end;
+$$;
+revoke all on function public.recover_stale_input_sessions(integer) from public,anon,authenticated;
+grant execute on function public.recover_stale_input_sessions(integer) to service_role;
+
+comment on function public.recover_stale_input_sessions(integer) is 'Service-role sweeper for timed-out or heartbeat-stale input sessions.';
+
+-- ============================================================
+-- FILE: 0023_h2obook_v4141_student_storage_quota.sql
+-- ============================================================
+-- H2OBOOK 4.14.1 — Per-student storage quota for self-service Design Library
+
+alter table public.organization_members add column if not exists storage_quota_bytes bigint;
+
+create index if not exists assets_org_uploader_idx on public.assets (organization_id, uploaded_by);
+
+comment on column public.organization_members.storage_quota_bytes is
+  'Optional per-membership storage cap in bytes. Null falls back to the role-based default in lib/storage/quota.ts (students only; other roles remain unlimited).';
+
+-- ============================================================
+-- FILE: 0024_h2obook_v416_academy_revenue_loop.sql
+-- ============================================================
+-- H2OBOOK V4.16 Academy revenue loop
+-- Public application -> admin approval -> Auth invite -> entitlement -> lesson progress.
+begin;
+
+alter table public.profiles add column if not exists email text;
+create unique index if not exists profiles_email_unique on public.profiles(lower(email)) where email is not null;
+
+alter table public.products drop constraint if exists products_product_type_check;
+alter table public.products add constraint products_product_type_check
+  check (product_type in ('book','template','course','membership','bundle'));
+
+create table if not exists public.academy_courses (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  slug text not null,
+  title text not null,
+  subtitle text not null default '',
+  description text not null default '',
+  category text not null default '',
+  level text not null default '',
+  duration_label text not null default '',
+  format text not null default 'Online',
+  price numeric(14,2) not null default 0,
+  currency text not null default 'VND',
+  accent text not null default '',
+  outcomes text[] not null default '{}',
+  status text not null default 'draft' check (status in ('draft','active','hidden','archived')),
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(organization_id,slug)
+);
+
+create table if not exists public.academy_course_modules (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.academy_courses(id) on delete cascade,
+  slug text not null,
+  title text not null,
+  description text not null default '',
+  position integer not null default 0,
+  status text not null default 'draft' check (status in ('draft','published','archived')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(course_id,slug)
+);
+
+create table if not exists public.academy_course_lessons (
+  id uuid primary key default gen_random_uuid(),
+  module_id uuid not null references public.academy_course_modules(id) on delete cascade,
+  slug text not null,
+  title text not null,
+  description text not null default '',
+  position integer not null default 0,
+  duration_seconds integer not null default 0 check (duration_seconds >= 0),
+  video_provider text not null default 'cloudflare_stream' check (video_provider in ('cloudflare_stream','direct','embed','none')),
+  video_playback_id text,
+  video_url text,
+  transcript_asset_id uuid references public.assets(id) on delete set null,
+  content jsonb not null default '{}'::jsonb,
+  skill_keys text[] not null default '{}',
+  is_preview boolean not null default false,
+  status text not null default 'draft' check (status in ('draft','published','archived')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(module_id,slug)
+);
+
+create table if not exists public.academy_applications (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  target_type text not null check (target_type in ('course','membership')),
+  target_slug text not null,
+  target_name text not null,
+  name text not null,
+  email text not null check (email=lower(email)),
+  phone text,
+  message text,
+  status text not null default 'new' check (status in ('new','approved','invited','converted','rejected')),
+  source text not null default 'academy_public',
+  utm jsonb not null default '{}'::jsonb,
+  consent jsonb not null default '{}'::jsonb,
+  auth_user_id uuid references public.profiles(id) on delete set null,
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.academy_lesson_progress (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  lesson_id uuid not null references public.academy_course_lessons(id) on delete cascade,
+  completed boolean not null default false,
+  watch_seconds integer not null default 0 check (watch_seconds >= 0),
+  last_position_seconds integer not null default 0 check (last_position_seconds >= 0),
+  started_at timestamptz not null default now(),
+  last_watched_at timestamptz not null default now(),
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id,lesson_id)
+);
+
+create table if not exists public.academy_skill_progress (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  course_id uuid not null references public.academy_courses(id) on delete cascade,
+  skill_key text not null,
+  progress_percent numeric(5,2) not null default 0 check (progress_percent between 0 and 100),
+  evidence_count integer not null default 0,
+  updated_at timestamptz not null default now(),
+  unique(user_id,course_id,skill_key)
+);
+
+create table if not exists public.transactional_email_log (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid references public.organizations(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  recipient text not null,
+  template_key text not null,
+  dedupe_key text not null,
+  provider text,
+  provider_message_id text,
+  status text not null default 'sent' check (status in ('sent','failed','skipped')),
+  error_message text,
+  sent_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique(template_key,dedupe_key)
+);
+
+create index if not exists academy_applications_org_status_idx on public.academy_applications(organization_id,status,created_at desc);
+create index if not exists academy_applications_email_idx on public.academy_applications(lower(email),created_at desc);
+create unique index if not exists academy_applications_open_unique on public.academy_applications(organization_id,lower(email),target_type,target_slug)
+  where status in ('new','approved','invited');
+create index if not exists academy_modules_course_position_idx on public.academy_course_modules(course_id,position);
+create index if not exists academy_lessons_module_position_idx on public.academy_course_lessons(module_id,position);
+create index if not exists academy_progress_user_recent_idx on public.academy_lesson_progress(user_id,last_watched_at desc);
+create index if not exists academy_skill_user_idx on public.academy_skill_progress(user_id,updated_at desc);
+create index if not exists transactional_email_recipient_idx on public.transactional_email_log(recipient,sent_at desc);
+
+alter table public.academy_courses enable row level security;
+alter table public.academy_course_modules enable row level security;
+alter table public.academy_course_lessons enable row level security;
+alter table public.academy_applications enable row level security;
+alter table public.academy_lesson_progress enable row level security;
+alter table public.academy_skill_progress enable row level security;
+alter table public.transactional_email_log enable row level security;
+
+create policy "academy courses public read" on public.academy_courses for select
+  using (status='active' or public.is_org_member(organization_id));
+create policy "academy courses admin write" on public.academy_courses for all
+  using (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "academy modules public read" on public.academy_course_modules for select
+  using (status='published' or exists(select 1 from public.academy_courses c where c.id=course_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "academy modules admin write" on public.academy_course_modules for all
+  using (exists(select 1 from public.academy_courses c where c.id=course_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])))
+  with check (exists(select 1 from public.academy_courses c where c.id=course_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "academy lessons entitled read" on public.academy_course_lessons for select using (
+  is_preview or exists(
+    select 1 from public.academy_course_modules m join public.academy_courses c on c.id=m.course_id
+    where m.id=module_id and (
+      public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[]) or
+      exists(select 1 from public.entitlements e where e.user_id=auth.uid() and e.organization_id=c.organization_id and e.status='active' and (e.expires_at is null or e.expires_at>now()) and ((e.resource_type='course' and e.resource_id=c.id) or e.resource_type='membership'))
+    )
+  )
+);
+create policy "academy lessons admin write" on public.academy_course_lessons for all
+  using (exists(select 1 from public.academy_course_modules m join public.academy_courses c on c.id=m.course_id where m.id=module_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])))
+  with check (exists(select 1 from public.academy_course_modules m join public.academy_courses c on c.id=m.course_id where m.id=module_id and public.has_org_role(c.organization_id,array['owner','admin','teacher']::public.member_role[])));
+create policy "academy applications admin read" on public.academy_applications for select
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "academy applications admin manage" on public.academy_applications for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "academy progress self read" on public.academy_lesson_progress for select
+  using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "academy progress self write" on public.academy_lesson_progress for all
+  using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "academy skill self read" on public.academy_skill_progress for select
+  using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
+create policy "academy skill self write" on public.academy_skill_progress for all
+  using (user_id=auth.uid()) with check (user_id=auth.uid());
+create policy "transactional email admin read" on public.transactional_email_log for select
+  using (organization_id is not null and public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create or replace function public.refresh_academy_skill_progress()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  v_user_id uuid;
+  v_lesson_id uuid;
+  v_org_id uuid;
+  v_course_id uuid;
+  v_skill text;
+  v_total integer;
+  v_completed integer;
+begin
+  if tg_op='DELETE' then
+    v_user_id := old.user_id;
+    v_lesson_id := old.lesson_id;
+  else
+    v_user_id := new.user_id;
+    v_lesson_id := new.lesson_id;
+  end if;
+  select c.organization_id,c.id into v_org_id,v_course_id
+  from public.academy_course_lessons l
+  join public.academy_course_modules m on m.id=l.module_id
+  join public.academy_courses c on c.id=m.course_id
+  where l.id=v_lesson_id;
+  if v_course_id is null then
+    if tg_op='DELETE' then return old; else return new; end if;
+  end if;
+  for v_skill in select distinct unnest(l.skill_keys) from public.academy_course_lessons l where l.id=v_lesson_id loop
+    select count(*) into v_total from public.academy_course_lessons l
+      join public.academy_course_modules m on m.id=l.module_id
+      where m.course_id=v_course_id and v_skill=any(l.skill_keys) and l.status='published';
+    select count(*) into v_completed from public.academy_lesson_progress p
+      join public.academy_course_lessons l on l.id=p.lesson_id
+      join public.academy_course_modules m on m.id=l.module_id
+      where p.user_id=v_user_id and p.completed and m.course_id=v_course_id and v_skill=any(l.skill_keys);
+    insert into public.academy_skill_progress(organization_id,user_id,course_id,skill_key,progress_percent,evidence_count,updated_at)
+      values(v_org_id,v_user_id,v_course_id,v_skill,case when v_total=0 then 0 else round(v_completed::numeric*100/v_total,2) end,v_completed,now())
+      on conflict(user_id,course_id,skill_key) do update set progress_percent=excluded.progress_percent,evidence_count=excluded.evidence_count,updated_at=now();
+  end loop;
+  if tg_op='DELETE' then return old; else return new; end if;
+end;
+$$;
+
+drop trigger if exists refresh_academy_skill_progress_trigger on public.academy_lesson_progress;
+create trigger refresh_academy_skill_progress_trigger
+after insert or update of completed or delete on public.academy_lesson_progress
+for each row execute function public.refresh_academy_skill_progress();
+
+-- Keep profile email in sync so reminders and CRM joins never need direct auth schema access.
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  v_org_id uuid;
+  v_name text;
+  v_slug text;
+begin
+  v_name := nullif(trim(coalesce(new.raw_user_meta_data->>'full_name','')), '');
+  insert into public.profiles(id,email,full_name,avatar_url)
+  values(new.id,lower(new.email),coalesce(v_name,''),new.raw_user_meta_data->>'avatar_url')
+  on conflict(id) do update set email=excluded.email,full_name=excluded.full_name,avatar_url=excluded.avatar_url,updated_at=now();
+  if coalesce(new.raw_user_meta_data->>'role','owner')='owner' and not exists(select 1 from public.organization_members where user_id=new.id) then
+    v_slug := trim(both '-' from regexp_replace(lower(coalesce(v_name,split_part(new.email,'@',1),'h2obook')), '[^a-z0-9]+', '-', 'g')) || '-' || substr(replace(new.id::text,'-',''),1,8);
+    insert into public.organizations(name,slug,owner_id) values(coalesce(v_name,'H2OBOOK Workspace'),v_slug,new.id) returning id into v_org_id;
+    insert into public.organization_members(organization_id,user_id,role,status) values(v_org_id,new.id,'owner','active');
+  end if;
+  return new;
+end;
+$$;
+
+update public.profiles p set email=lower(u.email) from auth.users u where u.id=p.id and p.email is null;
+
+commit;
+
+-- ============================================================
+-- FILE: 0025_h2obook_operations_foundation.sql
+-- ============================================================
+-- H2OBOOK Operations Expansion Foundation
+-- Revised from optional/supabase/0023_h2obook_operations_expansion_optional.sql shipped with the
+-- H2OBOOK-OPERATIONS-EXPANSION-FOUNDATION-MODULE: adds organization_id scoping consistent with the
+-- rest of the schema, RLS policies built on the existing public.has_org_role/is_org_member helpers,
+-- and updated_at maintenance triggers. Not auto-applied; run only after review.
+--
+-- Role note: admissions/support/finance/content_manager/platform_admin are part of the Operations
+-- Foundation's application-level role model (types/operations.ts) but are NOT part of the
+-- public.member_role enum (0001_h2obook_core.sql: owner, admin, designer, partner, teacher,
+-- student). Until a follow-up migration extends that enum, these tables are only readable/writable
+-- by owner/admin at the database layer; app-layer route guards mirror this in
+-- lib/operations/role-bridge.ts and app/operations/layout.tsx.
+begin;
+
+create table if not exists public.admission_leads (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  phone text not null default '',
+  email text not null default '',
+  source text not null default 'manual',
+  interest text not null default '',
+  stage text not null default 'new' check (stage in ('new','contacted','consulted','qualified','deposit','paid','enrolled','lost')),
+  owner_id uuid references auth.users(id) on delete set null,
+  next_action_at timestamptz,
+  expected_value bigint not null default 0,
+  notes text not null default '',
+  tags text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.customer_applications (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  lead_id uuid references public.admission_leads(id) on delete set null,
+  customer_user_id uuid references auth.users(id) on delete set null,
+  program_name text not null,
+  profile_completion int not null default 0 check (profile_completion between 0 and 100),
+  payment_status text not null default 'unpaid' check (payment_status in ('unpaid','deposit','paid','refunded')),
+  onboarding_stage text not null default 'application' check (onboarding_stage in ('application','documents','payment','class_assignment','account_provisioning','completed')),
+  class_id uuid,
+  account_provisioned boolean not null default false,
+  documents jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  code text not null,
+  requester_user_id uuid references auth.users(id) on delete set null,
+  requester_name text not null,
+  requester_type text not null check (requester_type in ('lead','customer','student','instructor','staff')),
+  category text not null check (category in ('account','payment','course','assignment','technical','policy')),
+  subject text not null,
+  description text not null default '',
+  priority text not null default 'normal' check (priority in ('low','normal','high','urgent')),
+  status text not null default 'open' check (status in ('open','in_progress','waiting_customer','resolved','closed')),
+  assignee_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organization_id, code)
+);
+
+create table if not exists public.approval_requests (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  request_type text not null check (request_type in ('book','course','lesson','landing','design','graduation','certificate','marketplace')),
+  title text not null,
+  resource_type text,
+  resource_id text,
+  requester_id uuid references auth.users(id) on delete set null,
+  reviewer_id uuid references auth.users(id) on delete set null,
+  status text not null default 'pending' check (status in ('pending','approved','changes_requested','rejected')),
+  risk_level text not null default 'low' check (risk_level in ('low','medium','high')),
+  decision_note text not null default '',
+  due_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.operations_import_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  import_type text not null check (import_type in ('leads','students','payments','classes','scores')),
+  asset_id uuid references public.assets(id) on delete set null,
+  file_name text not null,
+  mapping jsonb not null default '{}'::jsonb,
+  preview jsonb not null default '{}'::jsonb,
+  row_count int not null default 0,
+  valid_rows int not null default 0,
+  invalid_rows int not null default 0,
+  status text not null default 'draft' check (status in ('draft','validating','ready','processing','completed','failed','rolled_back')),
+  rollback_payload jsonb,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table if not exists public.certificate_issues (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  certificate_no text not null,
+  verification_token text not null,
+  student_id uuid references public.profiles(id) on delete set null,
+  student_name text not null,
+  course_name text not null,
+  instructor_name text not null,
+  status text not null default 'valid' check (status in ('valid','revoked','expired')),
+  issued_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
+  unique (organization_id, certificate_no),
+  unique (verification_token)
+);
+
+create index if not exists admission_leads_org_stage_idx on public.admission_leads(organization_id,stage,updated_at desc);
+create index if not exists customer_applications_org_stage_idx on public.customer_applications(organization_id,onboarding_stage,updated_at desc);
+create index if not exists customer_applications_user_idx on public.customer_applications(customer_user_id);
+create index if not exists support_tickets_org_status_idx on public.support_tickets(organization_id,status,updated_at desc);
+create index if not exists approval_requests_org_status_idx on public.approval_requests(organization_id,status,due_at);
+create index if not exists operations_import_jobs_org_idx on public.operations_import_jobs(organization_id,created_at desc);
+create index if not exists certificate_issues_org_idx on public.certificate_issues(organization_id,issued_at desc);
+
+alter table public.admission_leads enable row level security;
+alter table public.customer_applications enable row level security;
+alter table public.support_tickets enable row level security;
+alter table public.approval_requests enable row level security;
+alter table public.operations_import_jobs enable row level security;
+alter table public.certificate_issues enable row level security;
+
+create policy "admission leads staff manage" on public.admission_leads for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "customer applications staff manage" on public.customer_applications for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "customer applications self read" on public.customer_applications for select
+  using (customer_user_id=auth.uid());
+
+create policy "support tickets staff manage" on public.support_tickets for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+create policy "support tickets self read" on public.support_tickets for select
+  using (requester_user_id=auth.uid());
+
+create policy "approval requests staff manage" on public.approval_requests for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "operations import jobs staff manage" on public.operations_import_jobs for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+
+create policy "certificate issues staff manage" on public.certificate_issues for all
+  using (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]))
+  with check (public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
+-- Certificate verification (/verify/[certificateNo]) is public and read-only; it must read through
+-- a narrow server-side lookup (service role or a dedicated SECURITY DEFINER function) that returns
+-- only certificate_no/student_name/course_name/instructor_name/issued_at/status, never
+-- verification_token or organization_id. No public SELECT policy is granted on this table.
+
+-- Reuses public.touch_updated_at(), already defined in 0007_h2obook_v41_production_foundation.sql.
+drop trigger if exists admission_leads_touch_updated_at on public.admission_leads;
+create trigger admission_leads_touch_updated_at before update on public.admission_leads
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists customer_applications_touch_updated_at on public.customer_applications;
+create trigger customer_applications_touch_updated_at before update on public.customer_applications
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists support_tickets_touch_updated_at on public.support_tickets;
+create trigger support_tickets_touch_updated_at before update on public.support_tickets
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists approval_requests_touch_updated_at on public.approval_requests;
+create trigger approval_requests_touch_updated_at before update on public.approval_requests
+for each row execute function public.touch_updated_at();
+
+commit;
+

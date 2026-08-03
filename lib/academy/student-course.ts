@@ -21,6 +21,7 @@ export type StudentLesson = {
   completed: boolean;
   watchSeconds: number;
   lastPositionSeconds: number;
+  knowledgeSpaceSlug?: string;
 };
 
 export type StudentCourseModule = { id: string; slug: string; title: string; position: number; lessons: StudentLesson[] };
@@ -99,6 +100,8 @@ export async function getStudentCourse(user: CurrentUser, slug: string): Promise
   const lessonIds = (lessonRows ?? []).map((item) => String(item.id));
   const { data: progressRows } = lessonIds.length ? await admin.from("academy_lesson_progress").select("lesson_id,completed,watch_seconds,last_position_seconds").eq("user_id", user.id).in("lesson_id", lessonIds) : { data: [] };
   const progressMap = new Map((progressRows ?? []).map((item) => [String(item.lesson_id), item]));
+  const { data: spaceRows } = lessonIds.length ? await admin.from("knowledge_spaces").select("content_item_id,slug").in("content_item_id", lessonIds).eq("status", "published") : { data: [] };
+  const spaceSlugByLesson = new Map((spaceRows ?? []).map((row) => [String(row.content_item_id), String(row.slug)]));
   const modules: StudentCourseModule[] = (moduleRows ?? []).map((module) => ({
     id: String(module.id),
     slug: String(module.slug),
@@ -119,7 +122,8 @@ export async function getStudentCourse(user: CurrentUser, slug: string): Promise
         content: (lesson.content ?? {}) as StudentLesson["content"],
         completed: Boolean(progress?.completed),
         watchSeconds: Number(progress?.watch_seconds ?? 0),
-        lastPositionSeconds: Number(progress?.last_position_seconds ?? 0)
+        lastPositionSeconds: Number(progress?.last_position_seconds ?? 0),
+        knowledgeSpaceSlug: spaceSlugByLesson.get(String(lesson.id))
       };
     })
   }));

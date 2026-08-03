@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Circle, CirclePlay, Clock3, FileText, ListVideo, Play, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Circle, CirclePlay, Clock3, FileText, ListVideo, Play, RotateCcw } from "lucide-react";
 import type { StudentCourseData, StudentLesson } from "@/lib/academy/student-course";
 
 function durationLabel(seconds: number) {
@@ -67,7 +68,7 @@ export function CoursePlayer({ initialCourse }: { initialCourse: StudentCourseDa
   return <div className="h2o-course-player-shell">
     <section className="h2o-player-main">
       <div className="h2o-player-video"><VideoSurface lesson={active} onPosition={(seconds) => { positionRef.current = seconds; }}/></div>
-      <div className="h2o-player-lesson-head"><div><span>BÀI {activeIndex + 1}/{flatLessons.length} · {durationLabel(active.durationSeconds)}</span><h1>{active.title}</h1><p>{active.description}</p></div><button className={active.completed ? "completed" : ""} disabled={busy} onClick={toggleComplete}>{active.completed ? <RotateCcw/> : <CheckCircle2/>}{active.completed ? "Đánh dấu chưa xong" : "Hoàn thành bài học"}</button></div>
+      <div className="h2o-player-lesson-head"><div><span>BÀI {activeIndex + 1}/{flatLessons.length} · {durationLabel(active.durationSeconds)}</span><h1>{active.title}</h1><p>{active.description}</p></div><div style={{ display: "flex", gap: 8 }}>{active.knowledgeSpaceSlug && <Link href={`/student/spaces/${active.knowledgeSpaceSlug}`} className="btn btn-soft" style={{ textDecoration: "none" }}><Brain size={16}/>Học ngay</Link>}<button className={active.completed ? "completed" : ""} disabled={busy} onClick={toggleComplete}>{active.completed ? <RotateCcw/> : <CheckCircle2/>}{active.completed ? "Đánh dấu chưa xong" : "Hoàn thành bài học"}</button></div></div>
       {notice && <div className="h2o-player-notice">{notice}</div>}
       <div className="h2o-player-content"><article><FileText/><div><span>TÓM TẮT</span><p>{active.content.summary ?? active.description}</p></div></article><article><ListVideo/><div><span>CHECKLIST THỰC HÀNH</span><ul>{(active.content.checklist ?? []).map((item) => <li key={item}>{item}</li>)}</ul></div></article></div>
       <div className="h2o-player-navigation"><button disabled={activeIndex <= 0} onClick={() => setActiveId(flatLessons[activeIndex - 1].id)}><ArrowLeft/>Bài trước</button><button disabled={activeIndex >= flatLessons.length - 1} onClick={() => setActiveId(flatLessons[activeIndex + 1].id)}>Bài tiếp theo<ArrowRight/></button></div>
