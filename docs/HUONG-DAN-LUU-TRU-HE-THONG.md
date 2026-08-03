@@ -6,6 +6,14 @@
 
 ---
 
+**2026-08-03 — ⚠️ Đã merge + deploy module H2O Business Growth & Commerce Engine V1, CẦN CHẠY MIGRATION 0030.**
+- Đã merge `feature/business-growth-commerce-v1` vào `main`, deploy production thành công (health check OK, `mode: production`).
+- Trước khi tích hợp đã kiểm tra: `/store`, `/orders`, `/membership`, `/analytics`, `/marketplace-studio`, `/licensing`, `/white-label`, `/growth-reader` (8 trang Admin hiện có) đều vẫn đang dùng dữ liệu demo cũ (chưa nối Supabase) — theo đúng yêu cầu của module này, **không đụng vào 8 trang đó**, chỉ xây thêm khu vực mới cho học viên.
+- Trang mới cho học viên: `/student/business` (Trung tâm kinh doanh — mục tiêu, nhiệm vụ, chỉ số lead/booking/doanh thu thật, thành quả Create sẵn dùng), `/student/business/customers` (Pipeline khách hàng cá nhân — thêm/sửa lead thật), `/student/business/growth` (thành quả Create dùng để tăng trưởng), `/student/business/operations` (đơn hàng, membership, quyền lợi thật của riêng học viên đó).
+- **Việc bắt buộc:** mở file `supabase/_RUN-0030-ONLY.sql` (mới) → copy toàn bộ → dán vào Supabase SQL Editor (New query) → Run. Đã kiểm tra không trùng tên với 29 migration trước.
+- Cho tới khi chạy: 4 trang `/student/business/*` sẽ báo lỗi hoặc hiện rỗng. Các phần khác không bị ảnh hưởng.
+- Chi tiết đầy đủ, bao gồm các phần cố ý chưa làm (Roadmap Builder cấu hình giai đoạn, Offer/Pricing Builder riêng — dùng lại recipe có sẵn của Create Outcome Studio thay vì làm công cụ mới, Growth Campaign, CRM nâng cao...): `docs/H2OBOOK-BUSINESS-GROWTH-COMMERCE-ENGINE-V1-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ⚠️ Đã merge + deploy module H2O Teaching Intelligence Center V1, CẦN CHẠY MIGRATION 0029.**
 - Đã merge `feature/teaching-intelligence-center-v1` vào `main`, deploy production thành công (health check OK, `mode: production`).
 - Trước khi tích hợp đã kiểm tra tính nhất quán toàn bộ webapp theo yêu cầu: phát hiện hệ thống vai trò trong module nguồn (mentor/instructor/reviewer/training_manager/admin/owner) không khớp với vai trò thật trong database (chỉ có `teacher/admin/owner` cho người dạy) — đã thu hẹp lại đúng theo dữ liệu thật, không tạo hệ vai trò song song. Cũng phát hiện 4 trang `/instructor`, `/instructor/classes`, `/instructor/students`, `/instructor/assessments` trước đây **đều hiển thị cùng 1 component demo giả lập** (không đọc dữ liệu thật) — đã thay bằng dữ liệu Supabase thật cho cả 4 trang.
