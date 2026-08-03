@@ -18,6 +18,12 @@
 - **Đã sửa:** đổi tên bảng mới thành `brain_assignment_submissions` để không trùng. Đã kiểm tra lại toàn bộ 21 bảng mới + kiểu dữ liệu + hàm trong `0026`, xác nhận không còn trùng tên với bất kỳ thứ gì trong 25 migration trước.
 - **Việc bạn cần làm:** vì lần chạy trước đã tự rollback sạch (không để lại gì), **không cần dọn dẹp gì thêm** — chỉ cần mở lại file `supabase/_RUN-0026-ONLY.sql` (đã cập nhật bản sửa), copy toàn bộ, dán vào Supabase SQL Editor (mở **New query** mới) → Run lại từ đầu.
 
+**2026-08-03 — ⚠️ Đã merge + deploy thêm module H2O Create Outcome Studio V1, CẦN CHẠY MIGRATION 0027.**
+- Đã merge `feature/create-outcome-studio-v1` vào `main`, deploy production thành công (health check OK).
+- **Việc bắt buộc:** mở file `supabase/_RUN-0027-ONLY.sql` (mới) → copy toàn bộ → dán vào Supabase SQL Editor (New query) → Run. Đã kiểm tra không trùng tên với 26 migration trước.
+- Cho tới khi chạy: `/student/create` (Studio tạo thành quả học tập) và trang chia sẻ công khai `/verify-outcome/[slug]` sẽ báo lỗi. Các phần khác không ảnh hưởng.
+- Chi tiết: `docs/H2OBOOK-CREATE-OUTCOME-STUDIO-V1-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ✅ Migration 0026 chạy thành công.** Đã kiểm tra qua API: đầy đủ cả 21 bảng mới (knowledge_spaces, knowledge_space_versions, learning_sections, learning_blocks, brain_templates, experience_cases, rubrics, assignment_definitions, brain_assignment_submissions, block_progress, knowledge_space_progress, learner_notes, learner_experiences, learning_results, share_card_templates, shared_results, journal_entries, knowledge_chunks, knowledge_nodes, knowledge_edges, completion_conditions) đều đã tồn tại thật trên Supabase production. Từ giờ `/instructor/brain-studio` và `/student/spaces/[slug]` đã có thể dùng được với dữ liệu thật (đăng nhập bằng tài khoản owner/teacher để tạo Knowledge Space đầu tiên, gắn vào 1 bài học đã có).
 
 ---
