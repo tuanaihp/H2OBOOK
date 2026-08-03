@@ -1,9 +1,4 @@
--- H2OBOOK combined migrations 0001-0028, generated for one-shot run in Supabase SQL Editor
--- Generated 2026-08-03 (v5 — adds 0028 learn_mastery_engine_v1). Run once on a brand-new/empty Supabase project only.
-
--- ============================================================
 -- FILE: 0001_h2obook_core.sql
--- ============================================================
 -- H2OBOOK V1 core schema
 -- Run in Supabase SQL editor or via `supabase db push`.
 create extension if not exists "pgcrypto";
@@ -363,9 +358,7 @@ create policy "clone overrides via clone" on public.clone_overrides for all usin
 create policy "publications editor write" on public.publications for all using (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[])) with check (public.has_org_role(organization_id,array['owner','admin','designer','partner']::public.member_role[]));
 create policy "jobs self update" on public.import_jobs for update using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
 
--- ============================================================
 -- FILE: 0002_h2obook_v2_integrated.sql
--- ============================================================
 -- H2OBOOK V2 integrated migration
 -- Extends V1 in-place. Run after 0001_h2obook_core.sql.
 
@@ -831,9 +824,7 @@ $$;
 
 commit;
 
--- ============================================================
 -- FILE: 0003_h2obook_v3_integrated.sql
--- ============================================================
 -- H2OBOOK V3 integrated migration
 -- Extends the same V1/V2 database. Run after 0001 and 0002.
 
@@ -1101,9 +1092,7 @@ $$;
 
 commit;
 
--- ============================================================
 -- FILE: 0004_h2obook_production_core.sql
--- ============================================================
 begin;
 
 create table if not exists public.workspace_snapshots (
@@ -1240,9 +1229,7 @@ $$;
 
 commit;
 
--- ============================================================
 -- FILE: 0005_h2obook_security_hardening.sql
--- ============================================================
 begin;
 
 drop policy if exists "snapshots org read" on public.workspace_snapshots;
@@ -1488,9 +1475,7 @@ end $$;
 
 commit;
 
--- ============================================================
 -- FILE: 0006_h2obook_v4_smart_core.sql
--- ============================================================
 begin;
 
 create table if not exists public.smart_core_settings (
@@ -1656,9 +1641,7 @@ comment on table public.reusable_blocks is 'Reusable content blocks inspired by 
 
 commit;
 
--- ============================================================
 -- FILE: 0007_h2obook_v41_production_foundation.sql
--- ============================================================
 -- H2OBOOK 4.1 Production Foundation
 -- Domain events, optimistic revisions, consistent updated_at and realtime publication.
 
@@ -1754,9 +1737,7 @@ begin
   end loop;
 end $$;
 
--- ============================================================
 -- FILE: 0008_h2obook_v42_semantic_content.sql
--- ============================================================
 -- H2OBOOK 4.2 Semantic Content & Asset Architecture
 
 create table if not exists public.book_documents (
@@ -1991,9 +1972,7 @@ $$;
 
 grant execute on function public.save_book_semantic_document(uuid,uuid,text,text,jsonb,integer,jsonb) to authenticated;
 
--- ============================================================
 -- FILE: 0009_h2obook_v43_authoring_editor.sql
--- ============================================================
 -- H2OBOOK 4.3 Professional Authoring Editor
 
 create table if not exists public.editor_operations (
@@ -2090,9 +2069,7 @@ begin
   end loop;
 end $$;
 
--- ============================================================
 -- FILE: 0010_h2obook_v44_publishing_engine.sql
--- ============================================================
 -- H2OBOOK 4.4 Professional Publishing Engine
 create table if not exists public.publishing_profiles(
  id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid references public.books(id) on delete cascade,name text not null,profile_type text not null,settings jsonb not null default '{}'::jsonb,is_default boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
@@ -2110,9 +2087,7 @@ create index if not exists publishing_jobs_org_status_idx on public.publishing_j
 alter table public.publishing_profiles enable row level security;alter table public.publishing_jobs enable row level security;alter table public.publishing_artifacts enable row level security;alter table public.lms_packages enable row level security;
 do $$ declare t text;begin foreach t in array array['publishing_profiles','publishing_jobs','publishing_artifacts','lms_packages'] loop execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
 
--- ============================================================
 -- FILE: 0011_h2obook_v45_universal_ingestion.sql
--- ============================================================
 -- H2OBOOK 4.5 Universal Content Ingestion
 create table if not exists public.ingestion_sources(
  id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,source_type text not null,source_url text,title text not null,asset_id uuid references public.assets(id) on delete set null,content_hash text,metadata jsonb not null default '{}'::jsonb,status text not null default 'ready' check(status in ('pending','ready','blocked','failed')),created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
@@ -2130,9 +2105,7 @@ create index if not exists ingestion_runs_org_status_idx on public.ingestion_run
 alter table public.ingestion_sources enable row level security;alter table public.ingestion_runs enable row level security;alter table public.ingestion_segments enable row level security;alter table public.ingestion_mappings enable row level security;
 do $$ declare t text;begin foreach t in array array['ingestion_sources','ingestion_runs','ingestion_segments','ingestion_mappings'] loop execute format('drop policy if exists %I_read on public.%I',t,t);execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('drop policy if exists %I_write on public.%I',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
 
--- ============================================================
 -- FILE: 0012_h2obook_v46_data_automation.sql
--- ============================================================
 -- H2OBOOK 4.6 Data Automation and Bulk Publishing
 create table if not exists public.data_sources(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,name text not null,source_type text not null check(source_type in ('csv','excel','google_sheets','api','form')),source_url text,asset_id uuid references public.assets(id) on delete set null,headers jsonb not null default '[]'::jsonb,row_count integer not null default 0,content_hash text,settings jsonb not null default '{}'::jsonb,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
 create table if not exists public.bulk_generation_jobs(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,template_book_id uuid not null references public.books(id) on delete cascade,data_source_id uuid references public.data_sources(id) on delete set null,name text not null,status text not null default 'draft' check(status in ('draft','previewed','approved','queued','running','paused','completed','failed','cancelled')),row_count integer not null default 0,success_count integer not null default 0,error_count integer not null default 0,current_row integer not null default 0,mapping jsonb not null default '{}'::jsonb,settings jsonb not null default '{}'::jsonb,error_message text,created_by uuid references public.profiles(id) on delete set null,started_at timestamptz,completed_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
@@ -2142,9 +2115,7 @@ create index if not exists bulk_jobs_org_status_idx on public.bulk_generation_jo
 alter table public.data_sources enable row level security;alter table public.bulk_generation_jobs enable row level security;alter table public.bulk_generation_items enable row level security;alter table public.template_data_mappings enable row level security;
 do $$ declare t text;begin foreach t in array array['data_sources','bulk_generation_jobs','bulk_generation_items','template_data_mappings'] loop execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
 
--- ============================================================
 -- FILE: 0013_h2obook_v47_growth_reader.sql
--- ============================================================
 -- H2OBOOK 4.7 Growth Reader and Content Commerce
 create table if not exists public.reader_campaigns(id uuid primary key default gen_random_uuid(),client_key text unique,organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,name text not null,status text not null default 'draft' check(status in ('draft','active','paused','archived')),preview_pages integer not null default 5,lead_gate_page integer,lead_fields jsonb not null default '["name","email"]'::jsonb,download_requires_lead boolean not null default false,cta_page integer,cta_label text,cta_url text,utm_capture boolean not null default true,crm_webhook_enabled boolean not null default false,settings jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
 create table if not exists public.reader_leads(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,book_id uuid not null references public.books(id) on delete cascade,campaign_id uuid references public.reader_campaigns(id) on delete set null,email text not null,name text,phone text,company text,utm jsonb not null default '{}'::jsonb,session_id text,consent jsonb not null default '{}'::jsonb,created_at timestamptz not null default now(),unique(campaign_id,email));
@@ -2155,9 +2126,7 @@ create index if not exists reader_campaigns_book_status_idx on public.reader_cam
 alter table public.reader_campaigns enable row level security;alter table public.reader_leads enable row level security;alter table public.protected_embeds enable row level security;alter table public.reader_ctas enable row level security;alter table public.reader_sessions enable row level security;
 do $$ declare t text;begin foreach t in array array['reader_campaigns','reader_leads','protected_embeds','reader_ctas','reader_sessions'] loop execute format('create policy %I_read on public.%I for select using(public.is_org_member(organization_id))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'',''designer'']::public.member_role[]))',t,t);end loop;end $$;
 
--- ============================================================
 -- FILE: 0014_h2obook_v48_education_collaboration.sql
--- ============================================================
 -- H2OBOOK 4.8 Education Collaboration and Accessibility
 create table if not exists public.student_remixes(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,master_book_id uuid not null references public.books(id) on delete cascade,master_version_id uuid references public.book_versions(id) on delete set null,student_id uuid not null references public.profiles(id) on delete cascade,class_id uuid references public.classes(id) on delete set null,status text not null default 'draft' check(status in ('draft','submitted','reviewed','returned')),progress integer not null default 0,submitted_at timestamptz,reviewed_at timestamptz,reviewed_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(master_book_id,student_id,class_id));
 create table if not exists public.remix_responses(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,remix_id uuid not null references public.student_remixes(id) on delete cascade,page_id text not null,block_id text,response_type text not null check(response_type in ('text','image','file','checklist')),text_response text,asset_id uuid references public.assets(id) on delete set null,status text not null default 'draft' check(status in ('draft','submitted','reviewed')),teacher_feedback text,score numeric(6,2),created_at timestamptz not null default now(),updated_at timestamptz not null default now());
@@ -2171,9 +2140,7 @@ create policy responses_read on public.remix_responses for select using(exists(s
 create policy class_progress_read on public.class_progress_cells for select using(student_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy class_progress_write on public.class_progress_cells for all using(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
 create policy accessibility_profile_self on public.accessibility_profiles for all using(user_id=auth.uid()) with check(user_id=auth.uid());create policy accessibility_reports_read on public.accessibility_reports for select using(public.is_org_member(organization_id));create policy accessibility_reports_write on public.accessibility_reports for all using(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
 
--- ============================================================
 -- FILE: 0015_h2obook_v49_analytics_event_engine.sql
--- ============================================================
 -- H2OBOOK 4.9 Analytics Event Engine
 alter table public.analytics_events add column if not exists event_id uuid;alter table public.analytics_events add column if not exists resource_client_key text;alter table public.analytics_events add column if not exists received_at timestamptz not null default now();alter table public.analytics_events add column if not exists schema_version integer not null default 1;
 create unique index if not exists analytics_event_id_unique on public.analytics_events(event_id) where event_id is not null;create index if not exists analytics_session_idx on public.analytics_events(session_id,occurred_at);create index if not exists analytics_resource_client_idx on public.analytics_events(resource_client_key,event_name,occurred_at desc);
@@ -2185,9 +2152,7 @@ create policy analytics_consent_self on public.analytics_consents for all using(
 create policy analytics_rollups_read on public.analytics_daily_rollups for select using(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy analytics_rollups_write on public.analytics_daily_rollups for all using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
 create policy funnel_read on public.analytics_funnel_definitions for select using(public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));create policy funnel_write on public.analytics_funnel_definitions for all using(public.has_org_role(organization_id,array['owner','admin']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));
 
--- ============================================================
 -- FILE: 0016_h2obook_v410_optional_ai_assistance.sql
--- ============================================================
 -- H2OBOOK 4.10 Optional AI Assistance: disabled by default
 create table if not exists public.optional_ai_policies(id uuid primary key default gen_random_uuid(),organization_id uuid not null unique references public.organizations(id) on delete cascade,enabled boolean not null default false,default_mode text not null default 'local' check(default_mode in ('local','external')),monthly_budget_usd numeric(12,4) not null default 0,spent_usd numeric(12,6) not null default 0,billing_period date not null default date_trunc('month',now())::date,max_prompt_characters integer not null default 60000,cache_enabled boolean not null default true,allowed_tasks text[] not null default array['outline','rewrite','quiz','summary','brand_copy','translate','accessibility'],allow_image_input boolean not null default false,allow_external_sources boolean not null default false,settings jsonb not null default '{}'::jsonb,updated_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
 create table if not exists public.optional_ai_usage(id bigint generated always as identity primary key,organization_id uuid not null references public.organizations(id) on delete cascade,user_id uuid references public.profiles(id) on delete set null,task_type text not null,provider text not null,model text,input_tokens integer not null default 0,output_tokens integer not null default 0,cost_usd numeric(12,6) not null default 0,cache_hit boolean not null default false,request_hash text,created_at timestamptz not null default now());
@@ -2199,9 +2164,7 @@ create policy optional_ai_usage_read on public.optional_ai_usage for select usin
 create policy optional_ai_cache_read on public.optional_ai_cache for select using(public.is_org_member(organization_id));create policy optional_ai_cache_write on public.optional_ai_cache for all using(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[])) with check(public.has_org_role(organization_id,array['owner','admin','designer','teacher']::public.member_role[]));
 create or replace function public.increment_optional_ai_spend(p_organization_id uuid,p_amount numeric) returns void language plpgsql security definer set search_path=public as $$begin if not public.is_org_member(p_organization_id) then raise exception 'workspace forbidden';end if;update public.optional_ai_policies set spent_usd=case when billing_period=date_trunc('month',now())::date then spent_usd+greatest(p_amount,0) else greatest(p_amount,0) end,billing_period=date_trunc('month',now())::date,updated_at=now() where organization_id=p_organization_id;end$$;revoke all on function public.increment_optional_ai_spend(uuid,numeric) from public;grant execute on function public.increment_optional_ai_spend(uuid,numeric) to authenticated;
 
--- ============================================================
 -- FILE: 0017_h2obook_v411_marketplace_enterprise.sql
--- ============================================================
 -- H2OBOOK 4.11 Marketplace and Enterprise Scale
 -- platform_admin is not yet a real role in public.member_role (see 0001_h2obook_core.sql) or in
 -- any accounts table, so this returns false until a follow-up migration introduces a real
@@ -2231,9 +2194,7 @@ create policy marketplace_reviews_read on public.marketplace_reviews for select 
 do $$ declare t text;begin foreach t in array array['enterprise_org_units','sso_configurations','public_api_keys','webhook_endpoints','webhook_deliveries','usage_quotas','data_retention_policies'] loop execute format('create policy %I_read on public.%I for select using(public.has_org_role(organization_id,array[''owner'',''admin'']::public.member_role[]))',t,t);execute format('create policy %I_write on public.%I for all using(public.has_org_role(organization_id,array[''owner'',''admin'']::public.member_role[])) with check(public.has_org_role(organization_id,array[''owner'',''admin'']::public.member_role[]))',t,t);end loop;end $$;
 create policy sla_admin_read on public.sla_incidents for select using(organization_id is null or public.has_org_role(organization_id,array['owner','admin']::public.member_role[]));create policy sla_platform_write on public.sla_incidents for all using(public.is_platform_admin()) with check(public.is_platform_admin());
 
--- ============================================================
 -- FILE: 0018_h2obook_v411_final_hardening.sql
--- ============================================================
 -- H2OBOOK 4.11 final integration hardening
 -- Encrypted webhook secrets, transactional delivery enqueue and public API usage accounting.
 
@@ -2301,9 +2262,7 @@ $$;
 revoke all on function public.claim_webhook_deliveries(integer) from public,anon,authenticated;
 grant execute on function public.claim_webhook_deliveries(integer) to service_role;
 
--- ============================================================
 -- FILE: 0019_h2obook_v4133_pdf_dual_import.sql
--- ============================================================
 -- H2OBOOK 4.13.3 — PDF Dual Import
 -- Add the semantic PDF reconstruction job while preserving all legacy document jobs.
 
@@ -2321,9 +2280,7 @@ create index if not exists document_jobs_pdf_reconstruct_idx
 comment on column public.document_jobs.job_type is
   'Document processing job. pdf_reconstruct converts native PDF text/images/tables into BookDocument; ocr is deterministic Tesseract fallback for scanned pages.';
 
--- ============================================================
 -- FILE: 0020_h2obook_v4134_image_smart_import.sql
--- ============================================================
 -- H2OBOOK 4.13.4 — Image Smart Import
 -- Stores deterministic image variants and region plans without introducing AI dependencies.
 
@@ -2432,9 +2389,7 @@ $$;
 
 grant execute on function public.replace_image_import_regions(uuid,uuid,text,jsonb) to authenticated;
 
--- ============================================================
 -- FILE: 0021_h2obook_v4136_input_orchestrator.sql
--- ============================================================
 -- H2OBOOK 4.13.6 — Unified Input Orchestrator, Preview, Commit, Retry and Recovery
 
 create table if not exists public.input_sessions (
@@ -2615,9 +2570,7 @@ do $$ begin
   begin alter publication supabase_realtime add table public.input_session_events; exception when duplicate_object then null; end;
 end $$;
 
--- ============================================================
 -- FILE: 0022_h2obook_v4137_production_hardening.sql
--- ============================================================
 -- H2OBOOK 4.13.7 — Production Validation & Hardening
 
 alter table public.input_sessions add column if not exists trace_id text;
@@ -2783,9 +2736,7 @@ grant execute on function public.recover_stale_input_sessions(integer) to servic
 
 comment on function public.recover_stale_input_sessions(integer) is 'Service-role sweeper for timed-out or heartbeat-stale input sessions.';
 
--- ============================================================
 -- FILE: 0023_h2obook_v4141_student_storage_quota.sql
--- ============================================================
 -- H2OBOOK 4.14.1 — Per-student storage quota for self-service Design Library
 
 alter table public.organization_members add column if not exists storage_quota_bytes bigint;
@@ -2795,9 +2746,7 @@ create index if not exists assets_org_uploader_idx on public.assets (organizatio
 comment on column public.organization_members.storage_quota_bytes is
   'Optional per-membership storage cap in bytes. Null falls back to the role-based default in lib/storage/quota.ts (students only; other roles remain unlimited).';
 
--- ============================================================
 -- FILE: 0024_h2obook_v416_academy_revenue_loop.sql
--- ============================================================
 -- H2OBOOK V4.16 Academy revenue loop
 -- Public application -> admin approval -> Auth invite -> entitlement -> lesson progress.
 begin;
@@ -3057,9 +3006,7 @@ update public.profiles p set email=lower(u.email) from auth.users u where u.id=p
 
 commit;
 
--- ============================================================
 -- FILE: 0025_h2obook_operations_foundation.sql
--- ============================================================
 -- H2OBOOK Operations Expansion Foundation
 -- Revised from optional/supabase/0023_h2obook_operations_expansion_optional.sql shipped with the
 -- H2OBOOK-OPERATIONS-EXPANSION-FOUNDATION-MODULE: adds organization_id scoping consistent with the
@@ -3244,9 +3191,7 @@ for each row execute function public.touch_updated_at();
 
 commit;
 
--- ============================================================
 -- FILE: 0026_h2obook_learning_intelligence_v3.sql
--- ============================================================
 -- H2OBOOK Learning Intelligence V3 — Brain Learning Engine (adapter migration)
 -- Source module: v5/8-h2obook-learning-intelligence-v3-final. This is an ADDITIVE, adapted
 -- migration (Case C in the module's own CLAUDE_MAIN_INTEGRATION_PROMPT.md): it does NOT reuse
@@ -4001,9 +3946,7 @@ end $$;
 
 commit;
 
--- ============================================================
 -- FILE: 0027_h2obook_create_outcome_studio_v1.sql
--- ============================================================
 -- H2OBOOK Create Outcome Studio V1 (adapter migration)
 -- Source module: v5/10-h2obook-create-outcome-studio-upgrade-v1. Reference schema is
 -- supabase/20260802_create_outcome_studio_upgrade.sql from that module; NOT applied as-is.
@@ -4108,9 +4051,7 @@ end $$;
 
 commit;
 
--- ============================================================
 -- FILE: 0028_h2obook_learn_mastery_engine_v1.sql
--- ============================================================
 -- H2OBOOK Learn Mastery Engine V1 (adapter migration)
 -- Source module: v5/11-h2obook-learn-mastery-engine-v1. Reference schema is
 -- supabase/20260803_learn_mastery_engine_v1.sql from that module; NOT applied as-is.
@@ -4172,6 +4113,136 @@ create policy "skill evidence self insert" on public.learning_skill_evidence for
   with check (user_id = auth.uid() and public.is_org_member(organization_id));
 
 alter table public.create_outcome_projects add column skill_keys text[] not null default '{}';
+
+commit;
+
+-- FILE: 0029_h2obook_teaching_intelligence_center_v1.sql
+-- H2OBOOK Teaching Intelligence Center V1
+-- Adapted from v5/12-h2obook-teaching-intelligence-center-v1. The reference migration proposed
+-- 7 new tables (teach_role_assignments, teach_scope_assignments, teach_student_interventions,
+-- teach_feedback_templates, teach_feedback_events, teach_content_review_assignments,
+-- teach_rule_preferences) plus is_teach_admin()/can_teach_scope() helpers.
+--
+-- Audit result: this repo already has a real role system (public.member_role via
+-- organization_members, checked with public.has_org_role()) and a real class-scope model
+-- (public.classes.teacher_id / public.class_members) — see lib/auth/current-user.ts and
+-- lib/auth/api.ts's resolveOrganizationAccess(). Introducing teach_role_assignments and
+-- teach_scope_assignments would create a second, parallel identity/scope system that the app
+-- would then have to keep in sync with organization_members and classes.teacher_id forever.
+-- Instead: 'teacher' membership role + classes.teacher_id/class_members are the source of
+-- truth for who teaches whom (see lib/teaching/access.ts).
+--
+-- Grading itself already has a real table (public.brain_assignment_submissions, 0026) and a
+-- legacy one (public.assignment_submissions, 0002) — both already carry score/instructor_feedback
+-- /status/graded_by/graded_at, so teach_feedback_events would just be a duplicate audit copy of
+-- the same decision. The one piece those tables cannot express is a "portfolio-ready" decision
+-- (distinct from a normal pass) on brain_assignment_submissions, so this migration adds a single
+-- additive boolean column for that instead of introducing a parallel events table.
+--
+-- teach_feedback_templates, teach_content_review_assignments and teach_rule_preferences are
+-- genuinely deferred for this pass (see docs/H2OBOOK-TEACHING-INTELLIGENCE-CENTER-V1-INTEGRATION-REPORT.md
+-- §Risks/TODO) — Content & Approval reuses the existing /reviews + review_requests engine as-is,
+-- and Automation rule toggles were out of scope for a first, real-data pass of the Teach surface.
+--
+-- The one genuinely new concept with no existing home is a private instructor note / action log
+-- tied to a specific at-risk student ("Risk Radar" intervention) — that is real net-new data, so
+-- it gets one new table: public.teach_student_interventions.
+
+begin;
+
+alter table public.brain_assignment_submissions
+  add column if not exists portfolio_ready boolean not null default false;
+
+create table public.teach_student_interventions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  student_user_id uuid not null references public.profiles(id) on delete cascade,
+  teacher_user_id uuid not null references public.profiles(id) on delete cascade,
+  class_id uuid references public.classes(id) on delete set null,
+  risk_level text not null check (risk_level in ('watch','attention','critical')),
+  reason_codes text[] not null default '{}',
+  action_type text not null check (action_type in ('message','assignment','meeting','resource','stage_review','other')),
+  note text,
+  status text not null default 'open' check (status in ('open','scheduled','completed','cancelled')),
+  due_at timestamptz,
+  completed_at timestamptz,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index teach_student_interventions_student_idx on public.teach_student_interventions(organization_id, student_user_id, status);
+create index teach_student_interventions_teacher_idx on public.teach_student_interventions(organization_id, teacher_user_id, status);
+
+alter table public.teach_student_interventions enable row level security;
+
+-- Read: the owning teacher, the student themself, or org owner/admin.
+create policy "interventions read own org scope"
+on public.teach_student_interventions for select
+to authenticated
+using (
+  teacher_user_id = auth.uid()
+  or student_user_id = auth.uid()
+  or public.has_org_role(organization_id, array['owner','admin']::public.member_role[])
+);
+
+-- Insert: only a real 'teacher' (or owner/admin) of the organization, and only as themself.
+create policy "interventions teacher insert"
+on public.teach_student_interventions for insert
+to authenticated
+with check (
+  teacher_user_id = auth.uid()
+  and public.has_org_role(organization_id, array['owner','admin','teacher']::public.member_role[])
+);
+
+create policy "interventions teacher update"
+on public.teach_student_interventions for update
+to authenticated
+using (
+  teacher_user_id = auth.uid()
+  or public.has_org_role(organization_id, array['owner','admin']::public.member_role[])
+)
+with check (
+  teacher_user_id = auth.uid()
+  or public.has_org_role(organization_id, array['owner','admin']::public.member_role[])
+);
+
+create trigger teach_student_interventions_domain_event after insert or update or delete on public.teach_student_interventions
+for each row execute function public.capture_domain_event();
+do $$ begin
+  alter publication supabase_realtime add table public.teach_student_interventions;
+exception when duplicate_object then null;
+end $$;
+
+-- 0027 only ever gave staff a broad, unscoped SELECT on create_outcome_projects ("outcome
+-- projects staff read") and explicitly deferred real per-class scoping. This adds the missing
+-- UPDATE path (needed for Feedback Studio's portfolio review action) scoped to the project
+-- owner's actual class teacher — not just "any teacher in the org" — so an instructor can only
+-- move a portfolio project to approved/in_progress for a student in one of their own classes.
+create policy "outcome projects teacher review update"
+on public.create_outcome_projects for update
+to authenticated
+using (
+  owner_user_id = auth.uid()
+  or public.has_org_role(organization_id, array['owner','admin']::public.member_role[])
+  or exists (
+    select 1 from public.class_members cm
+    join public.classes c on c.id = cm.class_id
+    where cm.user_id = create_outcome_projects.owner_user_id
+      and cm.status = 'active'
+      and c.teacher_id = auth.uid()
+  )
+)
+with check (
+  owner_user_id = auth.uid()
+  or public.has_org_role(organization_id, array['owner','admin']::public.member_role[])
+  or exists (
+    select 1 from public.class_members cm
+    join public.classes c on c.id = cm.class_id
+    where cm.user_id = create_outcome_projects.owner_user_id
+      and cm.status = 'active'
+      and c.teacher_id = auth.uid()
+  )
+);
 
 commit;
 
