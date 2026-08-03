@@ -9,5 +9,6 @@ export const operationsFeatures = {
   operationsCenter: enabled(process.env.NEXT_PUBLIC_OPERATIONS_CENTER_V1),
   platformAdmin: enabled(process.env.NEXT_PUBLIC_PLATFORM_ADMIN_V1, false),
   certificateVerify: enabled(process.env.NEXT_PUBLIC_CERTIFICATE_VERIFY_V1),
-  systemControlPlane: enabled(process.env.NEXT_PUBLIC_SYSTEM_CONTROL_PLANE_V2)
+  systemControlPlane: enabled(process.env.NEXT_PUBLIC_SYSTEM_CONTROL_PLANE_V2),
+  academyControlCenter: enabled(process.env.NEXT_PUBLIC_ACADEMY_CONTROL_CENTER_V1)
 };

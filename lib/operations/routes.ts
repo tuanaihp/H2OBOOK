@@ -37,6 +37,12 @@ export const systemRoutes = [
   { href: "/integrations", label: "Tích hợp", icon: PlugZap }
 ];
 
+export const academyAdminRoutes = [
+  { href: "/academy-admin", label: "Tổng quan đào tạo", icon: LayoutDashboard },
+  { href: "/academy-admin/programs", label: "Chương trình đào tạo", icon: GraduationCap },
+  { href: "/academy-admin/distribution", label: "Phân phối & cấp quyền", icon: BadgeCheck }
+];
+
 export const platformRoutes = [
   { href: "/platform-admin", label: "Platform Overview", icon: LayoutDashboard },
   { href: "/platform-admin/organizations", label: "Organizations", icon: Building2 },
@@ -50,5 +56,6 @@ export const operationsRouteManifest = {
   instructor: instructorRoutes.map((item) => item.href),
   operations: operationsRoutes.map((item) => item.href),
   system: systemRoutes.map((item) => item.href),
+  academyAdmin: academyAdminRoutes.map((item) => item.href),
   platformAdmin: platformRoutes.map((item) => item.href)
 };
