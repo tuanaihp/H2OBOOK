@@ -6,6 +6,14 @@
 
 ---
 
+**2026-08-03 — ⚠️ Đã merge + deploy module H2O Academy Control Center V1, CẦN CHẠY MIGRATION 0031.**
+- Đã merge `feature/academy-control-center-v1` vào `main`, deploy production thành công (health check OK).
+- Trang mới `/academy-admin` (Tổng quan đào tạo, chỉ Admin/Owner) — lần đầu tiên có giao diện thật để **tạo và sửa khóa học/module/bài học** (`/academy-admin/programs`), trước đây các khóa học chỉ được tạo tự động từ danh mục mẫu có sẵn, không có chỗ nào để thêm/sửa thủ công.
+- Trang `/academy-admin/distribution` — tìm học viên theo email và **cấp quyền truy cập khóa học thủ công** (có ghi lý do, ngày hết hạn, và tự động lưu lịch sử/audit).
+- **Việc bắt buộc:** mở file `supabase/_RUN-0031-ONLY.sql` (mới) → copy toàn bộ → dán vào Supabase SQL Editor (New query) → Run. Đã kiểm tra không trùng tên với 30 migration trước. Migration này chỉ thêm 2 cột mới vào bảng `entitlements` có sẵn (không tạo bảng mới).
+- Cho tới khi chạy: trang `/academy-admin/distribution` (cấp quyền thủ công) sẽ báo lỗi khi lưu. `/academy-admin` và `/academy-admin/programs` vẫn dùng được bình thường vì không cần cột mới.
+- Chi tiết đầy đủ, bao gồm các phần cố ý chưa làm (Media Center upload video, Roadmap Builder, trình soạn bài học 12-block, Role Preview...): `docs/H2OBOOK-ACADEMY-CONTROL-CENTER-V1-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ✅ Đã merge + deploy module H2O System Control Plane V2 — KHÔNG CẦN CHẠY MIGRATION GÌ (dùng hết dữ liệu thật đã có sẵn).**
 - Đã merge `feature/system-control-plane-operations-intelligence-v2` vào `main`, deploy production thành công (health check OK).
 - Trang mới `/system` (System Command Center, chỉ Admin/Owner xem được) — thay thế kiểu "mọi dịch vụ đều Sẵn sàng/active" giả trên `/operations/system-health` và `/platform-admin/system-health` (2 trang đó vẫn còn demo, chưa đụng tới) bằng trạng thái dịch vụ **thật**: đã cấu hình hay chưa, có kiểm tra kết nối thật (Supabase) hay chưa từng kiểm tra thật.
