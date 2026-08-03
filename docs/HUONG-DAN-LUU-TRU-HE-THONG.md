@@ -12,6 +12,7 @@
 - **Việc bắt buộc:** chạy `supabase/_RUN-0028-ONLY.sql` trên Supabase SQL Editor (New query → Run). Đã kiểm tra không trùng tên với 27 migration trước.
 - Cho tới khi chạy: trang `/student/learn` (Học & ghi nhớ) và mục "Nhiệm vụ hôm nay/Skill Map" thật trên Smart Home sẽ không có dữ liệu (rơi về trạng thái rỗng an toàn, không lỗi trang).
 - Chi tiết: `docs/H2OBOOK-LEARN-MASTERY-ENGINE-V1-INTEGRATION-REPORT.md`.
+- **✅ Đã xác nhận migration 0028 chạy thành công** (kiểm tra qua API: bảng `learning_skill_evidence` tồn tại, cột `skill_keys` đã có trong `create_outcome_projects`). `/student/learn` và dữ liệu thật trên Smart Home đã hoạt động đầy đủ.
 
 **2026-08-03 — ⚠️ Đã merge + deploy 2 module lớn (H2O Brain Learning Intelligence V3 + Compact Navigation V2), CẦN CHẠY MIGRATION MỚI NGAY.**
 - Đã merge `feat/h2obook-learning-intelligence-v3` + `feat/compact-learner-navigation-v2` vào `main`, deploy production thành công (`h2obook-app.vercel.app`, health check OK).
