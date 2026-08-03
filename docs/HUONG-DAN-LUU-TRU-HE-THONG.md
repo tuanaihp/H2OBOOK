@@ -6,6 +6,13 @@
 
 ---
 
+**2026-08-03 — ⚠️ Đã merge + deploy module H2O Learn Mastery Engine V1, CẦN CHẠY MIGRATION 0028.**
+- Đã merge `feat/learn-mastery-engine-v1` vào `main`, deploy production thành công.
+- Trước khi tích hợp, đã kiểm tra tính nhất quán toàn bộ webapp theo yêu cầu: phát hiện và sửa 1 lỗi báo cáo trước đó (module 10 nói sai "6 recipes", thực tế là 5), và 1 chỗ lệch tên (recipe slug của module 10 chưa khớp với module 11) — đã đối chiếu và sửa cả hai, xác nhận không còn lệch dữ liệu giữa các module.
+- **Việc bắt buộc:** chạy `supabase/_RUN-0028-ONLY.sql` trên Supabase SQL Editor (New query → Run). Đã kiểm tra không trùng tên với 27 migration trước.
+- Cho tới khi chạy: trang `/student/learn` (Học & ghi nhớ) và mục "Nhiệm vụ hôm nay/Skill Map" thật trên Smart Home sẽ không có dữ liệu (rơi về trạng thái rỗng an toàn, không lỗi trang).
+- Chi tiết: `docs/H2OBOOK-LEARN-MASTERY-ENGINE-V1-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ⚠️ Đã merge + deploy 2 module lớn (H2O Brain Learning Intelligence V3 + Compact Navigation V2), CẦN CHẠY MIGRATION MỚI NGAY.**
 - Đã merge `feat/h2obook-learning-intelligence-v3` + `feat/compact-learner-navigation-v2` vào `main`, deploy production thành công (`h2obook-app.vercel.app`, health check OK).
 - **Việc bắt buộc phải làm ngay:** migration `0026_h2obook_learning_intelligence_v3.sql` (26 bảng mới cho Knowledge Space/Brain Learning) **chưa được chạy trên Supabase thật**. Trước khi chạy, mở file `supabase/_RUN-ONCE-COMBINED-MIGRATIONS.sql` bản mới nhất, tìm đoạn `-- FILE: 0026_h2obook_learning_intelligence_v3.sql` (ở cuối file) và chỉ copy phần đó (không chạy lại từ đầu vì 0001-0025 đã có rồi) → dán vào Supabase SQL Editor → Run 1 lần.

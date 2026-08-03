@@ -18,7 +18,7 @@ Status: **READY_FOR_VERCEL_PREVIEW**
 - Deliberately **not** created (documented as deferred, not silently dropped): `create_outcome_recipes` (recipe catalog is static app data, matching the existing academy-catalog convention), `create_outcome_checks` (readiness state lives in `content`/`readiness_score` columns for this pass), `create_outcome_project_assets` (asset linking deferred).
 
 **Server logic**
-- `lib/student/create-outcome.ts` — `OUTCOME_RECIPES` (6 recipes ported from the module's `outcomeRecipes.ts`, adapted so `requiredStageKey` maps directly onto the existing `studentCareerStages` ids: `foundation`/`practice`/`first-client`/`professional`/`leader`), `resolveRecipe()`, `calculateReadinessScore()`.
+- `lib/student/create-outcome.ts` — `OUTCOME_RECIPES` (5 recipes ported from the module's `outcomeRecipes.ts` at merge time, adapted so `requiredStageKey` maps directly onto the existing `studentCareerStages` ids: `foundation`/`practice`/`first-client`/`professional`/`leader`), `resolveRecipe()`, `calculateReadinessScore()`. **Correction (module 11 pass, 2026-08-03):** the original text here said "6 recipes", which was inaccurate — it was 5. Module 11's integration expanded this to 9 recipes and renamed 2 slugs to match its `DEFAULT_LEARN_CREATE_MAPPINGS`; see the module 11 report.
 - `lib/learning-intelligence/service.ts` — added `contentItemId` to `KnowledgeSpaceManifest` so the Learn→Create CTA can carry real lesson provenance.
 
 **API routes**

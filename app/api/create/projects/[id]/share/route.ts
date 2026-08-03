@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const supabase = await createSupabaseServerClient();
   if (!supabase) return NextResponse.json({ error: "SUPABASE_NOT_CONFIGURED" }, { status: 503 });
 
-  const { data: project } = await supabase.from("create_outcome_projects").select("id,organization_id,readiness_score").eq("id", id).eq("owner_user_id", auth.user!.id).maybeSingle();
+  const { data: project } = await supabase.from("create_outcome_projects").select("id,organization_id,readiness_score,skill_keys").eq("id", id).eq("owner_user_id", auth.user!.id).maybeSingle();
   if (!project) return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
   if (Number(project.readiness_score) < 60) return NextResponse.json({ error: "PROJECT_NOT_READY", details: { readinessScore: project.readiness_score, minimum: 60 } }, { status: 409 });
 
@@ -28,5 +28,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error || !data) return NextResponse.json({ error: error?.message ?? "SHARE_CREATE_FAILED" }, { status: 400 });
 
   await supabase.from("create_outcome_projects").update({ status: "published" }).eq("id", id).eq("owner_user_id", auth.user!.id);
+
+  // Learn Mastery Engine V1: a shared, ready outcome project is real "create" evidence for
+  // every skill it's tagged with — best-effort, never blocks the share response.
+  const skillKeys = Array.isArray(project.skill_keys) ? project.skill_keys.map(String) : [];
+  if (skillKeys.length) {
+    try {
+      await supabase.from("learning_skill_evidence").upsert(skillKeys.map((skillKey) => ({
+        organization_id: project.organization_id, user_id: auth.user!.id, skill_key: skillKey,
+        evidence_kind: "create", source_type: "create_outcome_project", source_id: id,
+        score: Number(project.readiness_score), occurred_at: new Date().toISOString()
+      })), { onConflict: "user_id,skill_key,evidence_kind,source_type,source_id" });
+    } catch { /* best-effort skill evidence; never block the share response */ }
+  }
+
   return NextResponse.json({ ok: true, publicSlug: data.public_slug, url: `/verify-outcome/${data.public_slug}` }, { status: 201 });
 }

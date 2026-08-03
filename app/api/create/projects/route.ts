@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     source_lesson_id: sourceLessonId,
     source_knowledge_space_id: sourceKnowledgeSpaceId,
     source_stage_key: body?.sourceStageKey || recipe.requiredStageKey || null,
+    skill_keys: recipe.skillKeys,
     status: "draft",
     content: {}
   }).select("id").single();

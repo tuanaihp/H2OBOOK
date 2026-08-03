@@ -1,31 +1,15 @@
 import Link from "next/link";
 import { Lock, Sparkles } from "lucide-react";
 import { requireCurrentUser } from "@/lib/auth/current-user";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/runtime-config";
-import { configuredAcademyOrganizationId } from "@/lib/academy/service";
-import { studentCareerStages } from "@/lib/student/experience";
-import { OUTCOME_RECIPES, resolveRecipe, type OutcomeAccessContext } from "@/lib/student/create-outcome";
+import { OUTCOME_RECIPES, resolveRecipe } from "@/lib/student/create-outcome";
+import { loadOutcomeAccessContext } from "@/lib/student/outcome-access";
 
 export const dynamic = "force-dynamic";
-
-async function loadAccessContext(userId: string, role: string): Promise<OutcomeAccessContext> {
-  const unlockedStageKeys = studentCareerStages.filter((stage) => stage.status !== "locked").map((stage) => stage.id);
-  if (["owner", "admin", "teacher"].includes(role)) return { isStaff: true, unlockedStageKeys, hasActiveMembership: true };
-  if (!isSupabaseConfigured()) return { isStaff: false, unlockedStageKeys, hasActiveMembership: false };
-  const admin = createSupabaseAdminClient();
-  const organizationId = await configuredAcademyOrganizationId();
-  if (!admin || !organizationId) return { isStaff: false, unlockedStageKeys, hasActiveMembership: false };
-  const { data } = await admin.from("entitlements").select("resource_type,expires_at").eq("organization_id", organizationId).eq("user_id", userId).eq("status", "active").eq("resource_type", "membership");
-  const now = Date.now();
-  const hasActiveMembership = (data ?? []).some((row) => !row.expires_at || new Date(String(row.expires_at)).getTime() > now);
-  return { isStaff: false, unlockedStageKeys, hasActiveMembership };
-}
 
 export default async function CreateOutcomeHubPage({ searchParams }: { searchParams: Promise<{ lessonId?: string; spaceId?: string }> }) {
   const user = await requireCurrentUser();
   const { lessonId, spaceId } = await searchParams;
-  const access = await loadAccessContext(user.id, user.role);
+  const access = await loadOutcomeAccessContext(user.id, user.role);
   const recipes = OUTCOME_RECIPES.map((recipe) => resolveRecipe(recipe, access));
 
   return <>
