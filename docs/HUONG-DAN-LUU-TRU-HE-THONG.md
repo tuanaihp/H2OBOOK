@@ -12,6 +12,12 @@
 - **Cho tới khi chạy migration này:** trang `/instructor/brain-studio` và `/student/spaces/[slug]` cùng toàn bộ API `/api/learning/*` sẽ báo lỗi (bảng chưa tồn tại). Các trang khác không bị ảnh hưởng.
 - Chi tiết đầy đủ 2 module này: `docs/H2OBOOK-LEARNING-INTELLIGENCE-V3-INTEGRATION-REPORT.md` và `docs/H2OBOOK-COMPACT-NAVIGATION-V2-INTEGRATION-REPORT.md`.
 
+**2026-08-03 — Sự cố khi chạy migration 0026 (đã sửa):**
+- Bạn chạy `_RUN-0026-ONLY.sql`, gặp lỗi: `relation "assignment_submissions" already exists`.
+- **Nguyên nhân (lỗi thật của tôi khi viết migration):** migration `0002` (đã chạy từ trước) đã có sẵn 1 bảng tên `assignment_submissions` (hệ bài tập cũ, đơn giản). Migration `0026` mới vô tình đặt trùng tên cho 1 bảng khác hẳn (hệ chấm bài cho Knowledge Space). Vì `0026` chạy trong 1 transaction duy nhất, lỗi trùng tên khiến **toàn bộ 21 bảng mới đều không được tạo** (tự động rollback sạch — đã xác minh qua API, không có bảng nào trong số 21 bảng mới tồn tại, kể cả bảng bị trùng tên).
+- **Đã sửa:** đổi tên bảng mới thành `brain_assignment_submissions` để không trùng. Đã kiểm tra lại toàn bộ 21 bảng mới + kiểu dữ liệu + hàm trong `0026`, xác nhận không còn trùng tên với bất kỳ thứ gì trong 25 migration trước.
+- **Việc bạn cần làm:** vì lần chạy trước đã tự rollback sạch (không để lại gì), **không cần dọn dẹp gì thêm** — chỉ cần mở lại file `supabase/_RUN-0026-ONLY.sql` (đã cập nhật bản sửa), copy toàn bộ, dán vào Supabase SQL Editor (mở **New query** mới) → Run lại từ đầu.
+
 ---
 
 ## 0.A NHẬT KÝ KẾT NỐI THỰC TẾ (cập nhật liên tục — đọc mục này trước tiên)

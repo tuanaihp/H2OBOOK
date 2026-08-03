@@ -240,7 +240,11 @@ create table public.assignment_definitions (
   updated_at timestamptz not null default now()
 );
 
-create table public.assignment_submissions (
+-- Named brain_assignment_submissions (not assignment_submissions) because 0002 already defined
+-- public.assignment_submissions against the older, unrelated public.assignments table
+-- (student_id/assignment_id, no organization_id/knowledge_space linkage). Reusing that name
+-- here previously caused "relation already exists" and rolled back this entire migration.
+create table public.brain_assignment_submissions (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   assignment_id uuid not null references public.assignment_definitions(id) on delete cascade,
@@ -256,7 +260,7 @@ create table public.assignment_submissions (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create index assignment_submissions_grading_idx on public.assignment_submissions(organization_id,status,submitted_at);
+create index brain_assignment_submissions_grading_idx on public.brain_assignment_submissions(organization_id,status,submitted_at);
 
 -- ---------------------------------------------------------------------------
 -- Learner space: progress, notes, experiences, results, sharing, journal
@@ -478,7 +482,7 @@ alter table public.experience_cases enable row level security;
 alter table public.rubrics enable row level security;
 alter table public.rubric_criteria enable row level security;
 alter table public.assignment_definitions enable row level security;
-alter table public.assignment_submissions enable row level security;
+alter table public.brain_assignment_submissions enable row level security;
 alter table public.block_progress enable row level security;
 alter table public.knowledge_space_progress enable row level security;
 alter table public.learner_notes enable row level security;
@@ -574,11 +578,11 @@ create policy "assignment defs staff write" on public.assignment_definitions for
   using (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]))
   with check (public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
 
-create policy "submissions owner or grader read" on public.assignment_submissions for select
+create policy "submissions owner or grader read" on public.brain_assignment_submissions for select
   using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
-create policy "submissions owner insert" on public.assignment_submissions for insert
+create policy "submissions owner insert" on public.brain_assignment_submissions for insert
   with check (user_id=auth.uid() and public.is_org_member(organization_id));
-create policy "submissions owner or grader update" on public.assignment_submissions for update
+create policy "submissions owner or grader update" on public.brain_assignment_submissions for update
   using (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]))
   with check (user_id=auth.uid() or public.has_org_role(organization_id,array['owner','admin','teacher']::public.member_role[]));
 
@@ -725,7 +729,7 @@ begin
   foreach table_name in array array[
     'knowledge_spaces','knowledge_space_versions','learning_sections','learning_blocks',
     'knowledge_nodes','brain_templates','experience_cases','rubrics','assignment_definitions',
-    'assignment_submissions','learner_notes','learner_experiences','journal_entries'
+    'brain_assignment_submissions','learner_notes','learner_experiences','journal_entries'
   ] loop
     execute format('create trigger %I_touch_updated_at before update on public.%I for each row execute function public.touch_updated_at()', table_name, table_name);
   end loop;
@@ -735,7 +739,7 @@ do $$
 declare table_name text;
 begin
   foreach table_name in array array[
-    'knowledge_spaces','knowledge_space_versions','assignment_submissions','learning_results',
+    'knowledge_spaces','knowledge_space_versions','brain_assignment_submissions','learning_results',
     'experience_cases'
   ] loop
     execute format('create trigger %I_domain_event after insert or update or delete on public.%I for each row execute function public.capture_domain_event()', table_name, table_name);
