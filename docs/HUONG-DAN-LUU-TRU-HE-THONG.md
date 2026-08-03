@@ -6,6 +6,57 @@
 
 ---
 
+## 0.A NHẬT KÝ KẾT NỐI THỰC TẾ (cập nhật liên tục — đọc mục này trước tiên)
+
+> Mục này ghi lại chính xác đã làm tới đâu với tài khoản Supabase/Cloudflare thật của bạn, để lần sau mở file là biết ngay đang đứng ở bước nào.
+
+**2026-07-31 — Bắt đầu Phase 4 (kết nối hạ tầng thật):**
+
+- Đã xác nhận project Supabase thật của bạn: `thuyh2omakeup@gmail.com's H2OBOOK Project`, mã project `oamczuibcgjqmjxqntsn`, vùng Southeast Asia (ap-southeast-1), trạng thái Healthy, **chưa có migration/backup nào** (database đang trống).
+  - URL: `https://oamczuibcgjqmjxqntsn.supabase.co`
+- Đã xác nhận tài khoản Cloudflare của bạn đã đăng nhập được, nhưng **chưa có R2 bucket nào**.
+- Đã chuẩn bị sẵn 1 file SQL gộp toàn bộ 25 migration theo đúng thứ tự tại:
+  `supabase/_RUN-ONCE-COMBINED-MIGRATIONS.sql`
+  → Đây là cách chạy migration **không cần cài đặt Supabase CLI hay psql** — chỉ cần mở file này, copy toàn bộ nội dung, dán vào **Supabase Dashboard → SQL Editor → New query → Run**, chạy 1 lần duy nhất cho project trống nói trên.
+  → File này cố ý đặt tên có dấu `_` ở đầu để không bị các script kiểm tra migration trong repo tưởng nhầm là 1 migration mới — đã kiểm tra lại, không ảnh hưởng gì đến hệ thống migration hiện có.
+- **Đã tạo file `.env.local`** (không commit lên Git — đã kiểm tra `.gitignore` chặn đúng) với các giá trị đã biết điền sẵn: `NEXT_PUBLIC_APP_MODE=production`, `NEXT_PUBLIC_SUPABASE_URL=https://oamczuibcgjqmjxqntsn.supabase.co`, toàn bộ feature flag V4.14/V5 giữ nguyên trạng thái đã kiểm chứng khi deploy production gần nhất. Các ô khóa bí mật (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, R2...) đang để trống, chờ bạn cung cấp.
+  - Lưu ý: app **tự động vẫn chạy Demo Mode an toàn** cho tới khi 2 khóa Supabase được điền — không sợ bật nhầm production khi chưa sẵn sàng (cơ chế: `lib/runtime-config.ts` → `getAppMode()`).
+- **Việc tiếp theo (đang chờ bạn):**
+  1. Chạy file `_RUN-ONCE-COMBINED-MIGRATIONS.sql` trong Supabase SQL Editor (xem hướng dẫn chi tiết bên dưới mục "Việc cần làm").
+  2. Lấy 2 khóa API từ Supabase (Project Settings → API): `anon public key` và `service_role key` — gửi lại để điền vào `.env.local`.
+  3. Quyết định tạo R2 bucket trên Cloudflare ngay bây giờ hay sau khi Supabase chạy ổn.
+- **Trạng thái Cloudflare Stream (video):** chưa xử lý — sẽ làm sau khi Supabase + R2 xong, theo đúng thứ tự ưu tiên ở mục 5.
+
+**2026-07-31 — Sự cố khi chạy migration lần 1 (đã sửa):**
+
+- Bạn chạy file `_RUN-ONCE-COMBINED-MIGRATIONS.sql` lần đầu, gặp lỗi: `function public.is_platform_admin() does not exist`.
+- **Nguyên nhân:** lỗi có sẵn trong chính mã nguồn migration gốc (`0017_h2obook_v411_marketplace_enterprise.sql`) — file này dùng hàm `is_platform_admin()` để phân quyền cho 2 bảng ít quan trọng (`marketplace_moderation_cases`, `sla_incidents`) nhưng không có file nào định nghĩa hàm đó trước. Không phải do bạn thao tác sai.
+- **Đã sửa:** thêm định nghĩa hàm `is_platform_admin()` vào đầu file `0017...sql`, mặc định luôn trả về `false` (an toàn — vì vai trò "platform admin" chưa thực sự tồn tại trong hệ thống tài khoản, khớp với việc `NEXT_PUBLIC_PLATFORM_ADMIN_V1=false` trong toàn bộ hệ thống). Đã tạo lại file `_RUN-ONCE-COMBINED-MIGRATIONS.sql` (bản v2) với bản vá này.
+- **Việc bạn cần làm:** vì Postgres tự động hủy (rollback) toàn bộ phần chưa `commit` khi gặp lỗi giữa chừng, project của bạn hiện đang ở trạng thái dở dang (file 0001-0006 đã commit thành công trước khi lỗi xảy ra ở file 0017, nên chạy lại từ đầu mà không dọn trước sẽ báo "type member_role already exists"). Cách xử lý:
+  1. Chạy file `supabase/_RESET-BEFORE-RERUN.sql` (mới tạo) trong 1 **New query** riêng trước — xóa sạch schema `public` (an toàn, project chưa có dữ liệu thật, không đụng auth/storage nội bộ Supabase).
+  2. Sau đó mở **New query** khác, dán lại toàn bộ `supabase/_RUN-ONCE-COMBINED-MIGRATIONS.sql` (đã có bản vá `is_platform_admin`), chạy lại từ đầu.
+  3. Nếu vẫn còn báo lỗi ở bất kỳ dòng nào khác, gửi lại nguyên văn lỗi để tôi kiểm tra tiếp — đây là lần đầu chạy thật trên hạ tầng thật nên có thể còn sai sót cần dò từng lỗi một.
+
+**2026-07-31 — Sự cố lần 2 (đã có script dọn sạch):**
+- Bạn chạy lại toàn bộ file combined từ đầu nhưng chưa dọn trước → lỗi `type "member_role" already exists` (vì 0001-0006 đã commit từ lần chạy trước). Đã tạo `supabase/_RESET-BEFORE-RERUN.sql` để dọn sạch an toàn — xem hướng dẫn 2 bước ở trên.
+
+**2026-07-31 — ✅ Migration chạy thành công.** Toàn bộ 25 file migration đã áp dụng xong vào project Supabase thật (`oamczuibcgjqmjxqntsn`). Database đã có đầy đủ bảng (sách, CRM, khóa học, đơn hàng, v.v.), RLS, trigger tạo workspace tự động khi có người đăng ký.
+- **Đã điền vào `.env.local`:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (dạng khóa mới `sb_publishable_...`), `SUPABASE_SERVICE_ROLE_KEY` (dạng khóa mới `sb_secret_...`) — lấy từ Project Settings → API. File này không lên Git.
+- **Việc tiếp theo:** (1) đăng nhập lần đầu bằng tài khoản chủ (owner) để hệ thống tự tạo `organization` đầu tiên, sau đó lấy `ACADEMY_ORGANIZATION_ID` điền vào env; (2) tạo bucket R2 trên Cloudflare cho ảnh/file.
+
+**2026-07-31 — ✅ Đã đưa Vercel production sang Supabase thật.** Thêm 6 biến vào Vercel (Project Settings → Environment Variables → Production): `NEXT_PUBLIC_APP_MODE=production`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ACADEMY_ORGANIZATION_SLUG=thuyh2o-academy`. Deploy lại (`vercel --prod`), đã alias vào `h2obook-app.vercel.app`.
+- **Đã xác minh qua `/api/health` và `/api/readiness`:** `"mode":"production"`, `"database":{"configured":true}`. Trang web thật giờ đọc/ghi Supabase thật, không còn Demo Mode.
+- **Còn thiếu (theo `missingRequired`):** `storage` (R2), `queue` (Redis), `scanner` (file scan), `payment`, `email` — đúng như kế hoạch, sẽ làm tiếp theo thứ tự ưu tiên ở mục 5.
+- **Lưu ý quan trọng:** vì database Supabase còn trống (chưa có khóa học/sách thật), trang công khai (`/academy/...`) hiện sẽ hiển thị danh mục trống thay vì nội dung mẫu — đây là điều đã báo trước và người dùng đồng ý đánh đổi để bắt đầu nhập dữ liệu thật.
+
+**2026-07-31 — ✅ Tài khoản chủ (owner) đầu tiên đã tạo, đã cấu hình `ACADEMY_ORGANIZATION_ID`.**
+- Tài khoản chủ: `maxsamuelbldhp@gmail.com` (Nguyen Van Tuan), đăng ký lúc 2026-07-31 15:28 UTC.
+- Hệ thống tự động tạo workspace/organization đầu tiên (trigger `handle_new_user`): `organization_id = 4cdbbcbf-d6e1-4d06-bb87-4f63c9cac01f`, slug `nguyen-van-tuan-cc2e5221`.
+- Đã điền `ACADEMY_ORGANIZATION_ID` + `ACADEMY_ORGANIZATION_SLUG` vào `.env.local` và Vercel production, deploy lại thành công.
+- **Việc tiếp theo:** tạo bucket R2 trên Cloudflare cho ảnh/file, rồi đồng bộ catalog khóa học lần đầu (mục 5, bước 2 và 4).
+
+---
+
 ## 0. Tình trạng hiện tại: hệ thống đang chạy ở "chế độ Demo"
 
 Toàn bộ dữ liệu bạn thấy trên `h2obook-app.vercel.app` hiện nay (sách mẫu, khóa học mẫu, học viên mẫu...) là **dữ liệu giả lập nạp sẵn trong code**, không lưu vào đâu cả — mỗi lần tải lại trang là quay về dữ liệu gốc. Đây gọi là **Demo Mode**.
@@ -168,7 +219,7 @@ Code: `lib/operations/lead-bridge.ts` (hàm `syncAdmissionLeadFromApplication`),
 
 ## 5. Việc cần làm để đưa vào vận hành (theo thứ tự ưu tiên)
 
-1. **Tạo project Supabase thật** → điền mục 3.1 → chạy toàn bộ migration trong `supabase/migrations/` theo đúng thứ tự file (0001 → mới nhất) → chuyển `NEXT_PUBLIC_APP_MODE=production`.
+1. **Tạo project Supabase thật** (✅ đã có — xem mục 0.A) → mở Supabase Dashboard → SQL Editor → New query → dán toàn bộ nội dung file `supabase/_RUN-ONCE-COMBINED-MIGRATIONS.sql` (gộp sẵn 25 migration đúng thứ tự) → Run 1 lần → điền mục 3.1 → chuyển `NEXT_PUBLIC_APP_MODE=production`.
 2. **Tạo bucket R2** → điền mục 3.2 → bật "Public Access"/domain riêng cho ảnh hiển thị được.
 3. **Đăng nhập lần đầu bằng tài khoản chủ (owner)** → hệ thống tự tạo `organization` đầu tiên → lấy `ACADEMY_ORGANIZATION_ID` điền vào env.
 4. **Đồng bộ catalog khóa học lần đầu** (gọi 1 API đồng bộ 1 lần sau khi có Supabase — đã có sẵn trong `docs/ACADEMY-PRODUCTION-RUNBOOK.md`).
@@ -186,3 +237,13 @@ Code: `lib/operations/lead-bridge.ts` (hàm `syncAdmissionLeadFromApplication`),
 - Vai trò nhân sự riêng (sale/support/kế toán/content manager) chưa có tài khoản thật — hiện chỉ có owner/admin/teacher/student.
 - Chưa test với dữ liệu/tài khoản Supabase thật trong phiên làm việc này — toàn bộ vẫn đang ở Demo Mode tại thời điểm viết tài liệu này.
 - Redis/Document Worker chưa được cấu hình — nếu bật Production Mode mà không cấu hình Redis, riêng tính năng nhập DOCX/PDF phức tạp sẽ báo lỗi (các phần khác không ảnh hưởng).
+##7. CÁC MÃ ĐĂNG KÝ CLOUDFLARE 
+Token value: cfat_aCopOBrNqjFkLF0VSzaItpKjh35hFI9b48cPeeaKfddc2293
+Access Key ID: 
+2a1fbefff4edef8805115a1db6c18b6e
+Secret Access Key:
+6e681d64212f0c24460266317e0896566b18bd399830a752454ef29fc5a38a32
+Use jurisdiction-specific endpoints for S3 clients:
+https://2b7da61131f811f331a40966c402c82f.r2.cloudflarestorage.com
+Account ID:
+https://dash.cloudflare.com/2b7da61131f811f331a40966c402c82f/r2/api-tokens/success

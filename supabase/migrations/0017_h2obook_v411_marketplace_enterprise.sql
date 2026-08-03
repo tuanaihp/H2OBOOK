@@ -1,4 +1,13 @@
 -- H2OBOOK 4.11 Marketplace and Enterprise Scale
+-- platform_admin is not yet a real role in public.member_role (see 0001_h2obook_core.sql) or in
+-- any accounts table, so this returns false until a follow-up migration introduces a real
+-- platform-admin account model. Until then, marketplace moderation and SLA-incident writes are
+-- deny-by-default for every authenticated user, which matches NEXT_PUBLIC_PLATFORM_ADMIN_V1=false.
+create or replace function public.is_platform_admin()
+returns boolean language sql stable as $$
+  select false;
+$$;
+
 create table if not exists public.marketplace_listings(id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id) on delete cascade,owner_id uuid references public.profiles(id) on delete set null,slug text not null unique,title text not null,description text not null default '',cover_asset_id uuid references public.assets(id) on delete set null,listing_type text not null check(listing_type in ('book','template','bundle','membership','license')),resource_id uuid,resource_client_key text,price numeric(14,2) not null default 0,currency text not null default 'VND',status text not null default 'draft' check(status in ('draft','submitted','in_review','changes_requested','published','suspended','archived')),quality_score integer not null default 0,rating numeric(3,2) not null default 0,review_count integer not null default 0,preview_config jsonb not null default '{}'::jsonb,license_config jsonb not null default '{}'::jsonb,moderation_notes text,published_at timestamptz,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
 create table if not exists public.marketplace_listing_versions(id uuid primary key default gen_random_uuid(),listing_id uuid not null references public.marketplace_listings(id) on delete cascade,version_number integer not null,snapshot jsonb not null,change_note text,created_by uuid references public.profiles(id) on delete set null,created_at timestamptz not null default now(),unique(listing_id,version_number));
 create table if not exists public.marketplace_reviews(id uuid primary key default gen_random_uuid(),listing_id uuid not null references public.marketplace_listings(id) on delete cascade,reviewer_id uuid not null references public.profiles(id) on delete cascade,rating integer not null check(rating between 1 and 5),title text,body text,status text not null default 'published' check(status in ('pending','published','hidden','reported')),verified_purchase boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(listing_id,reviewer_id));
