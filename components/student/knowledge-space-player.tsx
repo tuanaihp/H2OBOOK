@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { CheckCircle2, Circle, Lock, Send, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Send, Sparkles, Wand2 } from "lucide-react";
 import type { KnowledgeSpaceManifest, BlockRecord } from "@/lib/learning-intelligence/service";
 import styles from "./knowledge-space-player.module.css";
 
@@ -71,6 +71,7 @@ export function KnowledgeSpacePlayer({ manifest, organizationId }: { manifest: K
         <h1>{manifest.title}</h1>
         <p>{manifest.instructorName || "H2OBOOK"} · {manifest.estimatedMinutes} phút</p>
         <div className={styles.progressBar}><i style={{ width: `${overallPercent}%` }} /></div>
+        <a className={styles.createCta} href={`/student/create?lessonId=${manifest.contentItemId}&spaceId=${manifest.id}`}><Wand2 size={13} />Tạo kết quả từ bài học này</a>
       </div>
       {manifest.sections.map((section) => <div key={section.id} className={styles.section}>
         <strong>{section.title}</strong>

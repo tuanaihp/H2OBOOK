@@ -58,7 +58,8 @@ function learnerGroups(context: UserAccessContext): CompactNavGroup[] {
     groups.push({
       id: "create", label: "CREATE",
       items: [
-        { id: "my-projects", label: "Dự án của tôi", href: "/student/design-library" },
+        { id: "studio", label: "Studio", href: "/student/create" },
+        { id: "my-projects", label: "Dự án của tôi", href: "/student/create/projects" },
         { id: "my-tools", label: "Công cụ của tôi", href: "/student/mentor" }
       ]
     });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app-store";
 import { cn } from "@/lib/utils";
-import { Bell, BookOpen, Bot, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, Trophy } from "lucide-react";
+import { Bell, BookOpen, Bot, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, Trophy, Wand2 } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
 import { buildCompactNavigation, toAccountRole } from "@/lib/student/compact-navigation";
 
@@ -14,7 +14,7 @@ import { buildCompactNavigation, toAccountRole } from "@/lib/student/compact-nav
 const GROUP_ICONS: Record<string, typeof Home> = { home: Home, learn: GraduationCap, create: FolderKanban, business: ShoppingBag, teach: ClipboardCheck };
 const ITEM_ICONS: Record<string, typeof Home> = {
   "smart-home": Home, journey: GraduationCap, library: LibraryBig, practice: ClipboardCheck,
-  "my-projects": FolderKanban, "my-tools": Bot, store: ShoppingBag, "account-commerce": Trophy
+  studio: Wand2, "my-projects": FolderKanban, "my-tools": Bot, store: ShoppingBag, "account-commerce": Trophy
 };
 
 export function StudentShell({ children, currentUser }: { children: React.ReactNode; currentUser?: { name: string; email: string; role: string; demo: boolean } }) {

@@ -23,6 +23,7 @@ export type SectionRecord = { id: string; title: string; description: string; po
 export type KnowledgeSpaceManifest = {
   id: string;
   slug: string;
+  contentItemId: string;
   title: string;
   subtitle: string;
   description: string;
@@ -63,7 +64,7 @@ function mapBlock(row: Record<string, unknown>): BlockRecord {
 export async function buildStudentManifest(userClient: Client, organizationId: string, spaceSlug: string, userId: string): Promise<KnowledgeSpaceManifest | null> {
   const { data: space } = await userClient
     .from("knowledge_spaces")
-    .select("id,slug,title,subtitle,description,space_type,hero_style,instructor_name,estimated_minutes,assistant_enabled,certificate_enabled,sharing_enabled,active_version_id")
+    .select("id,slug,title,subtitle,description,space_type,hero_style,instructor_name,estimated_minutes,assistant_enabled,certificate_enabled,sharing_enabled,active_version_id,content_item_id")
     .eq("organization_id", organizationId).eq("slug", spaceSlug).maybeSingle();
   if (!space?.active_version_id) return null;
 
@@ -88,7 +89,7 @@ export async function buildStudentManifest(userClient: Client, organizationId: s
     : { data: [] };
 
   return {
-    id: String(space.id), slug: String(space.slug), title: String(space.title), subtitle: String(space.subtitle ?? ""), description: String(space.description ?? ""),
+    id: String(space.id), slug: String(space.slug), contentItemId: String(space.content_item_id), title: String(space.title), subtitle: String(space.subtitle ?? ""), description: String(space.description ?? ""),
     spaceType: String(space.space_type), heroStyle: String(space.hero_style ?? "brain"), instructorName: String(space.instructor_name ?? ""),
     estimatedMinutes: Number(space.estimated_minutes ?? 0), assistantEnabled: Boolean(space.assistant_enabled), certificateEnabled: Boolean(space.certificate_enabled), sharingEnabled: Boolean(space.sharing_enabled),
     activeVersionId: String(version.id), versionNumber: Number(version.version_number),
