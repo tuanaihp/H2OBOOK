@@ -6,6 +6,14 @@
 
 ---
 
+**2026-08-03 — ⚠️ Đã merge + deploy module H2O Teaching Intelligence Center V1, CẦN CHẠY MIGRATION 0029.**
+- Đã merge `feature/teaching-intelligence-center-v1` vào `main`, deploy production thành công (health check OK, `mode: production`).
+- Trước khi tích hợp đã kiểm tra tính nhất quán toàn bộ webapp theo yêu cầu: phát hiện hệ thống vai trò trong module nguồn (mentor/instructor/reviewer/training_manager/admin/owner) không khớp với vai trò thật trong database (chỉ có `teacher/admin/owner` cho người dạy) — đã thu hẹp lại đúng theo dữ liệu thật, không tạo hệ vai trò song song. Cũng phát hiện 4 trang `/instructor`, `/instructor/classes`, `/instructor/students`, `/instructor/assessments` trước đây **đều hiển thị cùng 1 component demo giả lập** (không đọc dữ liệu thật) — đã thay bằng dữ liệu Supabase thật cho cả 4 trang.
+- **Việc bắt buộc:** mở file `supabase/_RUN-0029-ONLY.sql` (mới) → copy toàn bộ → dán vào Supabase SQL Editor (New query) → Run. Đã kiểm tra không trùng tên với 28 migration trước.
+- Cho tới khi chạy: 4 trang trên (`/instructor` và các trang con) sẽ báo lỗi hoặc hiện rỗng. Các phần khác của webapp không bị ảnh hưởng.
+- Nội dung chính: Trung tâm chỉ huy giảng dạy (Command Center) xếp việc cần làm theo mức khẩn cấp thật; Trung tâm học viên với Risk Radar (cảnh báo học viên cần hỗ trợ dựa trên dữ liệu thật: không hoạt động, tiến độ thấp, quá hạn, chờ phản hồi, năng lực thấp) + ghi chú can thiệp riêng tư; Danh sách lớp với tiến độ trung bình thật; Feedback Studio chấm bài hợp nhất (bài tập lớp học cũ + bài tập Brain Studio) với xác nhận rõ ràng trước khi đánh dấu "sẵn sàng làm portfolio", và duyệt/yêu cầu sửa thành quả Create Outcome.
+- Chi tiết đầy đủ, bao gồm các phần cố ý chưa làm (vai trò mentor/reviewer chưa có trong DB, Content & Approval dùng lại trang `/reviews` có sẵn, chưa có bảng lịch buổi học...): `docs/H2OBOOK-TEACHING-INTELLIGENCE-CENTER-V1-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ⚠️ Đã merge + deploy module H2O Learn Mastery Engine V1, CẦN CHẠY MIGRATION 0028.**
 - Đã merge `feat/learn-mastery-engine-v1` vào `main`, deploy production thành công.
 - Trước khi tích hợp, đã kiểm tra tính nhất quán toàn bộ webapp theo yêu cầu: phát hiện và sửa 1 lỗi báo cáo trước đó (module 10 nói sai "6 recipes", thực tế là 5), và 1 chỗ lệch tên (recipe slug của module 10 chưa khớp với module 11) — đã đối chiếu và sửa cả hai, xác nhận không còn lệch dữ liệu giữa các module.
