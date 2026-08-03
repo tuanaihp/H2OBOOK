@@ -6,6 +6,14 @@
 
 ---
 
+**2026-08-03 — ⚠️ Đã merge + deploy 2 module lớn (H2O Brain Learning Intelligence V3 + Compact Navigation V2), CẦN CHẠY MIGRATION MỚI NGAY.**
+- Đã merge `feat/h2obook-learning-intelligence-v3` + `feat/compact-learner-navigation-v2` vào `main`, deploy production thành công (`h2obook-app.vercel.app`, health check OK).
+- **Việc bắt buộc phải làm ngay:** migration `0026_h2obook_learning_intelligence_v3.sql` (26 bảng mới cho Knowledge Space/Brain Learning) **chưa được chạy trên Supabase thật**. Trước khi chạy, mở file `supabase/_RUN-ONCE-COMBINED-MIGRATIONS.sql` bản mới nhất, tìm đoạn `-- FILE: 0026_h2obook_learning_intelligence_v3.sql` (ở cuối file) và chỉ copy phần đó (không chạy lại từ đầu vì 0001-0025 đã có rồi) → dán vào Supabase SQL Editor → Run 1 lần.
+- **Cho tới khi chạy migration này:** trang `/instructor/brain-studio` và `/student/spaces/[slug]` cùng toàn bộ API `/api/learning/*` sẽ báo lỗi (bảng chưa tồn tại). Các trang khác không bị ảnh hưởng.
+- Chi tiết đầy đủ 2 module này: `docs/H2OBOOK-LEARNING-INTELLIGENCE-V3-INTEGRATION-REPORT.md` và `docs/H2OBOOK-COMPACT-NAVIGATION-V2-INTEGRATION-REPORT.md`.
+
+---
+
 ## 0.A NHẬT KÝ KẾT NỐI THỰC TẾ (cập nhật liên tục — đọc mục này trước tiên)
 
 > Mục này ghi lại chính xác đã làm tới đâu với tài khoản Supabase/Cloudflare thật của bạn, để lần sau mở file là biết ngay đang đứng ở bước nào.
