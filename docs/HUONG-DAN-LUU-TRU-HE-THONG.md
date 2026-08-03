@@ -6,6 +6,13 @@
 
 ---
 
+**2026-08-03 — ✅ Đã merge + deploy module H2O System Control Plane V2 — KHÔNG CẦN CHẠY MIGRATION GÌ (dùng hết dữ liệu thật đã có sẵn).**
+- Đã merge `feature/system-control-plane-operations-intelligence-v2` vào `main`, deploy production thành công (health check OK).
+- Trang mới `/system` (System Command Center, chỉ Admin/Owner xem được) — thay thế kiểu "mọi dịch vụ đều Sẵn sàng/active" giả trên `/operations/system-health` và `/platform-admin/system-health` (2 trang đó vẫn còn demo, chưa đụng tới) bằng trạng thái dịch vụ **thật**: đã cấu hình hay chưa, có kiểm tra kết nối thật (Supabase) hay chưa từng kiểm tra thật.
+- Đã kiểm tra: toàn bộ 9 trang `/operations/*` và 4 trang `/platform-admin/*` **vẫn đang demo** (chưa nối Supabase) — đây là khoảng trống lớn hơn nhiều so với 1 module này có thể xử lý xong, đã ghi rõ trong báo cáo để làm ở đợt sau.
+- Không có "Dangerous Actions" (khôi phục backup, xoay secret, xóa workspace...) nào được xây trong đợt này vì hệ thống chưa có xác thực 2 lớp (MFA) — xây nút bấm mà không có bảo vệ thật sẽ nguy hiểm hơn là không xây.
+- Chi tiết đầy đủ: `docs/H2OBOOK-SYSTEM-CONTROL-PLANE-OPERATIONS-INTELLIGENCE-V2-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ⚠️ Đã merge + deploy module H2O Business Growth & Commerce Engine V1, CẦN CHẠY MIGRATION 0030.**
 - Đã merge `feature/business-growth-commerce-v1` vào `main`, deploy production thành công (health check OK, `mode: production`).
 - Trước khi tích hợp đã kiểm tra: `/store`, `/orders`, `/membership`, `/analytics`, `/marketplace-studio`, `/licensing`, `/white-label`, `/growth-reader` (8 trang Admin hiện có) đều vẫn đang dùng dữ liệu demo cũ (chưa nối Supabase) — theo đúng yêu cầu của module này, **không đụng vào 8 trang đó**, chỉ xây thêm khu vực mới cho học viên.
