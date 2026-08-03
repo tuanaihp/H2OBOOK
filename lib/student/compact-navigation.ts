@@ -66,12 +66,17 @@ function learnerGroups(context: UserAccessContext): CompactNavGroup[] {
     });
   }
 
+  // H2OBOOK Business Growth & Commerce Engine V1: 4 items max, tools live inside each page as
+  // locked/unlocked cards (BusinessAccessSnapshot), never as separate sidebar entries — so every
+  // item here is unconditionally visible to any non-guest/non-admin/owner account, same as before.
   groups.push({
     id: "business", label: "BUSINESS",
-    items: ([
-      { id: "store", label: "Knowledge Store", href: "/academy/courses", feature: "business.storefront" },
-      { id: "account-commerce", label: "Quyền lợi & đơn hàng", href: "/student/courses" }
-    ] satisfies CompactNavItem[]).filter((item) => !item.feature || hasFeature(context, item.feature))
+    items: [
+      { id: "business-command", label: "Trung tâm kinh doanh", href: "/student/business" },
+      { id: "business-customers", label: "Khách hàng & bán hàng", href: "/student/business/customers" },
+      { id: "business-growth", label: "Nội dung & tăng trưởng", href: "/student/business/growth" },
+      { id: "business-operations", label: "Quyền lợi & vận hành", href: "/student/business/operations" }
+    ]
   });
 
   return groups;
