@@ -57,6 +57,7 @@ const domains = [
   ]},
   { id: "system", label: "System", icon: Settings, href: "/settings", links: [
     { href: "/admin", label: "Quản trị", icon: ShieldCheck },
+    ...(operationsFeatures.systemControlPlane ? [{ href: "/system", label: "System Command Center", icon: CloudCog }] : []),
     ...(operationsFeatures.operationsCenter ? [{ href: "/operations", label: "Operations Center", icon: LifeBuoy }] : []),
     { href: "/enterprise", label: "Enterprise & API", icon: Building2 },
     { href: "/integrations", label: "Tích hợp", icon: PlugZap },

@@ -1,7 +1,7 @@
 import {
   Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Brain, Building2, CheckCheck, CircleDollarSign,
   CloudCog, FileInput, GraduationCap, HeartHandshake, LayoutDashboard, LifeBuoy, ListChecks,
-  MessageSquareText, PackageSearch, School, Settings2, ShieldCheck, UsersRound, Workflow
+  LockKeyhole, MessageSquareText, PackageSearch, PlugZap, School, Settings2, ShieldCheck, UsersRound, Workflow
 } from "lucide-react";
 
 export const customerRoutes = [
@@ -31,6 +31,12 @@ export const operationsRoutes = [
   { href: "/operations/system-health", label: "System Health", icon: CloudCog }
 ];
 
+export const systemRoutes = [
+  { href: "/system", label: "System Command Center", icon: CloudCog },
+  { href: "/security", label: "Bảo mật", icon: LockKeyhole },
+  { href: "/integrations", label: "Tích hợp", icon: PlugZap }
+];
+
 export const platformRoutes = [
   { href: "/platform-admin", label: "Platform Overview", icon: LayoutDashboard },
   { href: "/platform-admin/organizations", label: "Organizations", icon: Building2 },
@@ -43,5 +49,6 @@ export const operationsRouteManifest = {
   customer: customerRoutes.map((item) => item.href),
   instructor: instructorRoutes.map((item) => item.href),
   operations: operationsRoutes.map((item) => item.href),
+  system: systemRoutes.map((item) => item.href),
   platformAdmin: platformRoutes.map((item) => item.href)
 };
