@@ -18,6 +18,8 @@
 - **Đã sửa:** đổi tên bảng mới thành `brain_assignment_submissions` để không trùng. Đã kiểm tra lại toàn bộ 21 bảng mới + kiểu dữ liệu + hàm trong `0026`, xác nhận không còn trùng tên với bất kỳ thứ gì trong 25 migration trước.
 - **Việc bạn cần làm:** vì lần chạy trước đã tự rollback sạch (không để lại gì), **không cần dọn dẹp gì thêm** — chỉ cần mở lại file `supabase/_RUN-0026-ONLY.sql` (đã cập nhật bản sửa), copy toàn bộ, dán vào Supabase SQL Editor (mở **New query** mới) → Run lại từ đầu.
 
+**2026-08-03 — ✅ Migration 0026 chạy thành công.** Đã kiểm tra qua API: đầy đủ cả 21 bảng mới (knowledge_spaces, knowledge_space_versions, learning_sections, learning_blocks, brain_templates, experience_cases, rubrics, assignment_definitions, brain_assignment_submissions, block_progress, knowledge_space_progress, learner_notes, learner_experiences, learning_results, share_card_templates, shared_results, journal_entries, knowledge_chunks, knowledge_nodes, knowledge_edges, completion_conditions) đều đã tồn tại thật trên Supabase production. Từ giờ `/instructor/brain-studio` và `/student/spaces/[slug]` đã có thể dùng được với dữ liệu thật (đăng nhập bằng tài khoản owner/teacher để tạo Knowledge Space đầu tiên, gắn vào 1 bài học đã có).
+
 ---
 
 ## 0.A NHẬT KÝ KẾT NỐI THỰC TẾ (cập nhật liên tục — đọc mục này trước tiên)
