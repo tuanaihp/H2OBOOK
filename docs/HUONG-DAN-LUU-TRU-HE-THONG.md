@@ -6,6 +6,11 @@
 
 ---
 
+**2026-08-04 — ✅ Đã merge + deploy: thống nhất ghi log về `domain_events`, bỏ đường ghi log trùng lặp — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Thực hiện đúng đề xuất trong `docs/DATA_DICTIONARY_MAIN_AUDIT.md` §5.2: phát hiện `lib/domain/audit.ts` là nơi DUY NHẤT trong toàn bộ code còn ghi vào bảng `audit_logs`, và cả 2 chỗ gọi nó đều nằm trong 1 API chung (`/api/domain/[resource]`) mà mọi bảng nó thao tác **đã có sẵn trigger tự động ghi vào `domain_events`** từ migration 0007 (ghi đầy đủ hơn — có cả dữ liệu trước/sau, không chỉ tên hành động).
+- Đã xóa `lib/domain/audit.ts` và bỏ 2 lần gọi ghi log trùng lặp. **Không ảnh hưởng gì tới hành vi thật** — mọi thao tác vẫn được ghi log đầy đủ như trước qua `domain_events`, chỉ bớt đi bản ghi trùng kém chi tiết hơn ở `audit_logs`. Bảng `audit_logs` và dữ liệu cũ không bị đụng tới.
+- Deploy production thành công (health check OK). Không cần chạy gì trên Supabase.
+
 **2026-08-04 — 📄 Đã merge tài liệu Data Dictionary (module 17) — CHỈ LÀ TÀI LIỆU, KHÔNG ĐỔI CODE/SCHEMA/DEPLOY.**
 - Module 17 đề xuất xây "Resource Registry" tổng thể (14 bảng mới) để hợp nhất dữ liệu — nhưng sau khi audit, xác nhận H2OBOOK **không** có tình trạng phân mảnh schema mà giải pháp đó nhắm tới (mỗi domain đã có đúng 1 bảng nguồn sự thật). Theo quyết định của bạn, chỉ viết tài liệu tham khảo, không xây registry.
 - Tài liệu mới: `docs/DATA_DICTIONARY_MAIN_AUDIT.md` — bản đồ đầy đủ: bảng nguồn sự thật theo từng domain (Create/Learn/Teach/Business/Operations/System), luồng Input→Process→Output, ai tạo dữ liệu gì (Admin/Giáo viên/Học viên/Hệ thống), dữ liệu nào lưu Postgres/R2/IndexedDB, và các rủi ro trùng lặp thật sự đã phát hiện (ví dụ: `audit_logs` và `domain_events` là 2 cơ chế ghi log song song).
