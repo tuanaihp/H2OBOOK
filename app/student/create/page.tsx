@@ -24,13 +24,23 @@ export default async function CreateOutcomeHubPage({ searchParams }: { searchPar
     <div className="h2oc-recipe-grid">
       {recipes.map(({ recipe, availability, reason }) => {
         const locked = availability !== "unlocked";
-        const href = locked ? "#" : `/student/create/new?recipe=${recipe.slug}${lessonId ? `&lessonId=${lessonId}` : ""}${spaceId ? `&spaceId=${spaceId}` : ""}`;
-        return <Link key={recipe.slug} href={href} aria-disabled={locked} className="h2oc-recipe-card" style={{ "--recipe-accent": recipe.accent } as React.CSSProperties} onClick={locked ? (event) => event.preventDefault() : undefined}>
+        const body = <>
           {locked && <span className="h2oc-recipe-lock"><Lock size={13} />{reason}</span>}
           <strong>{recipe.title}</strong>
           <p>{recipe.description}</p>
           <small>{recipe.estimatedMinutes} phút · {recipe.expectedOutputs.join(" · ")}</small>
-        </Link>;
+        </>;
+        const style = { "--recipe-accent": recipe.accent } as React.CSSProperties;
+        // A locked recipe renders as a plain element, not a Link. It previously stayed a Link to
+        // href="#" neutralised by an onClick preventDefault — but this is a Server Component, and
+        // React refuses to serialise a function prop for a Client Component, so the whole page
+        // threw during render the moment any recipe was locked. That never showed up while testing
+        // with an owner account (everything unlocked); a real student account, which is exactly
+        // what the new self-signup flow creates, locks recipes and hit it on first visit.
+        if (locked) {
+          return <div key={recipe.slug} aria-disabled className="h2oc-recipe-card" style={style}>{body}</div>;
+        }
+        return <Link key={recipe.slug} href={`/student/create/new?recipe=${recipe.slug}${lessonId ? `&lessonId=${lessonId}` : ""}${spaceId ? `&spaceId=${spaceId}` : ""}`} className="h2oc-recipe-card" style={style}>{body}</Link>;
       })}
     </div>
 
