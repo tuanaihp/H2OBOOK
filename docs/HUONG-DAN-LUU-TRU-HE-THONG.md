@@ -6,6 +6,17 @@
 
 ---
 
+**2026-08-04 — 🔮 Đã merge + deploy: thống nhất quả cầu "H2O Brain core" ở TẤT CẢ các vị trí — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Trước đây chỉ **trang chủ (Knowledge Universe hero)** có thiết kế quả cầu đúng (3 vòng quay, hình bộ não, hiệu ứng xoáy, nhịp đập). **4 chỗ khác mỗi chỗ tự vẽ một quả cầu riêng** đã lệch hẳn: khác màu, khác số vòng, không có hình bộ não.
+- Nay cả 5 chỗ dùng **chung một thiết kế duy nhất** (`components/brand/h2o-brain-core`): trang chủ mục cuối, khối FutureOrb, dashboard học viên, dashboard chủ workspace, và bản xem trước Academic Ops.
+- Kích thước tự co giãn theo đường kính — muốn to/nhỏ chỉ cần đổi 1 giá trị, hình bộ não/vòng quay/ánh sáng tự theo.
+- **Không đổi màu sắc, gradient hay tốc độ hiệu ứng nào** — các tỉ lệ trong file mới chính là số đo gốc của hero chia cho đường kính 178px.
+- Sửa kèm 2 lỗi phát hiện khi tách: (1) một lớp hiệu ứng của quả cầu bị khai báo trùng nên **chưa bao giờ hiển thị**; (2) chế độ "giảm chuyển động" trước đây **vẫn để vòng quay và nhịp đập chạy** — giờ dừng hết.
+- Đã xác minh trên production: trang chủ hiện đúng 2 quả cầu chuẩn (hero + mục cuối).
+- ⚠️ Chưa xem được ảnh thật — nhờ bạn kiểm tra 5 vị trí, nhất là dashboard chủ workspace (trước là hình bầu dục, nay thành hình tròn).
+
+---
+
 **2026-08-04 — ✒️ Đã merge + deploy bộ font chính thức Literata + Be Vietnam Pro cho TOÀN BỘ webapp — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - **Literata** (font sách, tri thức) dùng cho: tiêu đề trang chủ, tiêu đề mục lớn, tên sách/khóa học trong catalog & thư viện & cửa hàng, trích dẫn chuyên gia.
 - **Be Vietnam Pro** (tối ưu dấu tiếng Việt) dùng cho: menu, nút bấm, biểu mẫu, bảng dữ liệu, dashboard, admin, vận hành.
