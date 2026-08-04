@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppMode } from "@/lib/runtime-config";
@@ -18,7 +19,11 @@ const demoUser: CurrentUser = {
   demo: true
 };
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+// React cache() deduplicates this per request. A student page render calls it at least twice —
+// once in app/student/layout.tsx (requireCurrentUser) and again in the page itself — and each call
+// was a full auth round trip plus two table reads to Supabase. Deduped, the second and any further
+// caller reuses the first result instead of repeating ~3 network round trips.
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<CurrentUser | null> {
   if (getAppMode() === "demo") return demoUser;
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
@@ -41,7 +46,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     role,
     demo: false
   };
-}
+});
 
 export async function requireCurrentUser() {
   const user = await getCurrentUser();

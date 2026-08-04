@@ -67,11 +67,24 @@ export async function middleware(request: NextRequest) {
       setAll: (items: { name: string; value: string; options: CookieOptions }[]) => items.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
     }
   });
-  const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
   const isPublic = pathname === "/" || publicPrefixes.some((prefix) => pathname.startsWith(prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
+  const isStudentOwnedContent = pathname.startsWith("/editor/") || pathname.startsWith("/remix/");
+  const isAdminOnlyRoute = adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const isAuthEntryRoute = pathname === "/login" || pathname === "/signup";
+  const mayRedirectStudent = studentExperienceV2 && !isPublic && !isStudentOwnedContent && !pathname.startsWith("/student") && !pathname.startsWith("/api/");
+
+  // The organization_members lookup is a second sequential network round trip to Supabase on top
+  // of getUser(), and only three rules below actually read memberRole. Every /student/* request —
+  // i.e. every tab click in the student experience — used to pay for it and then never use it,
+  // because the student-redirect rule explicitly excludes paths already under /student. Querying
+  // only when a rule can act on the answer removes that round trip from the hot path; the three
+  // rules keep their original conditions, each of which implies needsRole.
+  const needsRole = mayRedirectStudent || isAdminOnlyRoute || isAuthEntryRoute;
+
+  const { data: { user } } = await supabase.auth.getUser();
   let memberRole: string | null = null;
-  if (user) {
+  if (user && needsRole) {
     const { data: membership } = await supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle();
     memberRole = membership?.role ?? null;
   }
@@ -83,8 +96,7 @@ export async function middleware(request: NextRequest) {
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }
-  const isStudentOwnedContent = pathname.startsWith("/editor/") || pathname.startsWith("/remix/");
-  if (user && memberRole === "student" && studentExperienceV2 && !isPublic && !isStudentOwnedContent && !pathname.startsWith("/student") && !pathname.startsWith("/api/")) {
+  if (user && memberRole === "student" && mayRedirectStudent) {
     const studentHome = request.nextUrl.clone();
     studentHome.pathname = "/student";
     studentHome.search = "";
@@ -92,7 +104,6 @@ export async function middleware(request: NextRequest) {
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }
-  const isAdminOnlyRoute = adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   if (user && isAdminOnlyRoute && memberRole !== "admin" && memberRole !== "owner") {
     const unauthorized = request.nextUrl.clone();
     unauthorized.pathname = "/unauthorized";
@@ -103,7 +114,7 @@ export async function middleware(request: NextRequest) {
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  if (user && isAuthEntryRoute) {
     const landing = request.nextUrl.clone();
     landing.pathname = memberRole === "student" ? (studentExperienceV2 ? "/student" : "/learn") : "/dashboard";
     landing.search = "";
@@ -114,4 +125,10 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+// Static assets served from /public (fonts, icons, images, manifests) previously still ran the
+// full middleware — two sequential Supabase round trips each — only to be classified as public by
+// the pathname.includes(".") test and returned unchanged. Excluding them at the matcher is not a
+// new security hole: every path with a dot was already treated as public by that same test, so
+// this set is a strict subset of what already bypassed the auth redirects. Extension-less routes
+// (all real pages, including RSC navigations) are unaffected and still fully protected.
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|mjs|map|woff|woff2|ttf|otf|txt|xml|webmanifest)$).*)"] };
