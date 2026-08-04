@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { BookOpen, BrainCircuit, Eye, EyeOff, LoaderCircle, ShieldCheck } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PublicAcademyConfig } from "@/lib/public-academy-v5/types";
+import { GoogleGlyph } from "@/components/marketing/google-glyph";
 import styles from "./public-auth-v5.module.css";
 
 function safeNextPath(value: string | null): string | null {
@@ -26,6 +27,7 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const demoLinksEnabled = process.env.NEXT_PUBLIC_AUTH_DEMO_LINKS === "true";
 
@@ -81,6 +83,16 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
     }
   };
 
+  const submitWithGoogle = async () => {
+    setGoogleLoading(true);
+    setError("");
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) { setError("Hệ thống đăng nhập chưa được cấu hình."); setGoogleLoading(false); return; }
+    const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+    const { error: authError } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ""}` } });
+    if (authError) { setError(authError.message); setGoogleLoading(false); }
+  };
+
   return <main className={styles.authPage}>
     <section className={styles.brandPanel}>
       <div className={styles.brandGlow} />
@@ -100,6 +112,9 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
         <p>{config.loginDescription}</p>
 
         {error && <div className={styles.error} role="alert">{error}</div>}
+
+        <button type="button" className={styles.googleButton} onClick={submitWithGoogle} disabled={googleLoading}>{googleLoading ? <LoaderCircle className={styles.spin} aria-hidden="true" /> : <GoogleGlyph />}Đăng nhập bằng Google</button>
+        <div className={styles.divider}><i />hoặc dùng email<i /></div>
 
         <label className={styles.field}><span>Email</span><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
         <label className={styles.field}><span>Mật khẩu</span><div className={styles.passwordField}><input type={show ? "text" : "password"} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" /><button type="button" aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onClick={() => setShow((value) => !value)}>{show ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></div></label>
