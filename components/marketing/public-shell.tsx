@@ -49,7 +49,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
 
 export function FutureOrb({ label = "H2O Knowledge AI" }: { label?: string }) {
   return <div className="h2o-future-orb-wrap" aria-label={label}>
-    <H2OBrainCore size={144}/>
+    <H2OBrainCore size={112}/>
     <div className="h2o-orb-status"><Sparkles size={13}/><span>{label}</span><small>Local-first intelligence</small></div>
   </div>;
 }
