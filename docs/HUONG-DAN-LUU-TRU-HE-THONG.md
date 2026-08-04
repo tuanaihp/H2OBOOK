@@ -6,6 +6,16 @@
 
 ---
 
+**2026-08-04 — ✅ Đã merge + deploy Phase 1 (Auth & Routing) từ Production Gap Audit — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Sửa đúng các gap đã xác nhận trong `docs/H2OBOOK_PRODUCTION_GAP_AUDIT.md`:
+  - **[P0]** Trước đây các trang quản trị hệ thống (`/admin`, `/platform-admin`, `/security`, `/enterprise`, `/integrations`, `/cloud-sync`, `/settings`...) **không có kiểm tra quyền** — bất kỳ tài khoản đã đăng nhập nào (kể cả không phải admin) đều mở được. Giờ chỉ Admin/Owner mới vào được, các vai trò khác sẽ thấy trang "Không đủ quyền" (`/unauthorized`) mới thay vì mở thẳng trang.
+  - Đã tạo trang `/unauthorized` (Không đủ quyền / Cần quyền truy cập / Membership hết hạn).
+  - Sửa lỗi: link đăng nhập qua email hết hạn trước đây bị "đăng nhập âm thầm thất bại" không báo gì — giờ báo rõ "Đường dẫn đã hết hạn, vui lòng đăng nhập lại."
+  - Sửa màn hình đăng nhập trên điện thoại: trước đây phải cuộn qua phần giới thiệu cao gần nửa màn hình mới thấy được ô nhập email/mật khẩu — giờ form hiện ngay đầu tiên.
+  - Trang chi tiết sách/khóa học/chiến lược giờ có tiêu đề riêng khi chia sẻ (trước đây tất cả đều hiện chung "H2OBOOK 4.14").
+- **Không đổi database, không cần chạy gì trên Supabase.** Deploy production thành công (health check OK, đã kiểm tra `/unauthorized` hoạt động).
+- Chi tiết đầy đủ, gồm những route CỐ Ý CHƯA khóa quyền (vì có vai trò khác vẫn cần dùng, ví dụ `/books`, `/operations/*`) và lý do: `docs/H2OBOOK_PHASE1_AUTH_ROUTING_REPORT.md`.
+
 **2026-08-04 — ✅ Đã merge + deploy: thống nhất ghi log về `domain_events`, bỏ đường ghi log trùng lặp — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Thực hiện đúng đề xuất trong `docs/DATA_DICTIONARY_MAIN_AUDIT.md` §5.2: phát hiện `lib/domain/audit.ts` là nơi DUY NHẤT trong toàn bộ code còn ghi vào bảng `audit_logs`, và cả 2 chỗ gọi nó đều nằm trong 1 API chung (`/api/domain/[resource]`) mà mọi bảng nó thao tác **đã có sẵn trigger tự động ghi vào `domain_events`** từ migration 0007 (ghi đầy đủ hơn — có cả dữ liệu trước/sau, không chỉ tên hành động).
 - Đã xóa `lib/domain/audit.ts` và bỏ 2 lần gọi ghi log trùng lặp. **Không ảnh hưởng gì tới hành vi thật** — mọi thao tác vẫn được ghi log đầy đủ như trước qua `domain_events`, chỉ bớt đi bản ghi trùng kém chi tiết hơn ở `audit_logs`. Bảng `audit_logs` và dữ liệu cũ không bị đụng tới.
