@@ -4,13 +4,17 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { configuredAcademyOrganizationId, joinAcademyAsStudent } from "@/lib/academy/service";
 
+function roleHome(role: string): string {
+  return role === "student" ? "/student" : "/dashboard";
+}
+
 // H2OBOOK Production Gap Audit §4.2 (P1): the previous version called exchangeCodeForSession()
 // without checking its result, so an expired/already-used invite or magic link silently redirected
 // to `next` (or /dashboard) with no session and no explanation — the user just looked logged out.
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const requested = url.searchParams.get("next") || "/dashboard";
-  const next = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/dashboard";
+  const requestedNext = url.searchParams.get("next");
+  const explicitNext = requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : null;
   const code = url.searchParams.get("code");
   const supabase = await createSupabaseServerClient();
 
@@ -40,5 +44,10 @@ export async function GET(request: Request) {
     }
   }
 
+  // Previously always fell back to /dashboard when no explicit `next` was supplied — for a
+  // student session (e.g. Google sign-in from /login with no `next` in the URL) that landed
+  // them straight on the demo Admin dashboard instead of /student until middleware's own
+  // separate redirect rule happened to catch it. Now the fallback is role-aware from the start.
+  const next = explicitNext ?? roleHome(user?.role ?? "student");
   return NextResponse.redirect(new URL(next, url.origin));
 }
