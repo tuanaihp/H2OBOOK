@@ -6,6 +6,17 @@
 
 ---
 
+**2026-08-04 — ⚡ Đã merge + deploy: sửa lỗi chuyển tab học viên chậm 3–4 giây — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- **Nguyên nhân chính là địa lý, không phải code chậm**: Supabase đặt ở Singapore, nhưng Vercel chưa được khai báo vùng nên chạy mặc định ở Washington (Mỹ). Mỗi lần bấm 1 tab, dữ liệu phải đi vòng Việt Nam → Mỹ → Singapore → Mỹ → Việt Nam. Đã ghim Vercel về Singapore (`sin1`) — cùng chỗ với database.
+- Đã xác minh sau deploy: header phản hồi trả về `hkg1::sin1::…` (trước đây là `iad1` bên Mỹ) — máy chủ đã thực sự chạy ở Singapore.
+- Bỏ 3 lượt gọi database thừa mỗi lần bấm tab: middleware trước đây luôn tra vai trò tài khoản kể cả khi không dùng đến, và thông tin người dùng bị lấy lặp lại 2 lần trong cùng 1 lần tải trang.
+- Không đổi bất kỳ quy tắc phân quyền nào — 3 quy tắc bảo vệ route trong middleware giữ nguyên điều kiện gốc.
+- Deploy production thành công (health check OK).
+- ⚠️ Chưa đo được con số cải thiện thực tế tính bằng giây — cần bạn bấm thử lại và xác nhận cảm nhận.
+- Chi tiết đầy đủ: `docs/H2OBOOK_STUDENT_NAVIGATION_LATENCY_REPORT.md`.
+
+---
+
 **2026-08-04 — ✅ Đã merge + deploy: tự động đăng nhập sau khi xác nhận email, nút Đăng nhập bằng Google, và vá tận gốc lỗi tạo nhầm workspace Owner — KHÔNG CẦN CHẠY MIGRATION GÌ THÊM (đã chạy `_RUN-0032-ONLY.sql`).**
 - **Vá tận gốc**: cơ chế tự động tạo workspace mới trước đây sẽ kích hoạt bất cứ khi nào tài khoản đăng ký KHÔNG chỉ rõ vai trò — kể cả đăng nhập bằng Google. Giờ chỉ khi nào rõ ràng yêu cầu "owner" mới tạo workspace mới; mọi cách đăng ký khác (email, Google, mời qua admin...) đều an toàn.
 - Học viên bấm link xác nhận email (hoặc đăng nhập Google) → tự động vào thẳng `/student`, đã gia nhập đúng academy, không cần đăng nhập lại thủ công.
