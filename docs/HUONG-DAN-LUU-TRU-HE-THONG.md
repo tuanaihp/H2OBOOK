@@ -6,6 +6,17 @@
 
 ---
 
+**2026-08-04 — ✅ Đã merge + deploy: tự động đăng nhập sau khi xác nhận email, nút Đăng nhập bằng Google, và vá tận gốc lỗi tạo nhầm workspace Owner — KHÔNG CẦN CHẠY MIGRATION GÌ THÊM (đã chạy `_RUN-0032-ONLY.sql`).**
+- **Vá tận gốc**: cơ chế tự động tạo workspace mới trước đây sẽ kích hoạt bất cứ khi nào tài khoản đăng ký KHÔNG chỉ rõ vai trò — kể cả đăng nhập bằng Google. Giờ chỉ khi nào rõ ràng yêu cầu "owner" mới tạo workspace mới; mọi cách đăng ký khác (email, Google, mời qua admin...) đều an toàn.
+- Học viên bấm link xác nhận email (hoặc đăng nhập Google) → tự động vào thẳng `/student`, đã gia nhập đúng academy, không cần đăng nhập lại thủ công.
+- Thêm nút "Đăng nhập/Đăng ký bằng Google" ở `/login` và `/signup` — cần bạn đã bật Google Provider trong Supabase Dashboard (bạn đã xác nhận hoàn thành việc này).
+- Sửa thêm 1 lỗi nhỏ: bấm Google từ `/login` (không phải `/signup`) mà chưa xác định vai trò thì trước đây mặc định đưa về `/dashboard` — giờ luôn kiểm tra đúng vai trò trước khi quyết định đưa vào `/student` hay `/dashboard`.
+- ⚠️ Lưu ý khi tự test: nếu trình duyệt đang có sẵn phiên đăng nhập Owner cũ, bấm "Đăng nhập Google" sẽ chỉ tiếp tục phiên cũ đó (không phải bug) — cần đăng xuất hẳn hoặc dùng tab ẩn danh để test đúng luồng học viên mới.
+- Deploy production thành công (health check OK).
+- Chi tiết đầy đủ: `docs/H2OBOOK_AUTO_LOGIN_GOOGLE_SIGNIN_REPORT.md`.
+
+---
+
 **2026-08-04 — 🚨 ĐÃ SỬA LỖI NGHIÊM TRỌNG: đăng ký tài khoản mới trước đây vô tình tạo workspace Owner mới thay vì vào học viên — đã merge + deploy — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - **Nguyên nhân đã xác nhận**: nút "Chưa có tài khoản?" ở trang đăng nhập dẫn tới `/signup` — trang này trước đây gán cứng `role:"owner"` khi tạo tài khoản. Theo đúng cơ chế tự động của hệ thống (đã có từ trước, không phải lỗi mới), bất kỳ ai đăng ký với role "owner" sẽ được **tự động tạo một workspace mới hoàn toàn và trở thành Owner toàn quyền của workspace đó** — không qua duyệt, không qua cấp độ, không vào academy thật của Thủy H2O.
 - **Đã sửa**: `/signup` giờ tạo tài khoản với vai trò Học viên thật, tự động gia nhập đúng academy của Thủy H2O (không tạo workspace mới), sau đó vào thẳng `/student` — không gian học viên trống, đúng vai trò.
