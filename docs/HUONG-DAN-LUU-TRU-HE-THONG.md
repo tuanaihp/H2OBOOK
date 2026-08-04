@@ -6,6 +6,13 @@
 
 ---
 
+**2026-08-04 — ✅ Đã merge + deploy module H2O Image Book & Teaching Upgrade V1 — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Đã merge `feature/image-book-teaching-upgrade-v1` vào `main`, deploy production thành công (health check OK).
+- Tại trang `/input` (Unified Input Gateway — nút "Mở Unified Input Gateway" trong Studio, hoặc nút mới "Tạo từ ảnh / ZIP / PDF / Word" ở `/books`) giờ có thêm lựa chọn **"Nhiều ảnh / ZIP trang sách"**: chọn nhiều ảnh PNG/JPEG hoặc 1 file ZIP chứa ảnh từng trang → tự động tạo sách mới, mỗi ảnh thành 1 trang, sắp xếp đúng thứ tự tên file (kể cả file đặt tên "trang 2, trang 10" không bị lộn thứ tự).
+- Trước khi làm đã kiểm tra kỹ theo đúng quy trình riêng của phần Input Engine (đọc `CLAUDE.md`, `input-roadmap.yaml`, chạy `pnpm audit:input`) — xác nhận toàn bộ nền tảng nhập liệu (DOCX/PDF/Ảnh/HTML) đã hoàn thiện từ trước, module này chỉ thêm đúng 1 khả năng còn thiếu thật sự (tạo sách từ nhiều ảnh/ZIP), không viết lại engine cũ.
+- Phát hiện thêm: Reader đã có sẵn "Trình chiếu" (Presentation Mode) khá đầy đủ rồi (không cần xây lại); còn phần quản lý hàng loạt trang (kéo thả sắp xếp, khóa/ẩn trang, lịch sử phiên bản) và gắn sách vào lộ trình/cấp độ thì **chưa làm** — chi tiết trong báo cáo.
+- Chi tiết đầy đủ: `docs/H2OBOOK-IMAGE-BOOK-TEACHING-UPGRADE-V1-INTEGRATION-REPORT.md`.
+
 **2026-08-03 — ⚠️ Đã merge + deploy module H2O Academy Control Center V1, CẦN CHẠY MIGRATION 0031.**
 - Đã merge `feature/academy-control-center-v1` vào `main`, deploy production thành công (health check OK).
 - Trang mới `/academy-admin` (Tổng quan đào tạo, chỉ Admin/Owner) — lần đầu tiên có giao diện thật để **tạo và sửa khóa học/module/bài học** (`/academy-admin/programs`), trước đây các khóa học chỉ được tạo tự động từ danh mục mẫu có sẵn, không có chỗ nào để thêm/sửa thủ công.
