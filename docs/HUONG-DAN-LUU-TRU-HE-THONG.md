@@ -6,6 +6,11 @@
 
 ---
 
+**2026-08-04 — 📄 Đã merge tài liệu Data Dictionary (module 17) — CHỈ LÀ TÀI LIỆU, KHÔNG ĐỔI CODE/SCHEMA/DEPLOY.**
+- Module 17 đề xuất xây "Resource Registry" tổng thể (14 bảng mới) để hợp nhất dữ liệu — nhưng sau khi audit, xác nhận H2OBOOK **không** có tình trạng phân mảnh schema mà giải pháp đó nhắm tới (mỗi domain đã có đúng 1 bảng nguồn sự thật). Theo quyết định của bạn, chỉ viết tài liệu tham khảo, không xây registry.
+- Tài liệu mới: `docs/DATA_DICTIONARY_MAIN_AUDIT.md` — bản đồ đầy đủ: bảng nguồn sự thật theo từng domain (Create/Learn/Teach/Business/Operations/System), luồng Input→Process→Output, ai tạo dữ liệu gì (Admin/Giáo viên/Học viên/Hệ thống), dữ liệu nào lưu Postgres/R2/IndexedDB, và các rủi ro trùng lặp thật sự đã phát hiện (ví dụ: `audit_logs` và `domain_events` là 2 cơ chế ghi log song song).
+- Không có gì cần bạn chạy trên Supabase, không cần deploy lại.
+
 **2026-08-04 — ✅ Đã merge + deploy module H2O Image Book & Teaching Upgrade V1 — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Đã merge `feature/image-book-teaching-upgrade-v1` vào `main`, deploy production thành công (health check OK).
 - Tại trang `/input` (Unified Input Gateway — nút "Mở Unified Input Gateway" trong Studio, hoặc nút mới "Tạo từ ảnh / ZIP / PDF / Word" ở `/books`) giờ có thêm lựa chọn **"Nhiều ảnh / ZIP trang sách"**: chọn nhiều ảnh PNG/JPEG hoặc 1 file ZIP chứa ảnh từng trang → tự động tạo sách mới, mỗi ảnh thành 1 trang, sắp xếp đúng thứ tự tên file (kể cả file đặt tên "trang 2, trang 10" không bị lộn thứ tự).
