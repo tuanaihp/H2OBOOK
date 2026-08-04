@@ -30,6 +30,10 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
   const demoLinksEnabled = process.env.NEXT_PUBLIC_AUTH_DEMO_LINKS === "true";
 
   useEffect(() => {
+    // §4.2: surface the auth callback's expired/invalid-link redirect instead of a silent failure.
+    if (new URLSearchParams(window.location.search).get("error") === "link_expired") {
+      setError("Đường dẫn đăng nhập đã hết hạn hoặc đã được dùng. Vui lòng đăng nhập lại hoặc yêu cầu email mới.");
+    }
     const saved = window.localStorage.getItem("h2obook-login-email");
     if (saved) {
       setEmail(saved);

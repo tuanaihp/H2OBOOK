@@ -1,7 +1,16 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock3, FileText, Sparkles } from "lucide-react";
 import { PublicShell } from "@/components/marketing/public-shell";
 import { findPublicBook, formatVnd, publicBooks } from "@/lib/public-site/content";
 export function generateStaticParams(){return publicBooks.map(book=>({slug:book.slug}))}
+// §4.5: previously every book detail page shared the root layout's generic default title.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const book = findPublicBook(slug);
+  if (!book) return {};
+  const description = book.subtitle || book.description;
+  return { title: book.title, description, openGraph: { title: book.title, description, type: "book" } };
+}
 export default async function BookDetail({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const book=findPublicBook(slug);if(!book)notFound();return <PublicShell><section className="h2o-detail-hero"><div className="h2o-public-container h2o-detail-grid"><div className="h2o-detail-cover" style={{background:book.accent}}><small>H2OBOOK · {book.category}</small><h1>{book.title}</h1><span>THUYH2O MAKEUP ACADEMY</span><i/></div><div className="h2o-detail-copy"><Link href="/academy/books" className="h2o-back-link"><ArrowLeft/>Thư viện sách</Link><span className="h2o-public-eyebrow">{book.category} · {book.level}</span><h1>{book.title}</h1><p className="lead">{book.subtitle}</p><p>{book.description}</p><div className="h2o-detail-stats"><span><FileText/><b>{book.pages}</b><small>Trang</small></span><span><Clock3/><b>{book.readingMinutes}</b><small>Phút đọc</small></span><span><BookOpen/><b>{book.chapters.length}</b><small>Chương</small></span></div><div className="h2o-detail-price"><strong>{formatVnd(book.price)}</strong><small>Truy cập trọn đời · cập nhật nội dung</small></div><div className="h2o-detail-actions"><Link className="h2o-public-primary large" href="/login">Bắt đầu đọc <ArrowRight/></Link><Link className="h2o-public-secondary large" href="/academy/membership">Xem trong Membership</Link></div></div></div></section><section className="h2o-public-section"><div className="h2o-public-container h2o-detail-content-grid"><div><span className="h2o-public-eyebrow">KẾT QUẢ SAU KHI ĐỌC</span><h2>Bạn sẽ làm được gì?</h2><div className="h2o-outcome-list">{book.outcomes.map(item=><span key={item}><CheckCircle2/>{item}</span>)}</div></div><div><span className="h2o-public-eyebrow">MỤC LỤC CHÍNH</span><h2>{book.chapters.length} chương có cấu trúc</h2><ol className="h2o-chapter-list">{book.chapters.map((chapter,index)=><li key={chapter}><span>{String(index+1).padStart(2,"0")}</span><strong>{chapter}</strong></li>)}</ol></div></div></section><section className="h2o-detail-intelligence"><div className="h2o-public-container"><Sparkles/><div><span>SMART READING</span><h2>Đọc, ghi chú, tạo flashcard và kết nối với bài học.</h2><p>H2OBOOK biến cuốn sách thành một không gian học tập sống, không chỉ là file PDF tĩnh.</p></div><Link href="/student/library">Xem trải nghiệm đọc <ArrowRight/></Link></div></section></PublicShell>}

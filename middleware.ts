@@ -1,7 +1,15 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/unauthorized", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+
+// H2OBOOK Production Gap Audit §4.1 (P0): these routes are unambiguously System/Platform Admin
+// surfaces with no plausible non-admin/owner use case — unlike Create/Teach/Business tool routes
+// (books, editor, classes, assignments, templates, etc.), which stay reachable by whatever roles
+// already use them today, per the audit's explicit instruction not to break existing navigation
+// with a blanket deny. See the audit doc's §4.1/§6 for the full reasoning and what was
+// deliberately left out of this list.
+const adminOnlyPrefixes = ["/admin", "/platform-admin", "/security", "/enterprise", "/integrations", "/cloud-sync", "/settings", "/smart-settings", "/assist-control", "/offline"];
 
 function buildCsp(nonce: string) {
   const production = process.env.NODE_ENV === "production";
@@ -81,6 +89,17 @@ export async function middleware(request: NextRequest) {
     studentHome.pathname = "/student";
     studentHome.search = "";
     const redirect = NextResponse.redirect(studentHome);
+    redirect.headers.set("content-security-policy", buildCsp(nonce));
+    return redirect;
+  }
+  const isAdminOnlyRoute = adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (user && isAdminOnlyRoute && memberRole !== "admin" && memberRole !== "owner") {
+    const unauthorized = request.nextUrl.clone();
+    unauthorized.pathname = "/unauthorized";
+    unauthorized.search = "";
+    unauthorized.searchParams.set("reason", "unauthorized");
+    unauthorized.searchParams.set("from", pathname);
+    const redirect = NextResponse.redirect(unauthorized);
     redirect.headers.set("content-security-policy", buildCsp(nonce));
     return redirect;
   }
