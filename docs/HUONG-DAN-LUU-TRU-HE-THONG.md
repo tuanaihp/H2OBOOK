@@ -6,6 +6,16 @@
 
 ---
 
+**2026-08-04 — 🚨 ĐÃ SỬA LỖI NGHIÊM TRỌNG: đăng ký tài khoản mới trước đây vô tình tạo workspace Owner mới thay vì vào học viên — đã merge + deploy — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- **Nguyên nhân đã xác nhận**: nút "Chưa có tài khoản?" ở trang đăng nhập dẫn tới `/signup` — trang này trước đây gán cứng `role:"owner"` khi tạo tài khoản. Theo đúng cơ chế tự động của hệ thống (đã có từ trước, không phải lỗi mới), bất kỳ ai đăng ký với role "owner" sẽ được **tự động tạo một workspace mới hoàn toàn và trở thành Owner toàn quyền của workspace đó** — không qua duyệt, không qua cấp độ, không vào academy thật của Thủy H2O.
+- **Đã sửa**: `/signup` giờ tạo tài khoản với vai trò Học viên thật, tự động gia nhập đúng academy của Thủy H2O (không tạo workspace mới), sau đó vào thẳng `/student` — không gian học viên trống, đúng vai trò.
+- **Đã xây thêm hệ thống khóa/mở giai đoạn thật theo từng học viên** (trước đây mọi học viên đều thấy y hệt nhau — "Học viên nền tảng" luôn hiện "đã hoàn thành" giả cho tất cả mọi người): giờ chỉ giai đoạn đầu (kiến thức miễn phí) mở sẵn cho học viên mới; các giai đoạn sau bị khóa thật, có nút "Đăng ký nâng cấp" dẫn tới trang Membership; mở ra thật khi học viên có membership đang hoạt động hoặc được admin cấp thủ công.
+- ⚠️ **Việc bạn cần tự kiểm tra thủ công**: các tài khoản đã lỡ đăng ký qua `/signup` TRƯỚC bản sửa này (nếu có) đã bị tạo thành Owner của 1 workspace rỗng riêng — bản sửa này KHÔNG tự động sửa lại các tài khoản cũ đó. Nếu bạn nghi có tài khoản như vậy, hãy kiểm tra trong Supabase bảng `organizations` xem có workspace lạ nào không phải của Thủy H2O không.
+- Deploy production thành công (health check OK). Không cần chạy gì trên Supabase cho phần sửa lỗi này.
+- Chi tiết đầy đủ: `docs/H2OBOOK_STUDENT_SELF_SIGNUP_STAGE_LOCK_REPORT.md`.
+
+---
+
 **2026-08-04 — ✅ Đã merge + deploy Phase 1 (Auth & Routing) từ Production Gap Audit — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Sửa đúng các gap đã xác nhận trong `docs/H2OBOOK_PRODUCTION_GAP_AUDIT.md`:
   - **[P0]** Trước đây các trang quản trị hệ thống (`/admin`, `/platform-admin`, `/security`, `/enterprise`, `/integrations`, `/cloud-sync`, `/settings`...) **không có kiểm tra quyền** — bất kỳ tài khoản đã đăng nhập nào (kể cả không phải admin) đều mở được. Giờ chỉ Admin/Owner mới vào được, các vai trò khác sẽ thấy trang "Không đủ quyền" (`/unauthorized`) mới thay vì mở thẳng trang.
