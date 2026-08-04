@@ -1,7 +1,10 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/unauthorized", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+// "/dev" holds the typography fixture only. It is listed here so it can be opened after deploy to
+// check Vietnamese diacritics without the student redirect bouncing it back to /student; the page
+// itself is noindex and reads no data.
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
 
 // H2OBOOK Production Gap Audit §4.1 (P0): these routes are unambiguously System/Platform Admin
 // surfaces with no plausible non-admin/owner use case — unlike Create/Teach/Business tool routes
