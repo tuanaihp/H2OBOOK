@@ -1,0 +1,130 @@
+/* The H2O Brain core. Extracted verbatim from the Knowledge Universe hero, which was the only
+   place the real design existed — every other H₂ sphere in the product was a separate hand-rolled
+   gradient circle that had drifted from it. Nothing here is new art; it is the same sphere, now
+   with one owner.
+
+   Everything scales from --h2o-core-size instead of the hero's three hardcoded breakpoint widths,
+   so a caller picks a diameter and the glyph, rings, glow and type follow. The px values in the
+   ratios below are the originals measured against the hero's 178px core. */
+.core {
+  --h2o-core-size: 178px;
+  --h2o-core-dot: max(5px, calc(var(--h2o-core-size) * .045));
+  position: relative;
+  flex: none;
+  width: var(--h2o-core-size);
+  height: var(--h2o-core-size);
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(130,232,240,.34);
+  background: radial-gradient(circle at 35% 26%,#76f3f2 0%,#31b6d0 23%,#5643be 62%,#211448 100%);
+  color: #fff;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  box-shadow:
+    inset calc(var(--h2o-core-size) * -.101) calc(var(--h2o-core-size) * -.124) calc(var(--h2o-core-size) * .197) rgba(18,4,63,.42),
+    inset calc(var(--h2o-core-size) * .073) calc(var(--h2o-core-size) * .073) calc(var(--h2o-core-size) * .135) rgba(255,255,255,.24),
+    0 0 0 calc(var(--h2o-core-size) * .079) rgba(87,220,231,.04),
+    0 0 calc(var(--h2o-core-size) * .393) rgba(85,213,235,.36);
+}
+.interactive { cursor: pointer; }
+
+/* The hero declared this twice — once as `.core:before` with a linear sheen, then again as
+   `.core::before` with the conic swirl below. Those are the same pseudo-element, so the second
+   always won and the sheen never rendered. Only the layer that actually shows is carried over. */
+.core::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  background: radial-gradient(120% 82% at 20% 22%,rgba(255,255,255,.2),transparent 60%),conic-gradient(from 0deg at 50% 50%,rgba(58,206,224,0) 0deg,rgba(58,206,224,.3) 42deg,rgba(24,120,190,.1) 96deg,rgba(96,236,240,.27) 152deg,rgba(40,80,180,.1) 222deg,rgba(72,220,235,.28) 292deg,rgba(58,206,224,0) 360deg);
+  mix-blend-mode: screen;
+  filter: blur(6px);
+  mask: radial-gradient(circle at 50% 50%,#000 64%,transparent 100%);
+  -webkit-mask: radial-gradient(circle at 50% 50%,#000 64%,transparent 100%);
+  animation: h2oOcean 28s linear infinite;
+}
+.core::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  background: radial-gradient(46% 30% at 62% 70%,rgba(180,255,255,.2),transparent 70%),radial-gradient(38% 26% at 30% 62%,rgba(126,110,245,.2),transparent 72%);
+  filter: blur(7px);
+  mask: radial-gradient(circle at 50% 50%,#000 62%,transparent 100%);
+  -webkit-mask: radial-gradient(circle at 50% 50%,#000 62%,transparent 100%);
+  animation: h2oOcean 41s linear infinite reverse;
+}
+
+.mark {
+  position: relative;
+  z-index: 3;
+  font-size: calc(var(--h2o-core-size) * .208);
+  font-weight: 900;
+  letter-spacing: -.05em;
+  line-height: 1;
+}
+.label {
+  position: relative;
+  z-index: 3;
+  margin-top: 2%;
+  padding: 0 6%;
+  font-size: max(9px, calc(var(--h2o-core-size) * .05));
+  font-weight: 900;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #dafcff;
+}
+
+.glyph {
+  position: absolute;
+  inset: 15.7% 10.7% 24.7%;
+  z-index: 2;
+  fill: none;
+  stroke: rgba(235,255,255,.33);
+  stroke-width: 1.5;
+}
+.glyph circle { fill: #dffeff; stroke: none; }
+
+.ringOne, .ringTwo, .ringThree {
+  position: absolute;
+  border: 1px solid rgba(98,232,241,.28);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.ringOne { inset: -12.9%; animation: coreOrbit 13s linear infinite; }
+.ringTwo { inset: -24.2%; border-style: dashed; animation: coreOrbit 19s linear infinite reverse; }
+.ringThree { inset: -37.6%; border-color: rgba(143,124,247,.18); animation: coreOrbit 27s linear infinite; }
+.ringOne::after, .ringTwo::after, .ringThree::after {
+  content: "";
+  position: absolute;
+  width: var(--h2o-core-dot);
+  height: var(--h2o-core-dot);
+  border-radius: 50%;
+  left: 50%;
+  top: calc(var(--h2o-core-dot) / -2);
+  background: #69e8ef;
+  box-shadow: 0 0 18px #69e8ef;
+}
+
+.pulse {
+  position: absolute;
+  inset: -4.5%;
+  border-radius: 50%;
+  border: 1px solid rgba(107,233,240,.34);
+  animation: corePulse 2.8s ease-out infinite;
+}
+
+@keyframes coreOrbit { to { transform: rotate(360deg); } }
+@keyframes corePulse { 0% { opacity: .7; transform: scale(.95); } 100% { opacity: 0; transform: scale(1.34); } }
+@keyframes h2oOcean { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .core::after, .ringOne, .ringTwo, .ringThree, .pulse { animation: none !important; }
+}

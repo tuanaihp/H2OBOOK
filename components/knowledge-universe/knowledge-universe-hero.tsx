@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ComponentType, CSSProperties } from "react";
+import { H2OBrainCore } from "@/components/brand/h2o-brain-core";
 import { knowledgeUniverseNodes, knowledgeUniverseStages } from "@/lib/knowledge-universe/data";
 import type { KnowledgeUniverseIcon, KnowledgeUniverseNode } from "@/lib/knowledge-universe/types";
 import styles from "./knowledge-universe-hero.module.css";
@@ -235,20 +236,15 @@ export function KnowledgeUniverseHero({ className = "", autoPlay = true }: Knowl
               );
             })}
 
-            <button
-              type="button"
-              className={styles.core}
-              onClick={() => setActiveStageIndex((value) => (value + 1) % knowledgeUniverseStages.length)}
-              aria-label="Chuyển trạng thái hoạt động của H2O Brain"
-            >
-              <span className={styles.coreRingOne} aria-hidden="true" />
-              <span className={styles.coreRingTwo} aria-hidden="true" />
-              <span className={styles.coreRingThree} aria-hidden="true" />
-              <NeuralBrainGlyph />
-              <strong>H₂</strong>
-              <small>{activeStage.label}</small>
-              <i className={styles.corePulse} aria-hidden="true" />
-            </button>
+            {/* The sphere itself now lives in components/brand so the other screens can render the
+                same one; this wrapper only pins it to the centre of the orbit field. */}
+            <div className={styles.coreAnchor}>
+              <H2OBrainCore
+                label={activeStage.label}
+                onClick={() => setActiveStageIndex((value) => (value + 1) % knowledgeUniverseStages.length)}
+                ariaLabel="Chuyển trạng thái hoạt động của H2O Brain"
+              />
+            </div>
 
             <div className={styles.coreCaption}>
               <span><Sparkles size={13} /> H2O Brain AI</span>
@@ -302,14 +298,3 @@ function NodeIcon({ node }: { node: KnowledgeUniverseNode }) {
   return <Icon size={18} strokeWidth={1.9} />;
 }
 
-function NeuralBrainGlyph() {
-  return (
-    <svg className={styles.brainGlyph} viewBox="0 0 160 120" aria-hidden="true">
-      <path d="M78 19C58 8 35 21 35 43c-14 5-20 22-12 34 4 7 12 11 20 11 3 16 21 24 35 14V19Z" />
-      <path d="M82 19c20-11 43 2 43 24 14 5 20 22 12 34-4 7-12 11-20 11-3 16-21 24-35 14V19Z" />
-      <path d="M45 41c12 2 18 10 20 21M34 69c14-3 24 1 31 12M114 41c-12 2-18 10-20 21M126 69c-14-3-24 1-31 12M80 25v70" />
-      <circle cx="45" cy="41" r="3" /><circle cx="65" cy="62" r="3" /><circle cx="34" cy="69" r="3" />
-      <circle cx="114" cy="41" r="3" /><circle cx="94" cy="62" r="3" /><circle cx="126" cy="69" r="3" />
-    </svg>
-  );
-}
