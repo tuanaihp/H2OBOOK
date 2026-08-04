@@ -6,6 +6,18 @@
 
 ---
 
+**2026-08-04 — 🎨 Đã merge + deploy: menu bên trái của học viên giờ sổ xuống được (LEARN / CREATE / BUSINESS) — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Bấm vào tên nhóm để mở/đóng danh sách bên trong. Nhóm HOME chỉ có 1 mục nên giữ nguyên dạng nhãn, không thành nút bấm (bấm cũng không có gì để mở).
+- Mặc định: nhóm chứa trang bạn đang xem sẽ mở sẵn, các nhóm còn lại thu gọn — lấy lại chỗ trống cho giai đoạn sau khi có nhiều mục hơn.
+- Nhóm đang thu gọn có hiện **số mục bên trong**, và **đổi màu** nếu nó đang chứa trang bạn đang mở — để không bị lạc.
+- Ghi nhớ lựa chọn đóng/mở của bạn (lưu trên máy bạn), nhưng khi bạn đi vào một trang thuộc nhóm đang đóng thì nhóm đó vẫn tự mở ra.
+- **Sửa kèm 1 lỗi cũ**: trước đây mục "Smart Home" luôn bị tô sáng cùng lúc với mục bạn đang xem (2 mục sáng một lúc). Giờ chỉ đúng 1 mục sáng.
+- Máy tính bảng/điện thoại (dưới 900px) không đổi gì — màn hình nhỏ vốn ẩn menu trái và dùng thanh dưới cùng.
+- Đã thêm bộ test riêng cho phần điều hướng (9 test mới).
+- Deploy production thành công (health check OK).
+
+---
+
 **2026-08-04 — 🐞 Đã merge + deploy: sửa lỗi tab "Studio" (`/student/create`) báo "H2OBOOK gặp lỗi khi tải màn hình" — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Thẻ công thức bị khoá trước đây vẫn được vẽ như một đường dẫn bấm được rồi chặn lại bằng đoạn mã xử lý sự kiện. Cách này không hợp lệ với kiểu trang chạy trên máy chủ, nên **chỉ cần có 1 thẻ bị khoá là toàn bộ trang sập** (không phải chỉ hỏng riêng thẻ đó).
 - Vì sao đến giờ mới lộ: trước đây chỉ test bằng tài khoản chủ (owner) — mở khoá hết nên không bao giờ chạm vào nhánh lỗi. Tài khoản học viên thật đầu tiên (tạo bởi luồng đăng ký mới hôm nay) thì có thẻ bị khoá nên gặp lỗi ngay lần đầu vào.
