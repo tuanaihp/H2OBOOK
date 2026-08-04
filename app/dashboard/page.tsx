@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowRight, BookCopy, BookOpen, Brain, CheckCircle2, CircleDollarSign, Clock3, CloudCog, FileCheck2, GraduationCap, HeartPulse, ListChecks, LockKeyhole, Plus, Sparkles, Target, Users, WandSparkles } from "lucide-react";
+import { H2OBrainCore } from "@/components/brand/h2o-brain-core";
 
 export default function DashboardPage() {
   const store = useAppStore();
@@ -21,7 +22,7 @@ export default function DashboardPage() {
   return <AppShell>
     <section className="quantum-dashboard-hero">
       <div className="hero-copy"><span className="eyebrow">H2OBOOK PROFESSIONAL EDITOR 4.14</span><h1>Chào {store.workspace.ownerName}.<br/><em>Hôm nay mình tiếp tục điều gì?</em></h1><p>Một không gian thống nhất để tạo sách, học, dạy và kinh doanh. AI là tùy chọn; nền tảng cốt lõi luôn hoạt động độc lập.</p><div className="hero-actions"><Link href="/books" className="btn btn-primary"><Plus size={17}/>Tạo sách mới</Link><Link href="/learn" className="btn btn-secondary"><GraduationCap size={17}/>Tiếp tục học</Link></div></div>
-      <div className="hero-intelligence-card"><div className="intelligence-orb"><span>H₂</span><i/><i/></div><div><small>SMART CORE STATUS</small><strong>{store.smartSettings.aiEnabled ? "AI hỗ trợ đang bật" : "Local-first · 0 token"}</strong><p>Editor, Reader, Quiz, Flashcard, Search, Preflight và Store sẵn sàng.</p></div><Link href="/smart-settings">Thiết lập <ArrowRight size={13}/></Link></div>
+      <div className="hero-intelligence-card"><div className="intelligence-orb"><H2OBrainCore rings={false}/></div><div><small>SMART CORE STATUS</small><strong>{store.smartSettings.aiEnabled ? "AI hỗ trợ đang bật" : "Local-first · 0 token"}</strong><p>Editor, Reader, Quiz, Flashcard, Search, Preflight và Store sẵn sàng.</p></div><Link href="/smart-settings">Thiết lập <ArrowRight size={13}/></Link></div>
     </section>
 
     <section className="smart-metric-grid dashboard-metrics">

@@ -139,17 +139,10 @@
 .hero h1 em { font-style: normal; background: linear-gradient(90deg, #54deeb, #8e79ff, #eba1cb); color: transparent; background-clip: text; }
 .hero p { max-width: 720px; color: #b9c6d9; line-height: 1.65; }
 .orb {
-  width: 190px;
-  aspect-ratio: 1;
+  --h2o-core-size: 190px;
   justify-self: center;
-  border-radius: 999px;
   display: grid;
   place-items: center;
-  color: #09192a;
-  font-size: 38px;
-  font-weight: 900;
-  background: radial-gradient(circle at 35% 25%, white, #50d6e8 34%, #8573f5 72%, #30163d 100%);
-  box-shadow: 0 0 0 16px rgba(90, 208, 231, .07), 0 0 0 34px rgba(128, 105, 241, .055), 0 30px 70px rgba(22, 14, 51, .38);
 }
 
 .list { display: grid; gap: 10px; }
@@ -242,7 +235,7 @@
 @media (max-width: 980px) {
   .metricGrid, .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero { grid-template-columns: 1fr; }
-  .orb { width: 150px; }
+  .orb { --h2o-core-size: 150px; }
 }
 @media (max-width: 720px) {
   .intelligenceHeader { grid-template-columns: 1fr; }
@@ -251,7 +244,7 @@
   .hero { padding: 30px 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .orb { box-shadow: none; }
+  
 }
 
 /* Academic Operations V2 — teaching, collaboration and workflow surfaces */

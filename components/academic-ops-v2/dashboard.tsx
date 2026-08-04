@@ -8,6 +8,7 @@ import { buildAcademicOpsViewModel } from "@/lib/academic-ops-v2/selectors";
 import { trackAcademicOpsEvent } from "@/lib/academic-ops-v2/analytics";
 import { AcademicOpsFlowBar, MetricGrid } from "./shared";
 import styles from "./academic-ops.module.css";
+import { H2OBrainCore } from "@/components/brand/h2o-brain-core";
 
 export function AcademicDashboardV2() {
   const store = useAppStore();
@@ -34,7 +35,7 @@ export function AcademicDashboardV2() {
               <Link className="btn btn-secondary" href="/academic-ops-v2-preview/learn"><Brain size={16}/>Mở Learning Command</Link>
             </div>
           </div>
-          <div className={styles.orb}>H₂</div>
+          <div className={styles.orb}><H2OBrainCore rings={false}/></div>
         </section>
 
         <MetricGrid items={[

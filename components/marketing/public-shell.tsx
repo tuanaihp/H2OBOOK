@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, BrainCircuit, Menu, Sparkles } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
+import { H2OBrainCore } from "@/components/brand/h2o-brain-core";
 
 export function PublicHeader() {
   const [mobileOpen,setMobileOpen]=useState(false);
@@ -48,7 +49,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
 
 export function FutureOrb({ label = "H2O Knowledge AI" }: { label?: string }) {
   return <div className="h2o-future-orb-wrap" aria-label={label}>
-    <div className="h2o-future-orb"><span>H₂</span><i/><i/><i/></div>
+    <H2OBrainCore size={144}/>
     <div className="h2o-orb-status"><Sparkles size={13}/><span>{label}</span><small>Local-first intelligence</small></div>
   </div>;
 }
