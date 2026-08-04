@@ -4,6 +4,8 @@ import { getAcademySkillProgress, getStudentCourseSummaries } from "@/lib/academ
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
 import { getSkillMastery } from "@/lib/student/mastery";
 import { buildTodayPlanForUser } from "@/lib/student/planner";
+import { getUnlockedStageIds } from "@/lib/student/stage-access";
+import { studentCareerStages } from "@/lib/student/experience";
 
 export async function GET() {
   const auth = await requireApiUser();
@@ -18,9 +20,9 @@ export async function GET() {
   // Learn Mastery Engine V1: real skill mastery + a real, deep-linked Today Plan — both empty
   // arrays (not fabricated) when Supabase/organization aren't configured, e.g. demo mode.
   const organizationId = auth.user!.demo ? undefined : await configuredAcademyOrganizationId();
-  const [skillMastery, todayTasks] = organizationId
-    ? await (async () => { const m = await getSkillMastery(auth.user!.id, organizationId); return [m, await buildTodayPlanForUser(auth.user!.id, organizationId, m)] as const; })()
-    : [[], []];
+  const [skillMastery, todayTasks, unlockedStageIds] = organizationId
+    ? await (async () => { const m = await getSkillMastery(auth.user!.id, organizationId); return [m, await buildTodayPlanForUser(auth.user!.id, organizationId, m), await getUnlockedStageIds(auth.user!.id, organizationId)] as const; })()
+    : [[], [], new Set([studentCareerStages[0]?.id])];
 
   return NextResponse.json({
     user: { name: auth.user!.name, email: auth.user!.email },
@@ -32,6 +34,7 @@ export async function GET() {
     nextCourse: nextCourse ? { slug: nextCourse.slug, title: nextCourse.title } : null,
     skillMastery,
     todayTasks,
+    unlockedStageIds: [...unlockedStageIds],
     mode: auth.user!.demo ? "demo" : "production"
   });
 }

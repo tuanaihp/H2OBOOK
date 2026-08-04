@@ -61,13 +61,19 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
       else window.localStorage.removeItem("h2obook-login-email");
 
       await fetch("/api/auth/claim-access", { method: "POST" }).catch(() => null);
+      // Safety net for accounts stuck in limbo (e.g. self-registered while Supabase email
+      // confirmation was pending, so /api/auth/register-student never ran at signup time):
+      // getCurrentUser() already falls back to role "student" for any session with no real
+      // organization_members row, so this only ever fires for real students or this exact
+      // limbo case — never for an existing admin/teacher/owner account.
+      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null);
+      const sessionPayload = sessionResponse?.ok ? await sessionResponse.json().catch(() => null) : null;
+      if (sessionPayload?.user?.role === "student") await fetch("/api/auth/register-student", { method: "POST" }).catch(() => null);
       const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
       if (next) {
         window.location.href = next;
         return;
       }
-      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null);
-      const sessionPayload = sessionResponse?.ok ? await sessionResponse.json().catch(() => null) : null;
       window.location.href = roleHome(sessionPayload?.user?.role);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể đăng nhập lúc này.");

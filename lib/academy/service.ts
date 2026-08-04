@@ -167,6 +167,29 @@ export async function ensureStudentAuthUser(admin: AdminClient, input: { organiz
   return { user, invited };
 }
 
+// Self-service registration path (app/api/auth/register-student): the caller already has a real
+// Supabase Auth session (they just set their own password via supabase.auth.signUp()), so unlike
+// ensureStudentAuthUser this never creates an invite — it only joins the already-authenticated
+// user to the real academy organization as a student. Idempotent (upsert on the same conflict
+// target as the admin-invite path) so a retried call never duplicates or escalates a role.
+export async function joinAcademyAsStudent(admin: AdminClient, input: { organizationId: string; userId: string; name: string; email: string }) {
+  const { error: profileError } = await admin.from("profiles").upsert({
+    id: input.userId,
+    email: input.email.trim().toLowerCase(),
+    full_name: input.name.trim(),
+    status: "active",
+    updated_at: new Date().toISOString()
+  }, { onConflict: "id" });
+  if (profileError) throw new Error(profileError.message);
+  const { error: memberError } = await admin.from("organization_members").upsert({
+    organization_id: input.organizationId,
+    user_id: input.userId,
+    role: "student",
+    status: "active"
+  }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
+  if (memberError) throw new Error(memberError.message);
+}
+
 export async function grantAcademyAccess(admin: AdminClient, input: {
   organizationId: string;
   userId: string;
