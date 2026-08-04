@@ -106,6 +106,31 @@ export function buildCompactNavigation(context: UserAccessContext): CompactNavGr
   return learnerGroups(context);
 }
 
+/**
+ * Which single sidebar entry the current path belongs to.
+ *
+ * Only one entry may read as active. The obvious test — pathname === href || pathname.startsWith(
+ * `${href}/`) — matched "Smart Home" (/student) on every student page, so two entries lit up at
+ * once. The longest matching href wins here, so /student/business/customers resolves to that item
+ * rather than to its ancestors. Returns nulls for a path outside the navigation entirely.
+ */
+export function resolveActiveItem(groups: CompactNavGroup[], pathname: string): { itemId: string | null; groupId: string | null } {
+  let itemId: string | null = null;
+  let groupId: string | null = null;
+  let matchedLength = -1;
+  for (const group of groups) {
+    for (const item of group.items) {
+      const matches = pathname === item.href || pathname.startsWith(`${item.href}/`);
+      if (matches && item.href.length > matchedLength) {
+        matchedLength = item.href.length;
+        itemId = item.id;
+        groupId = group.id;
+      }
+    }
+  }
+  return { itemId, groupId };
+}
+
 export function toAccountRole(role: string): AccountRole {
   if (role === "student") return "student";
   if (role === "teacher") return "instructor";
