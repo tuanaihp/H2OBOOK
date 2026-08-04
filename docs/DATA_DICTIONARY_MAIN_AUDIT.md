@@ -179,18 +179,27 @@ both are real, both are actively written, and `getSkillMastery()` already merges
 read time. Consolidating the storage layer would require merging two structurally different
 content systems and is out of scope; the *read-layer* unification already in place is sufficient.
 
-### 5.2 Real duplicate-intent pair: `audit_logs` vs `domain_events`
-- `audit_logs` (0001): `action`/`resource_type`/`resource_id`/`metadata`, written explicitly by
-  application code via `lib/domain/audit.ts`.
+### 5.2 Real duplicate-intent pair: `audit_logs` vs `domain_events` — RESOLVED (2026-08-04)
+- `audit_logs` (0001): `action`/`resource_type`/`resource_id`/`metadata`, previously written
+  explicitly by application code via `lib/domain/audit.ts`.
 - `domain_events` (0007): `event_name`/`resource_type`/`resource_id`/`payload`, written
-  automatically by the `capture_domain_event()` trigger, now attached to 6+ tables across modules
-  8/10/12/13/15 (knowledge_spaces, create_outcome_projects, teach_student_interventions,
+  automatically by the `capture_domain_event()` trigger, attached to all 16 `DOMAIN_RESOURCES`
+  tables since migration 0007 itself, plus 6+ more tables added across modules 8/10/12/13/15
+  (knowledge_spaces, create_outcome_projects, teach_student_interventions,
   business_goals/opportunities, entitlements).
-- **Risk**: a future reader wanting "what happened to resource X" must check both tables and merge
-  by `(resource_type, resource_id, timestamp)` — there is no single audit read path today.
-- **Recommendation (not applied in this pass)**: standardize on `domain_events` (trigger-based,
-  can't be forgotten by a future write path) for new work; treat `audit_logs` as legacy/frozen
-  rather than adding new call sites to it. No existing row was touched.
+- **Follow-up audit found `lib/domain/audit.ts` (the only writer of `audit_logs` anywhere in the
+  codebase — confirmed by a repo-wide grep) had exactly 2 call sites, both in the generic
+  `app/api/domain/[resource]/[[id]/]route.ts` CRUD API — and every table reachable through that
+  API already had the `capture_domain_event` trigger since 0007.** The manual `audit_logs` write
+  was pure duplicate logging with strictly *less* information than the trigger already recorded
+  (the trigger captures a full before/after row snapshot via `to_jsonb`; the manual write only
+  logged the action name and a short metadata blob).
+- **Resolution applied**: removed both `writeDomainAudit()` call sites and deleted the now-unused
+  `lib/domain/audit.ts`. No behavior change — every create/update/delete through the domain API
+  was already being captured in `domain_events` by the pre-existing trigger; this only stops the
+  redundant, less-complete `audit_logs` write. `audit_logs` itself (table + existing historical
+  rows) was **not** touched — it is now genuinely frozen (zero remaining write call sites in the
+  codebase) rather than just recommended-frozen.
 
 ### 5.3 Legacy vs current, same concept, different era (kept intentionally — see each module's own report)
 - `assignment_submissions` (0002, classroom) vs `brain_assignment_submissions` (0026, Knowledge
