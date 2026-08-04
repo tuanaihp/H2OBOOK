@@ -1,5 +1,6 @@
 import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import { NeuralRouteTheme } from "@/components/global-neural";
+import { fontBody, fontHeading } from "@/lib/fonts";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "@/styles/global-neural-system.css";
@@ -15,5 +16,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#0b1523", colorScheme: "light dark" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi"><body><AnalyticsProvider/><NeuralRouteTheme/>{children}</body></html>;
+  // Only the root layout declares the font variables; nested layouts consume them via CSS.
+  return <html lang="vi" className={`${fontBody.variable} ${fontHeading.variable}`}><body><AnalyticsProvider/><NeuralRouteTheme/>{children}</body></html>;
 }
