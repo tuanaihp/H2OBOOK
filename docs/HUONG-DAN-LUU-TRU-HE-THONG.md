@@ -6,6 +6,21 @@
 
 ---
 
+**2026-08-04 — ✒️ Đã merge + deploy bộ font chính thức Literata + Be Vietnam Pro cho TOÀN BỘ webapp — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- **Literata** (font sách, tri thức) dùng cho: tiêu đề trang chủ, tiêu đề mục lớn, tên sách/khóa học trong catalog & thư viện & cửa hàng, trích dẫn chuyên gia.
+- **Be Vietnam Pro** (tối ưu dấu tiếng Việt) dùng cho: menu, nút bấm, biểu mẫu, bảng dữ liệu, dashboard, admin, vận hành.
+- **Phát hiện quan trọng khi rà soát**: chữ giao diện trước đây khai báo là "Inter" nhưng **font này chưa bao giờ được tải về** — nghĩa là máy ai nấy hiện một kiểu theo font mặc định của hệ điều hành. Giờ mới thật sự có font thống nhất cho mọi máy.
+- Font được **tải sẵn khi build và phục vụ từ chính máy chủ H2OBOOK** (25 file), **không gọi ra Google Fonts** lúc người dùng vào web → nhanh hơn và không phụ thuộc bên ngoài.
+- Đã xác minh trên production: 27 khối font, có đủ dải ký tự tiếng Việt, file font tải về được (200 OK).
+- **KHÔNG đụng vào font trong nội dung sách/template do học viên tạo** (vùng soạn thảo, bản xem trước bìa, chế độ hỗ trợ đọc khó) — giữ nguyên hoàn toàn, đúng nguyên tắc không phá tài sản của học viên.
+- Không đổi màu sắc, khoảng cách, kích thước thẻ, viền hay hiệu ứng — chỉ đổi kiểu chữ.
+- Trang tự kiểm tra dấu tiếng Việt: `https://h2obook-app.vercel.app/dev/typography` (không hiện trên Google, không có link trỏ tới).
+- Deploy production thành công (health check OK).
+- ⚠️ **Tôi chưa so sánh được ảnh trước/sau** (không có công cụ chụp màn hình). Nhờ bạn xem lại: trang chủ (máy tính + điện thoại), `/login`, 1 trang Learn, 1 trang Create, 1 trang Admin — chú ý tiêu đề có bị xuống dòng xấu, bảng có bị lệch, điện thoại có bị tràn không.
+- Chi tiết đầy đủ: `docs/H2OBOOK_TYPOGRAPHY_LITERATA_BE_VIETNAM_PRO_REPORT.md`.
+
+---
+
 **2026-08-04 — 🔠 Đã merge + deploy: phóng to và đồng bộ toàn bộ cỡ chữ khu vực học viên — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - **Không phải chỉ vài màn hình bị nhỏ**: trong 92 chỗ quy định cỡ chữ của giao diện học viên thì **68 chỗ nằm ở mức 6–9px** (nhãn 7px, nội dung 9px, menu trái 10px, có chỗ 6px) — nhỏ hơn nhiều so với mức ~12px đọc thoải mái, và lệch hẳn so với phần còn lại của phần mềm.
 - Nay dùng chung **5 bậc cỡ chữ** khai báo một chỗ duy nhất: 11px (nhãn nhỏ/huy hiệu) · 12px (nhãn mục, chú thích) · 13px (nội dung, ô nhập) · 14px (menu trái, chữ nhấn) · 15px (tiêu đề thẻ).
