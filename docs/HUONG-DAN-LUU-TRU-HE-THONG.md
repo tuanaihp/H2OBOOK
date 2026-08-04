@@ -6,6 +6,15 @@
 
 ---
 
+**2026-08-04 — 🐞 Đã merge + deploy: sửa lỗi tab "Studio" (`/student/create`) báo "H2OBOOK gặp lỗi khi tải màn hình" — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Thẻ công thức bị khoá trước đây vẫn được vẽ như một đường dẫn bấm được rồi chặn lại bằng đoạn mã xử lý sự kiện. Cách này không hợp lệ với kiểu trang chạy trên máy chủ, nên **chỉ cần có 1 thẻ bị khoá là toàn bộ trang sập** (không phải chỉ hỏng riêng thẻ đó).
+- Vì sao đến giờ mới lộ: trước đây chỉ test bằng tài khoản chủ (owner) — mở khoá hết nên không bao giờ chạm vào nhánh lỗi. Tài khoản học viên thật đầu tiên (tạo bởi luồng đăng ký mới hôm nay) thì có thẻ bị khoá nên gặp lỗi ngay lần đầu vào.
+- Nay thẻ bị khoá được vẽ như một ô thường, không phải đường dẫn — đúng bản chất hơn (thẻ không bấm được thì không nên là link).
+- Đã rà toàn bộ thư mục `app/`: đây là chỗ duy nhất mắc lỗi kiểu này.
+- Deploy production thành công (health check OK).
+
+---
+
 **2026-08-04 — ⚡ Đã merge + deploy: sửa lỗi chuyển tab học viên chậm 3–4 giây — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - **Nguyên nhân chính là địa lý, không phải code chậm**: Supabase đặt ở Singapore, nhưng Vercel chưa được khai báo vùng nên chạy mặc định ở Washington (Mỹ). Mỗi lần bấm 1 tab, dữ liệu phải đi vòng Việt Nam → Mỹ → Singapore → Mỹ → Việt Nam. Đã ghim Vercel về Singapore (`sin1`) — cùng chỗ với database.
 - Đã xác minh sau deploy: header phản hồi trả về `hkg1::sin1::…` (trước đây là `iad1` bên Mỹ) — máy chủ đã thực sự chạy ở Singapore.
