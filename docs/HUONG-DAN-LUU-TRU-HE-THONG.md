@@ -6,6 +6,17 @@
 
 ---
 
+**2026-08-04 — 🔠 Đã merge + deploy: phóng to và đồng bộ toàn bộ cỡ chữ khu vực học viên — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- **Không phải chỉ vài màn hình bị nhỏ**: trong 92 chỗ quy định cỡ chữ của giao diện học viên thì **68 chỗ nằm ở mức 6–9px** (nhãn 7px, nội dung 9px, menu trái 10px, có chỗ 6px) — nhỏ hơn nhiều so với mức ~12px đọc thoải mái, và lệch hẳn so với phần còn lại của phần mềm.
+- Nay dùng chung **5 bậc cỡ chữ** khai báo một chỗ duy nhất: 11px (nhãn nhỏ/huy hiệu) · 12px (nhãn mục, chú thích) · 13px (nội dung, ô nhập) · 14px (menu trái, chữ nhấn) · 15px (tiêu đề thẻ).
+- 76 chỗ đã chuyển sang dùng các bậc này thay vì tự ghi số riêng → sau này muốn chỉnh to/nhỏ toàn hệ thống chỉ cần sửa 1 chỗ, và màn hình mới sẽ tự theo đúng chuẩn.
+- Các tiêu đề lớn (trên 15px) giữ nguyên — vốn đã đọc tốt, phóng thêm chỉ gây xuống dòng.
+- Áp dụng cả cho màn hình Knowledge Space để khớp với khung bao quanh nó.
+- Deploy production thành công (health check OK).
+- ⚠️ Tôi mới kiểm tra bằng tính toán chiều rộng chứ **chưa nhìn được ảnh thật sau khi đổi** — nhờ bạn xem lại và báo nếu có chỗ nào bị xuống dòng/tràn.
+
+---
+
 **2026-08-04 — 🎨 Đã merge + deploy: menu bên trái của học viên giờ sổ xuống được (LEARN / CREATE / BUSINESS) — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Bấm vào tên nhóm để mở/đóng danh sách bên trong. Nhóm HOME chỉ có 1 mục nên giữ nguyên dạng nhãn, không thành nút bấm (bấm cũng không có gì để mở).
 - Mặc định: nhóm chứa trang bạn đang xem sẽ mở sẵn, các nhóm còn lại thu gọn — lấy lại chỗ trống cho giai đoạn sau khi có nhiều mục hơn.
