@@ -85,12 +85,25 @@ export function MembershipEnrollmentClient({ plans }: { plans: PublicMembershipP
     }
     setState({ status: "submitting", mode: "checkout" });
     try {
+      // The plan's own productId comes from the view model and is only populated when a matching
+      // row already exists in `products`; on a fresh install it is undefined, and checkout answered
+      // 400 PRODUCT_REQUIRED for every membership. The course flow never had this problem because
+      // it resolves through the catalog first, which creates the product row when it is missing.
+      // ensureAcademyCatalogProduct already handles targetType "membership" — the membership screen
+      // simply was not calling it.
+      const catalogResponse = await fetch("/api/academy/catalog/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetType: "membership", targetSlug: selectedPlan.id }),
+      });
+      const catalog = await catalogResponse.json().catch(() => null) as { productId?: string | null; amount?: number; currency?: string; error?: string } | null;
+      if (!catalogResponse.ok) throw new Error(catalog?.error || "CATALOG_RESOLVE_FAILED");
       const body = {
-        productId: selectedPlan.productId,
+        productId: catalog?.productId ?? selectedPlan.productId,
         customerName: fullName.trim(),
         customerEmail: email.trim().toLowerCase(),
-        amount: selectedPlan.price,
-        currency: "VND",
+        amount: catalog?.amount ?? selectedPlan.price,
+        currency: catalog?.currency ?? "VND",
         orderCode: `H2B-${selectedPlan.id.toUpperCase()}-${Date.now()}`,
         returnUrl: `${window.location.origin}/orders`,
       };
