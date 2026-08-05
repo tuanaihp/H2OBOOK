@@ -1,5 +1,5 @@
 import {
-  Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Brain, Building2, CheckCheck, CircleDollarSign,
+  Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Brain, Building2, CheckCheck, CircleDollarSign, Compass,
   CloudCog, FileInput, GraduationCap, HeartHandshake, LayoutDashboard, LifeBuoy, ListChecks,
   LockKeyhole, MessageSquareText, PackageSearch, PlugZap, School, Settings2, ShieldCheck, UsersRound, Workflow
 } from "lucide-react";
@@ -40,6 +40,7 @@ export const systemRoutes = [
 export const academyAdminRoutes = [
   { href: "/academy-admin", label: "Tổng quan đào tạo", icon: LayoutDashboard },
   { href: "/academy-admin/programs", label: "Chương trình đào tạo", icon: GraduationCap },
+  { href: "/academy-admin/stages", label: "Giai đoạn & tài liệu", icon: Compass },
   { href: "/academy-admin/distribution", label: "Phân phối & cấp quyền", icon: BadgeCheck }
 ];
 
