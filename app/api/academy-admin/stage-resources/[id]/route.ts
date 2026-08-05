@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
 import { detachResource, updateResource } from "@/lib/career-stages/admin";
-import { isStageResourceAccess, isStageStatus } from "@/lib/career-stages/types";
+import { isRequirementType, isStageResourceAccess, isStageStatus, isUnlockMode, toDisplayLocations } from "@/lib/career-stages/types";
 
 // Resource rows are addressed by their own id rather than nested under the stage, so the edit and
 // detach calls do not have to care which stage a row currently sits in.
@@ -21,7 +21,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     href: typeof body.href === "string" ? body.href : undefined,
     position: typeof body.position === "number" ? body.position : undefined,
     access: isStageResourceAccess(body.access) ? body.access : undefined,
-    status: isStageStatus(body.status) ? body.status : undefined
+    status: isStageStatus(body.status) ? body.status : undefined,
+    unlockMode: isUnlockMode(body.unlockMode) ? body.unlockMode : undefined,
+    // "" clears the prerequisite; undefined leaves it untouched. Distinguishing the two matters,
+    // otherwise a form that omits the field would silently wipe an existing rule.
+    prerequisiteBindingId: typeof body.prerequisiteBindingId === "string" ? body.prerequisiteBindingId : undefined,
+    requiredProgress: typeof body.requiredProgress === "number" ? body.requiredProgress : body.requiredProgress === null ? null : undefined,
+    unlockAt: typeof body.unlockAt === "string" ? body.unlockAt : body.unlockAt === null ? null : undefined,
+    requirementType: isRequirementType(body.requirementType) ? body.requirementType : undefined,
+    displayLocations: toDisplayLocations(body.displayLocations)
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ ok: true });

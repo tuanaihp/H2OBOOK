@@ -73,6 +73,26 @@ export async function archiveStage(access: AcademyAdminAccess, stageId: string):
   return { ok: true, data: null };
 }
 
+/**
+ * A prerequisite chain that loops back on itself never opens — every binding in the cycle waits on
+ * one further down, forever. The database cannot express this constraint (it is a walk, not a
+ * check), so it is enforced here before the write. Walking is bounded by the number of bindings,
+ * so a corrupt chain already in the data cannot spin.
+ */
+async function prerequisiteWouldLoop(access: AcademyAdminAccess, bindingId: string, prerequisiteId: string): Promise<boolean> {
+  if (bindingId === prerequisiteId) return true;
+  const stages = await loadCareerStages(access.organizationId, { includeHidden: true });
+  const byId = new Map(stages.flatMap((stage) => stage.resources).map((resource) => [resource.id, resource]));
+  const seen = new Set<string>([bindingId]);
+  let cursor: string | null = prerequisiteId;
+  while (cursor) {
+    if (seen.has(cursor)) return true;
+    seen.add(cursor);
+    cursor = byId.get(cursor)?.prerequisiteBindingId ?? null;
+  }
+  return false;
+}
+
 export async function attachResource(access: AcademyAdminAccess, stageId: string, input: CareerStageResourceInput): Promise<Result<{ id: string }>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
@@ -88,7 +108,13 @@ export async function attachResource(access: AcademyAdminAccess, stageId: string
     href: input.href?.trim() || null,
     position: input.position ?? (await nextResourcePosition(access, stageId)),
     access: input.access ?? "stage_locked",
-    status: input.status ?? "active"
+    status: input.status ?? "active",
+    unlock_mode: input.unlockMode ?? "immediate",
+    prerequisite_binding_id: input.prerequisiteBindingId ?? null,
+    required_progress: input.requiredProgress ?? null,
+    unlock_at: input.unlockAt ?? null,
+    requirement_type: input.requirementType ?? "required",
+    display_locations: input.displayLocations ?? ["library", "journey"]
   }).select("id").single();
   if (error || !data) return { ok: false, error: error?.code === "23505" ? "RESOURCE_ALREADY_ATTACHED" : error?.message ?? "RESOURCE_ATTACH_FAILED" };
   return { ok: true, data: { id: String(data.id) } };
@@ -97,6 +123,11 @@ export async function attachResource(access: AcademyAdminAccess, stageId: string
 export async function updateResource(access: AcademyAdminAccess, resourceRowId: string, input: Partial<CareerStageResourceInput>): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  if (input.prerequisiteBindingId) {
+    if (await prerequisiteWouldLoop(access, resourceRowId, input.prerequisiteBindingId)) {
+      return { ok: false, error: "PREREQUISITE_WOULD_LOOP" };
+    }
+  }
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.title !== undefined) patch.title_override = input.title.trim() || null;
   if (input.summary !== undefined) patch.summary = input.summary.trim() || null;
@@ -104,6 +135,12 @@ export async function updateResource(access: AcademyAdminAccess, resourceRowId: 
   if (input.position !== undefined) patch.position = input.position;
   if (input.access !== undefined) patch.access = input.access;
   if (input.status !== undefined) patch.status = input.status;
+  if (input.unlockMode !== undefined) patch.unlock_mode = input.unlockMode;
+  if (input.prerequisiteBindingId !== undefined) patch.prerequisite_binding_id = input.prerequisiteBindingId || null;
+  if (input.requiredProgress !== undefined) patch.required_progress = input.requiredProgress;
+  if (input.unlockAt !== undefined) patch.unlock_at = input.unlockAt || null;
+  if (input.requirementType !== undefined) patch.requirement_type = input.requirementType;
+  if (input.displayLocations !== undefined) patch.display_locations = input.displayLocations;
   const { error } = await supabase.from("career_stage_resources").update(patch).eq("id", resourceRowId).eq("organization_id", access.organizationId);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };

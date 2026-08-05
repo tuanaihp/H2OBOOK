@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
-import { STAGE_RESOURCE_ACCESS, STAGE_RESOURCE_TYPES, type StageResourceAccess, type StageResourceType } from "@/lib/career-stages/types";
+import { DISPLAY_LOCATIONS, REQUIREMENT_TYPES, STAGE_RESOURCE_ACCESS, STAGE_RESOURCE_TYPES, UNLOCK_MODES, type StageResourceAccess, type StageResourceType } from "@/lib/career-stages/types";
 import styles from "@/components/operations/operations.module.css";
 
-type Resource = { id: string; resourceType: string; resourceId: string; title: string; position: number; access: string; status: string };
+type Resource = { id: string; resourceType: string; resourceId: string; title: string; position: number; access: string; status: string; unlockMode: string; prerequisiteBindingId: string | null; requiredProgress: number | null; unlockAt: string | null; requirementType: string; displayLocations: string[] };
 type Stage = { id: string; slug: string; position: number; indexLabel: string; title: string; description: string; durationLabel: string; skills: string[]; status: string; resources: Resource[] };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -18,6 +18,16 @@ const ACCESS_LABEL: Record<string, string> = {
   stage_locked: "Khóa theo giai đoạn",
   entitlement_only: "Chỉ khi được cấp riêng"
 };
+const UNLOCK_LABEL: Record<string, string> = {
+  immediate: "Mở ngay khi vào giai đoạn",
+  stage_active: "Khi đang ở giai đoạn này",
+  after_resource: "Sau khi học xong tài liệu khác",
+  progress_gte: "Khi đạt % tiến độ tài liệu khác",
+  date: "Từ một mốc thời gian",
+  manual: "Chỉ mở tay cho từng học viên"
+};
+const REQUIREMENT_LABEL: Record<string, string> = { required: "Bắt buộc", optional: "Tùy chọn", bonus: "Mở rộng" };
+const LOCATION_LABEL: Record<string, string> = { library: "Thư viện", journey: "Hành trình", smart_home: "Smart Home" };
 const field = { padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 12 } as const;
 
 export default function CareerStagesAdminPage() {
@@ -101,20 +111,17 @@ export default function CareerStagesAdminPage() {
 
         <div className={styles.tableWrap}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead><tr style={{ textAlign: "left", color: "#6b7a89" }}><th style={{ padding: 8 }}>Loại</th><th style={{ padding: 8 }}>Mã tài liệu</th><th style={{ padding: 8 }}>Tên hiển thị</th><th style={{ padding: 8 }}>Quyền xem</th><th style={{ padding: 8 }} /></tr></thead>
+            <thead><tr style={{ textAlign: "left", color: "#6b7a89" }}><th style={{ padding: 8 }}>Tài liệu</th><th style={{ padding: 8 }}>Quyền xem</th><th style={{ padding: 8 }}>Luật mở khóa</th><th style={{ padding: 8 }}>Hiển thị ở</th><th style={{ padding: 8 }} /></tr></thead>
             <tbody>
               {stage.resources.length === 0 && <tr><td colSpan={5} style={{ padding: 12, color: "#6b7a89" }}>Chưa gắn tài liệu nào cho giai đoạn này.</td></tr>}
-              {stage.resources.map((resource) => <tr key={resource.id} style={{ borderTop: "1px solid #eef1f4" }}>
-                <td style={{ padding: 8 }}>{TYPE_LABEL[resource.resourceType] ?? resource.resourceType}</td>
-                <td style={{ padding: 8 }}><code>{resource.resourceId}</code></td>
-                <td style={{ padding: 8 }}>{resource.title || <span style={{ color: "#6b7a89" }}>— lấy tên gốc —</span>}</td>
-                <td style={{ padding: 8 }}>
-                  <select value={resource.access} disabled={busy} style={field} onChange={(event) => call(`/api/academy-admin/stage-resources/${resource.id}`, { method: "PATCH", body: JSON.stringify({ access: event.target.value }) }, "Đã đổi quyền xem.")}>
-                    {STAGE_RESOURCE_ACCESS.map((value) => <option key={value} value={value}>{ACCESS_LABEL[value]}</option>)}
-                  </select>
-                </td>
-                <td style={{ padding: 8 }}><button className={styles.button} disabled={busy} onClick={() => { if (confirm("Gỡ tài liệu này khỏi giai đoạn? Nội dung gốc không bị xóa.")) call(`/api/academy-admin/stage-resources/${resource.id}`, { method: "DELETE" }, "Đã gỡ tài liệu khỏi giai đoạn."); }}><Trash2 size={13} /></button></td>
-              </tr>)}
+              {stage.resources.map((resource) => <ResourceRow
+                key={resource.id}
+                resource={resource}
+                siblings={stage.resources.filter((candidate) => candidate.id !== resource.id)}
+                busy={busy}
+                onPatch={(payload, message) => call(`/api/academy-admin/stage-resources/${resource.id}`, { method: "PATCH", body: JSON.stringify(payload) }, message)}
+                onDetach={() => { if (confirm("Gỡ tài liệu này khỏi giai đoạn? Nội dung gốc không bị xóa.")) call(`/api/academy-admin/stage-resources/${resource.id}`, { method: "DELETE" }, "Đã gỡ tài liệu khỏi giai đoạn."); }}
+              />)}
             </tbody>
           </table>
         </div>
@@ -169,4 +176,80 @@ function AttachResourceForm({ busy, onSubmit }: { busy: boolean; onSubmit: (payl
       if (await onSubmit({ resourceType, resourceId, title, access })) { setResourceId(""); setTitle(""); }
     }}><Plus size={14} />Gắn</button>
   </div>;
+}
+
+// One row per attached resource. The unlock rule fields are shown only when the chosen mode
+// actually uses them — a percentage box next to "mở ngay" invites someone to fill in a number that
+// will never be read.
+function ResourceRow({ resource, siblings, busy, onPatch, onDetach }: {
+  resource: Resource;
+  siblings: Resource[];
+  busy: boolean;
+  onPatch: (payload: Record<string, unknown>, message: string) => Promise<boolean>;
+  onDetach: () => void;
+}) {
+  const needsPrerequisite = resource.unlockMode === "after_resource" || resource.unlockMode === "progress_gte";
+  const locations = resource.displayLocations ?? [];
+
+  function toggleLocation(value: string) {
+    const next = locations.includes(value) ? locations.filter((item) => item !== value) : [...locations, value];
+    onPatch({ displayLocations: next }, "Đã đổi nơi hiển thị.");
+  }
+
+  return <tr style={{ borderTop: "1px solid #eef1f4", verticalAlign: "top" }}>
+    <td style={{ padding: 8 }}>
+      <strong style={{ display: "block" }}>{resource.title || resource.resourceId}</strong>
+      <small style={{ color: "#6b7a89" }}>{TYPE_LABEL[resource.resourceType] ?? resource.resourceType} · <code>{resource.resourceId}</code></small>
+      <div style={{ marginTop: 6 }}>
+        <select value={resource.requirementType} disabled={busy} style={{ ...field, padding: 6 }} onChange={(event) => onPatch({ requirementType: event.target.value }, "Đã đổi mức độ bắt buộc.")}>
+          {REQUIREMENT_TYPES.map((value) => <option key={value} value={value}>{REQUIREMENT_LABEL[value]}</option>)}
+        </select>
+      </div>
+    </td>
+
+    <td style={{ padding: 8 }}>
+      <select value={resource.access} disabled={busy} style={field} onChange={(event) => onPatch({ access: event.target.value }, "Đã đổi quyền xem.")}>
+        {STAGE_RESOURCE_ACCESS.map((value) => <option key={value} value={value}>{ACCESS_LABEL[value]}</option>)}
+      </select>
+    </td>
+
+    <td style={{ padding: 8, minWidth: 260 }}>
+      <select value={resource.unlockMode} disabled={busy || resource.access === "free_preview"} style={field} onChange={(event) => onPatch({ unlockMode: event.target.value }, "Đã đổi luật mở khóa.")}>
+        {UNLOCK_MODES.map((value) => <option key={value} value={value}>{UNLOCK_LABEL[value]}</option>)}
+      </select>
+      {resource.access === "free_preview" && <small style={{ display: "block", marginTop: 4, color: "#6b7a89" }}>Tài liệu miễn phí luôn mở — luật này không áp dụng.</small>}
+
+      {needsPrerequisite && <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
+        <select value={resource.prerequisiteBindingId ?? ""} disabled={busy} style={field} onChange={(event) => onPatch({ prerequisiteBindingId: event.target.value }, "Đã đặt tài liệu tiên quyết.")}>
+          <option value="">— Chọn tài liệu phải học trước —</option>
+          {siblings.map((sibling) => <option key={sibling.id} value={sibling.id}>{sibling.title || sibling.resourceId}</option>)}
+        </select>
+        {siblings.length === 0 && <small style={{ color: "#b22949" }}>Giai đoạn này chưa có tài liệu nào khác để làm điều kiện.</small>}
+        {resource.unlockMode === "progress_gte" && <label style={{ display: "grid", gap: 4, fontSize: 11 }}>Mở khi đạt (%)
+          <input type="number" min={0} max={100} defaultValue={resource.requiredProgress ?? 80} disabled={busy} style={field}
+            onBlur={(event) => onPatch({ requiredProgress: Number(event.target.value) }, "Đã đặt ngưỡng tiến độ.")} />
+        </label>}
+      </div>}
+
+      {resource.unlockMode === "date" && <label style={{ display: "grid", gap: 4, fontSize: 11, marginTop: 6 }}>Mở từ lúc
+        <input type="datetime-local" defaultValue={resource.unlockAt ? resource.unlockAt.slice(0, 16) : ""} disabled={busy} style={field}
+          onBlur={(event) => onPatch({ unlockAt: event.target.value ? new Date(event.target.value).toISOString() : null }, "Đã đặt mốc thời gian mở.")} />
+      </label>}
+
+      {resource.unlockMode === "manual" && <small style={{ display: "block", marginTop: 4, color: "#6b7a89" }}>Chỉ mở khi cấp quyền riêng cho từng học viên ở mục Phân phối &amp; cấp quyền.</small>}
+    </td>
+
+    <td style={{ padding: 8 }}>
+      <div style={{ display: "grid", gap: 4 }}>
+        {DISPLAY_LOCATIONS.map((value) => <label key={value} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+          <input type="checkbox" checked={locations.includes(value)} disabled={busy} onChange={() => toggleLocation(value)} />
+          {LOCATION_LABEL[value]}
+        </label>)}
+      </div>
+    </td>
+
+    <td style={{ padding: 8 }}>
+      <button className={styles.button} disabled={busy} onClick={onDetach}><Trash2 size={13} /></button>
+    </td>
+  </tr>;
 }
