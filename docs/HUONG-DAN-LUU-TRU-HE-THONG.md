@@ -6,6 +6,19 @@
 
 ---
 
+**2026-08-05 — 🔗 Đã merge + deploy: nút "Xem nội dung phù hợp" giờ có đích đến thật + trang riêng cho từng giai đoạn — KHÔNG CẦN CHẠY MIGRATION GÌ THÊM (dùng bảng của 0033).**
+- **Lỗi đã sửa**: nút này trước đây trỏ về `/academy/learning-paths?stage=<id>` — **chính là trang đang đứng**, và không dòng code nào đọc tham số đó. Đã đối chiếu HTML thật trên production: giống nhau từng ký tự. Bấm vào chỉ đổi thanh địa chỉ, trang không đổi gì.
+- Nay mỗi giai đoạn có **trang riêng** `/academy/learning-paths/<giai-đoạn>`:
+  - Mở đầu bằng **tài liệu học thử miễn phí** — xem được ngay, **không cần tài khoản**.
+  - Tài liệu còn lại **chỉ đếm số lượng, không lộ tên** — đó là lý do để đăng ký.
+  - **Thanh CTA dính ở đáy trang** kêu gọi tạo tài khoản.
+- Thanh CTA đặt **phía trên footer, không ghim đè lên màn hình** — ghim đè sẽ che chính phần nội dung miễn phí đang dùng để thuyết phục, và trên điện thoại thì càng chật.
+- Danh sách giai đoạn công khai giờ **đọc từ bảng `career_stages`** khi bạn đã thiết lập; chưa thiết lập thì vẫn hiện 5 giai đoạn cũ nên trang không bao giờ trống.
+- Đã kiểm tra sau deploy: 5 trang giai đoạn đều mở được (200), slug sai trả 404 đúng, nút CTA trỏ đúng địa chỉ mới.
+- ⚠️ **Còn tồn tại**: nút **"Bắt đầu đánh giá"** (`?diagnostic=1`) vẫn là link chết y hệt — chưa xử lý. Lộ trình học viên vẫn đọc danh sách viết cứng.
+
+---
+
 **2026-08-05 — 🔐 Đã merge + deploy: vá lỗ hổng `/academy-admin` bị coi là trang công khai — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Toàn bộ khu `/academy-admin/*` trước đây **không bị chặn đăng nhập**, vì hệ thống so khớp đường dẫn theo kiểu "bắt đầu bằng" — mà `/academy-admin` thì bắt đầu bằng `/academy` (vốn là khu công khai).
 - **Dữ liệu KHÔNG bị lộ**: mọi API quản trị đều tự kiểm tra quyền riêng và trả 403. Nhưng người lạ vẫn nhìn thấy khung giao diện quản trị, và tài khoản học viên cũng không bị đá ra.
