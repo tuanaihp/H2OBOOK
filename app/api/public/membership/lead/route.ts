@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { rateLimit, requestIdentity } from "@/lib/security/rate-limit";
 import { emitDomainEvent, recordServerAnalytics } from "@/lib/domain/events";
 import { isSupabaseConfigured } from "@/lib/runtime-config";
+import { configuredAcademyOrganizationId } from "@/lib/academy/service";
 
 function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -40,9 +41,14 @@ export async function POST(request: Request) {
   if (!body.consent) return NextResponse.json({ error: "CONSENT_REQUIRED" }, { status: 400 });
   if (!planId) return NextResponse.json({ error: "PLAN_REQUIRED" }, { status: 400 });
 
-  const organizationId = process.env.PUBLIC_ACADEMY_ORGANIZATION_ID;
+  // Was reading PUBLIC_ACADEMY_ORGANIZATION_ID — a second env var for the academy tenant that
+  // nothing ever set, while ACADEMY_ORGANIZATION_ID next to it in .env.local has been configured
+  // all along. Every membership lead therefore died on a 503 that looked like missing config
+  // rather than a duplicate source of truth. configuredAcademyOrganizationId() is the resolver the
+  // rest of the app already uses: id first, slug as a fallback, one answer.
+  const organizationId = await configuredAcademyOrganizationId();
   if (isSupabaseConfigured() && !organizationId) {
-    return NextResponse.json({ error: "PUBLIC_ACADEMY_ORGANIZATION_ID_REQUIRED" }, { status: 503 });
+    return NextResponse.json({ error: "ACADEMY_ORGANIZATION_NOT_CONFIGURED" }, { status: 503 });
   }
   const source = clean(body.source, 80) || "public-membership-v2";
   const leadPayload = {

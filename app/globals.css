@@ -1156,3 +1156,14 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Reader on narrow viewports. The page is a fixed A4 box shrunk with transform: scale(), and a
+   transform does not change the space an element takes in layout, so the untransformed 794px still
+   pushed the document sideways. The starting scale is now fitted to the viewport in JS; these rules
+   are the guard for everything that fitting cannot cover — a wide element inside the page, or a
+   reader who zooms back in — by letting the stage scroll instead of the page. */
+.reader-main-v2[data-narrow]{overflow-x:hidden}
+.reader-main-v2[data-narrow] .reader-stage-v2{overflow-x:auto;padding:12px}
+.reader-main-v2[data-narrow] .reader-page-frame{margin-inline:auto}
+/* Over the page rather than beside it: at this width there is no room for a column of its own. */
+.reader-main-v2[data-narrow] .reader-toc{position:absolute;inset-block:0;left:0;z-index:40;max-width:min(320px,86vw)}

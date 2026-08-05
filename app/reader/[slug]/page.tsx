@@ -11,6 +11,7 @@ import { useAppStore } from "@/store/app-store";
 import type { H2OElement } from "@/types/editor";
 import { localFlashcards, localQuiz, localSummary } from "@/lib/local-smart-engine";
 import { resolveAssetUrl } from "@/lib/assets/asset-client";
+import { resolveElement } from "@/lib/brand-resolver";
 import { GrowthLayer } from "@/components/reader/growth-layer";
 import { AccessibilityDock } from "@/components/reader/accessibility-dock";
 import { hasReaderLead, readCampaign } from "@/lib/growth/local-campaign";
@@ -22,9 +23,13 @@ export default function ReaderPage() {
   const books = store.books;
   const book = books.find((item) => item.id === params.slug || item.slug === params.slug) ?? books[0];
   const [index, setIndex] = useState(0);
+  // 0.68 of an A4 width is 540px of page plus the table of contents, which overflows any phone.
+  // The starting scale and the sidebar now follow the viewport; both stay fully adjustable
+  // afterwards, so this only changes where the reader opens, never what it can do.
   const [scale, setScale] = useState(0.68);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [tocOpen, setTocOpen] = useState(true);
+  const [narrow, setNarrow] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [presenter, setPresenter] = useState(false);
   const [dark, setDark] = useState(true);
@@ -38,11 +43,36 @@ export default function ReaderPage() {
   const stageRef = useRef<HTMLDivElement>(null);
   const pageStartedAt = useRef(Date.now());
   const openedBook = useRef<string | null>(null);
-  const page = book?.pages[index] ?? book?.pages[0];
+  // Books authored from a template carry {{brand.name}}, {{expert.title}} and friends. The editor
+  // resolves them against the active brand; the reader never did, so a published book showed the
+  // raw handlebars to the reader. Resolving here fixes it for every book at once rather than by
+  // rewriting seed content, and leaves the stored document untouched.
+  const activeBrand = store.brands.find((candidate) => candidate.id === store.activeBrandId) ?? store.brands[0];
+  const rawPage = book?.pages[index] ?? book?.pages[0];
+  const page = useMemo(
+    () => (rawPage && activeBrand ? { ...rawPage, elements: rawPage.elements.map((element) => resolveElement(element, activeBrand)) } : rawPage),
+    [rawPage, activeBrand]
+  );
   const progress = ((index + 1) / Math.max(1, book?.pages.length ?? 1)) * 100;
   const storageKey = `h2obook-reader-${book?.id}`;
   const pageText = page?.elements.filter((element) => element.type === "text").map((element) => element.text ?? "").join("\n") ?? "";
   const localStudy = { summary: localSummary(pageText || page?.notes || page?.name || "Trang chưa có nội dung văn bản."), questions: localQuiz(pageText || page?.notes || page?.name || "Trang chưa có nội dung văn bản."), cards: localFlashcards(pageText || page?.notes || page?.name || "Trang chưa có nội dung văn bản.") };
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 900px)");
+    const apply = (matches: boolean) => {
+      setNarrow(matches);
+      if (!matches) return;
+      setTocOpen(false);
+      // 32px covers the stage padding either side; clamped so the page never renders unreadably
+      // small on a very narrow device.
+      setScale((current) => Math.min(current, Math.max(0.3, (window.innerWidth - 32) / 794)));
+    };
+    apply(query.matches);
+    const listener = (event: MediaQueryListEvent) => apply(event.matches);
+    query.addEventListener("change", listener);
+    return () => query.removeEventListener("change", listener);
+  }, []);
 
   useEffect(() => {
     if (!book) return;
@@ -94,7 +124,7 @@ export default function ReaderPage() {
   if (!book || !page) return <main className="reader-not-found"><h1>Không tìm thấy sách</h1><Link href="/library">Quay lại thư viện</Link></main>;
   return <main className={`reader-shell-v2 ${dark ? "reader-dark" : "reader-light"} ${presenter ? "presenter-mode" : ""} ${highlightMode ? "reader-highlight-mode" : ""}`}>
     <header className="reader-bar-v2"><div className="reader-bar-left"><Link href="/library" className="reader-btn"><ArrowLeft size={15}/></Link><button className="reader-btn" onClick={() => setTocOpen(!tocOpen)}><Menu size={15}/></button><div><strong>{book.title}</strong><span>{page.name}</span></div></div><div className="reader-bar-center"><button className={`reader-btn ${searchOpen ? "active" : ""}`} onClick={() => { setSearchOpen(!searchOpen); setTocOpen(true); }}><Search size={15}/></button><button className={`reader-btn ${bookmarks.includes(index) ? "active" : ""}`} onClick={toggleBookmark}><Bookmark size={15} fill={bookmarks.includes(index) ? "currentColor" : "none"}/></button><button className={`reader-btn ${notesOpen ? "active" : ""}`} onClick={() => setNotesOpen(!notesOpen)}><MessageSquareText size={15}/></button><button className={`reader-btn ${highlightMode ? "active" : ""}`} title="Làm nổi bật vùng văn bản" onClick={() => setHighlightMode(!highlightMode)}><Highlighter size={15}/></button><button className={`reader-btn ${studyOpen ? "active" : ""}`} title="Smart Study local" onClick={() => setStudyOpen(!studyOpen)}><Brain size={15}/><span>Học</span></button></div><div className="reader-bar-right"><button className="reader-btn" onClick={() => setDark(!dark)}>{dark ? <Sun size={15}/> : <Moon size={15}/>}</button><button className={`reader-btn ${presenter ? "active" : ""}`} onClick={() => setPresenter(!presenter)}><MonitorPlay size={15}/><span>Trình chiếu</span></button><button className="reader-btn" onClick={() => window.print()}><Printer size={15}/></button><button className="reader-btn" onClick={fullscreen}><Maximize size={15}/></button></div></header>
-    <div className="reader-main-v2">
+    <div className="reader-main-v2" data-narrow={narrow || undefined}>
       {tocOpen && <aside className="reader-toc"><header><div><List size={16}/><strong>Mục lục</strong></div><button onClick={() => setTocOpen(false)}><PanelLeftClose size={15}/></button></header>{searchOpen && <div className="reader-search-box"><Search size={14}/><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong sách..."/>{search && <button onClick={() => setSearch("")}><X size={12}/></button>}</div>}<div>{pageGroups.map(({ item, pageIndex }) => <button key={item.id} className={pageIndex === index ? "active" : ""} onClick={() => go(pageIndex)}><span>{pageIndex + 1}</span><span><strong>{item.name}</strong><small>{item.chapter ?? item.pageType ?? "Trang sách"}</small></span>{bookmarks.includes(pageIndex) && <Bookmark size={11} fill="currentColor"/>}</button>)}</div></aside>}
       <section className="reader-stage-v2" ref={stageRef}><div className="reader-page-frame" style={{ width: 794 * scale, height: 1123 * scale }}><div className="reader-page-v2" style={{ width: 794, height: 1123, background: page.background, transform: `scale(${scale})` }}>{page.elements.map((element) => <ReaderElement key={element.id} element={element}/>) }<div className="watermark-v2"><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span></div></div></div><GrowthLayer bookId={book.id} pageIndex={index}/>{presenter && page.notes && <div className="presenter-notes"><strong>Ghi chú giảng viên</strong><p>{page.notes}</p></div>}</section>
       {accessibilityOpen && <AccessibilityDock text={pageText || page.notes || page.name} onClose={() => setAccessibilityOpen(false)}/>}

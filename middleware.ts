@@ -12,7 +12,14 @@ import { NextResponse, type NextRequest } from "next/server";
 // exemption; the two routes that were relying on the loose behaviour are /verify-outcome, which
 // genuinely is a public unauthenticated certificate page and so is named here, and /academy-admin,
 // which never should have been.
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+// The three /api/reader and /api/analytics entries below serve the public reader, which is itself
+// public (/reader is listed here too). They were being redirected to /login, so a signed-out
+// reader could not load its campaign, could not submit a lead and reported no analytics at all —
+// the redirect answered 307 and the fetch silently failed. Each of the three is unauthenticated by
+// design, rate limited, and strips PII; the admin siblings stay out of this list on purpose:
+// /api/analytics/report requires owner/admin/teacher, and PUT /api/reader/campaign/[id] does its
+// own requireApiUser + resolveOrganizationAccess, so listing the prefix does not expose the write.
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve", "/api/reader/campaign", "/api/reader/leads", "/api/analytics/events"];
 
 function isPathUnder(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
