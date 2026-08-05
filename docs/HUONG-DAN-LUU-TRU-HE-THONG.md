@@ -6,6 +6,34 @@
 
 ---
 
+**2026-08-05 — 🔐 Đã merge + deploy: vá lỗ hổng `/academy-admin` bị coi là trang công khai — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- Toàn bộ khu `/academy-admin/*` trước đây **không bị chặn đăng nhập**, vì hệ thống so khớp đường dẫn theo kiểu "bắt đầu bằng" — mà `/academy-admin` thì bắt đầu bằng `/academy` (vốn là khu công khai).
+- **Dữ liệu KHÔNG bị lộ**: mọi API quản trị đều tự kiểm tra quyền riêng và trả 403. Nhưng người lạ vẫn nhìn thấy khung giao diện quản trị, và tài khoản học viên cũng không bị đá ra.
+- Nay so khớp theo **ranh giới đoạn đường dẫn**, và `/academy-admin` được đưa vào danh sách chỉ-admin.
+- Đã rà toàn bộ route: chỉ đúng 2 chỗ ăn theo kiểu khớp lỏng — `/academy-admin` (sai, đã vá) và `/verify-outcome` (đúng là trang tra cứu chứng chỉ công khai, đã khai báo riêng để không bị chặn nhầm).
+- Đã kiểm tra sau deploy: `/academy-admin/*` đá về login; `/academy/books`, `/verify-outcome`, `/dev/typography` vẫn công khai bình thường.
+
+---
+
+**2026-08-05 — 🗂️ Đã merge + deploy: Bản đồ GIAI ĐOẠN & TÀI LIỆU — ⚠️ CẦN CHẠY MIGRATION 0033.**
+
+**Việc bạn cần làm:** mở Supabase → SQL Editor → New query → dán toàn bộ nội dung file `supabase/_RUN-0033-ONLY.sql` → Run. Chưa chạy thì phần này chưa hoạt động.
+
+- **Vấn đề đã giải quyết**: 6 giai đoạn (hiện có 5, thêm được không giới hạn) trước đây bị **viết cứng trong code ở 2 nơi**, muốn sửa phải deploy lại. Và **không có bất kỳ mối nối nào giữa giai đoạn và tài liệu** — đó chính là lý do tab "Thư viện của tôi" phải hiện sách mẫu.
+- **Nay có màn hình quản trị đầy đủ**: Academy Admin → **Giai đoạn & tài liệu** (`/academy-admin/stages`).
+  - Thêm / sửa / ẩn / lưu trữ giai đoạn — **thêm giai đoạn thứ 6, thứ 10 chỉ là điền form, không cần lập trình**.
+  - Gắn / gỡ / đổi tên / đổi quyền xem cho từng tài liệu trong mỗi giai đoạn.
+  - Hỗ trợ 7 loại tài liệu: sách/giáo trình, khóa học, ấn phẩm, mẫu thiết kế, Knowledge Space, lộ trình, liên kết ngoài.
+  - **3 mức quyền xem mỗi tài liệu**: *Miễn phí (ai cũng xem)* · *Khóa theo giai đoạn* · *Chỉ khi được cấp riêng*.
+  - Nút "Nạp 5 giai đoạn mặc định" cho lần đầu — và nó **từ chối chạy nếu đã có giai đoạn**, nên không bao giờ ghi đè dữ liệu bạn đã sửa.
+- **Xóa giai đoạn = lưu trữ, không xóa thật** — tránh làm hỏng tiến độ học viên và link công khai đã phát ra.
+- **Tab "Thư viện của tôi" đã nối vào dữ liệu thật** để chứng minh chạy thông suốt: hiện tài liệu theo từng giai đoạn, tài liệu chưa mở khóa chỉ **đếm số lượng chứ không lộ tên**. Thanh phần trăm bịa (`34 + số thứ tự × 18`, chính là chỗ hiện "106%") đã bị xóa.
+- Thư viện giờ báo rõ 3 trạng thái: *dữ liệu thật* · *học viện chưa cấu hình* · *chế độ demo* — không còn im lặng hiện sách mẫu như thật.
+- ⚠️ **Chưa xong (nói rõ để bạn không hiểu nhầm)**: trang công khai `/academy/learning-paths` và lộ trình học viên **vẫn đọc danh sách viết cứng cũ**, mới chỉ có Thư viện đọc bảng mới. Và giai đoạn bạn tự thêm sẽ ở trạng thái khóa cho tới khi được nối vào quy tắc mở khóa hoặc cấp quyền riêng.
+- Chi tiết kỹ thuật: `supabase/migrations/0033_h2obook_career_stage_curriculum.sql`.
+
+---
+
 **2026-08-04 — 🔮 Đã merge + deploy: thống nhất quả cầu "H2O Brain core" ở TẤT CẢ các vị trí — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - Trước đây chỉ **trang chủ (Knowledge Universe hero)** có thiết kế quả cầu đúng (3 vòng quay, hình bộ não, hiệu ứng xoáy, nhịp đập). **4 chỗ khác mỗi chỗ tự vẽ một quả cầu riêng** đã lệch hẳn: khác màu, khác số vòng, không có hình bộ não.
 - Nay cả 5 chỗ dùng **chung một thiết kế duy nhất** (`components/brand/h2o-brain-core`): trang chủ mục cuối, khối FutureOrb, dashboard học viên, dashboard chủ workspace, và bản xem trước Academic Ops.
