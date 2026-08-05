@@ -11,6 +11,12 @@ export type StageResourceAccess = (typeof STAGE_RESOURCE_ACCESS)[number];
 export const STAGE_STATUSES = ["active", "hidden", "archived"] as const;
 export type StageStatus = (typeof STAGE_STATUSES)[number];
 
+export const UNLOCK_MODES = ["immediate", "stage_active", "after_resource", "progress_gte", "date", "manual"] as const;
+export type UnlockMode = (typeof UNLOCK_MODES)[number];
+
+export const REQUIREMENT_TYPES = ["required", "optional", "bonus"] as const;
+export type RequirementType = (typeof REQUIREMENT_TYPES)[number];
+
 export interface CareerStageResource {
   id: string;
   stageId: string;
@@ -22,6 +28,14 @@ export interface CareerStageResource {
   position: number;
   access: StageResourceAccess;
   status: StageStatus;
+  // Migration 0034 (Content Access Engine V1). `access` decides whether the stage matters at all;
+  // these refine when the resource opens once it does.
+  unlockMode: UnlockMode;
+  prerequisiteBindingId: string | null;
+  requiredProgress: number | null;
+  unlockAt: string | null;
+  requirementType: RequirementType;
+  displayLocations: string[];
 }
 
 export interface CareerStage {
