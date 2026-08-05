@@ -4,7 +4,19 @@ import { NextResponse, type NextRequest } from "next/server";
 // "/dev" holds the typography fixture only. It is listed here so it can be opened after deploy to
 // check Vietnamese diacritics without the student redirect bouncing it back to /student; the page
 // itself is noindex and reads no data.
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+//
+// "/verify-outcome" is listed in its own right rather than riding on "/verify". These were matched
+// with a bare startsWith, so any path merely beginning with these characters counted as public —
+// which silently made the whole /academy-admin tree public off the back of "/academy". Matching is
+// now segment-bounded (see isPathUnder), so a sibling route can never inherit a neighbour's
+// exemption; the two routes that were relying on the loose behaviour are /verify-outcome, which
+// genuinely is a public unauthenticated certificate page and so is named here, and /academy-admin,
+// which never should have been.
+const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve"];
+
+function isPathUnder(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 // H2OBOOK Production Gap Audit §4.1 (P0): these routes are unambiguously System/Platform Admin
 // surfaces with no plausible non-admin/owner use case — unlike Create/Teach/Business tool routes
@@ -12,7 +24,11 @@ const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/ac
 // already use them today, per the audit's explicit instruction not to break existing navigation
 // with a blanket deny. See the audit doc's §4.1/§6 for the full reasoning and what was
 // deliberately left out of this list.
-const adminOnlyPrefixes = ["/admin", "/platform-admin", "/security", "/enterprise", "/integrations", "/cloud-sync", "/settings", "/smart-settings", "/assist-control", "/offline"];
+// /academy-admin joins this list now that segment-bounded matching stops it being treated as
+// public. Its root page already re-resolved the role server-side, but every child under it is a
+// client component with no server guard of its own, so an unauthenticated visitor was served the
+// admin shell — no data, since the APIs check the role independently, but the wrong answer.
+const adminOnlyPrefixes = ["/admin", "/academy-admin", "/platform-admin", "/security", "/enterprise", "/integrations", "/cloud-sync", "/settings", "/smart-settings", "/assist-control", "/offline"];
 
 function buildCsp(nonce: string) {
   const production = process.env.NODE_ENV === "production";
@@ -71,9 +87,9 @@ export async function middleware(request: NextRequest) {
     }
   });
   const pathname = request.nextUrl.pathname;
-  const isPublic = pathname === "/" || publicPrefixes.some((prefix) => pathname.startsWith(prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
+  const isPublic = pathname === "/" || publicPrefixes.some((prefix) => isPathUnder(pathname, prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
   const isStudentOwnedContent = pathname.startsWith("/editor/") || pathname.startsWith("/remix/");
-  const isAdminOnlyRoute = adminOnlyPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const isAdminOnlyRoute = adminOnlyPrefixes.some((prefix) => isPathUnder(pathname, prefix));
   const isAuthEntryRoute = pathname === "/login" || pathname === "/signup";
   const mayRedirectStudent = studentExperienceV2 && !isPublic && !isStudentOwnedContent && !pathname.startsWith("/student") && !pathname.startsWith("/api/");
 
