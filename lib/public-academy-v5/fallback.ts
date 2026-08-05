@@ -212,7 +212,9 @@ export const fallbackLearningPaths: PublicAcademyLearningPath[] = existingLearni
   title: path.title,
   description: path.description,
   skills: path.skills,
-  recommendationHref: `/academy/learning-paths?stage=${path.id}`,
+  // Was `?stage=${path.id}` — a query string on the page the button already sits on, which
+  // nothing read. It changed the URL and nothing else. Now points at the real stage page.
+  recommendationHref: `/academy/learning-paths/${path.id}`,
   active: index === 1,
 }));
 

@@ -1,6 +1,8 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildFallbackPublicAcademyViewModel } from "./fallback";
+import { configuredAcademyOrganizationId } from "@/lib/academy/service";
+import { loadCareerStages } from "@/lib/career-stages/service";
 import type {
   PublicAcademyConfig,
   PublicAcademyPageKey,
@@ -138,11 +140,29 @@ export async function loadPublicAcademyV5(): Promise<PublicAcademyViewModel> {
       ? mergeMembershipProducts(fallback.membershipPlans, productsResult.data as Array<Record<string, unknown>>)
       : fallback.membershipPlans;
 
+    // Stages come from career_stages once the admin panel has been used; until then the shipped
+    // five stand in, so the public page never goes blank waiting on configuration.
+    const organizationId = await configuredAcademyOrganizationId();
+    const stages = organizationId ? await loadCareerStages(organizationId) : [];
+    const learningPaths = stages.length > 0
+      ? stages.map((stage, index) => ({
+          id: stage.slug,
+          index: stage.indexLabel || String(index + 1).padStart(2, "0"),
+          duration: stage.durationLabel,
+          title: stage.title,
+          description: stage.description,
+          skills: stage.skills,
+          recommendationHref: `/academy/learning-paths/${stage.slug}`,
+          active: index === 1,
+        }))
+      : fallback.learningPaths;
+
     return {
       ...fallback,
       config,
       membershipPlans,
-      source: configResult.data?.payload || productsResult.data?.length ? "supabase" : "fallback",
+      learningPaths,
+      source: configResult.data?.payload || productsResult.data?.length || stages.length ? "supabase" : "fallback",
     };
   } catch {
     return fallback;
