@@ -54,9 +54,9 @@ export function SignupForm() {
       {googleLoading ? <LoaderCircle className="spin" /> : <GoogleGlyph />}Đăng ký bằng Google
     </button>
     <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 16px", color: "#9c8f97", fontSize: 12 }}><i style={{ flex: 1, height: 1, background: "#e5dde1" }} />hoặc dùng email<i style={{ flex: 1, height: 1, background: "#e5dde1" }} /></div>
-    <label className="field"><span>Họ tên</span><input className="input" required value={name} onChange={(e) => setName(e.target.value)} /></label>
-    <label className="field"><span>Email</span><input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-    <label className="field"><span>Mật khẩu</span><input className="input" type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+    <label className="field"><span>Họ tên</span><input className="input" name="fullName" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} /></label>
+    <label className="field"><span>Email</span><input className="input" type="email" name="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+    <label className="field"><span>Mật khẩu</span><input className="input" type="password" name="password" autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
     <button className="btn btn-primary auth-submit" disabled={loading}>{loading ? <LoaderCircle className="spin" /> : null}Tạo tài khoản học viên</button>
     <p className="auth-switch">Đã có tài khoản? <Link href="/login">Đăng nhập</Link></p>
   </form></section></main>;

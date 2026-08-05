@@ -116,11 +116,11 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
         <button type="button" className={styles.googleButton} onClick={submitWithGoogle} disabled={googleLoading}>{googleLoading ? <LoaderCircle className={styles.spin} aria-hidden="true" /> : <GoogleGlyph />}Đăng nhập bằng Google</button>
         <div className={styles.divider}><i />hoặc dùng email<i /></div>
 
-        <label className={styles.field}><span>Email</span><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
-        <label className={styles.field}><span>Mật khẩu</span><div className={styles.passwordField}><input type={show ? "text" : "password"} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" /><button type="button" aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onClick={() => setShow((value) => !value)}>{show ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></div></label>
+        <label className={styles.field}><span>Email</span><input type="email" name="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
+        <label className={styles.field}><span>Mật khẩu</span><div className={styles.passwordField}><input type={show ? "text" : "password"} name="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" /><button type="button" aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onClick={() => setShow((value) => !value)}>{show ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></div></label>
 
         <div className={styles.loginRow}>
-          <label><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Ghi nhớ đăng nhập</label>
+          <label><input type="checkbox" name="remember" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Ghi nhớ đăng nhập</label>
           <Link href="/forgot-password">Quên mật khẩu?</Link>
           <Link href="/signup">Chưa có tài khoản?</Link>
         </div>

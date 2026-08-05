@@ -148,14 +148,14 @@ export function MembershipEnrollmentClient({ plans }: { plans: PublicMembershipP
     </label>
 
     <div className={styles.formGrid}>
-      <label className={styles.formField}><span>Họ và tên</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Nguyễn Minh Anh" autoComplete="name" /></label>
-      <label className={styles.formField}><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ban@example.com" autoComplete="email" /></label>
-      <label className={styles.formField}><span>Số điện thoại</span><input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="09xx xxx xxx" autoComplete="tel" /></label>
-      <label className={styles.formField}><span>Điều bạn muốn đạt được</span><input value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="Mục tiêu học tập của bạn" /></label>
+      <label className={styles.formField}><span>Họ và tên</span><input name="fullName" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Nguyễn Minh Anh" autoComplete="name" /></label>
+      <label className={styles.formField}><span>Email</span><input type="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ban@example.com" autoComplete="email" /></label>
+      <label className={styles.formField}><span>Số điện thoại</span><input name="phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="09xx xxx xxx" autoComplete="tel" /></label>
+      <label className={styles.formField}><span>Điều bạn muốn đạt được</span><input name="goal" value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="Mục tiêu học tập của bạn" /></label>
     </div>
 
-    <label className={styles.honeypot} aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>
-    <label className={styles.consentRow}><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>Tôi đồng ý để H2OBOOK liên hệ và xử lý dữ liệu cho mục đích đăng ký học.</span></label>
+    <label className={styles.honeypot} aria-hidden="true">Website<input tabIndex={-1} name="website" autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>
+    <label className={styles.consentRow}><input type="checkbox" name="consent" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>Tôi đồng ý để H2OBOOK liên hệ và xử lý dữ liệu cho mục đích đăng ký học.</span></label>
 
     {state.status === "error" && <div className={styles.formError} role="alert">{state.message}</div>}
     {state.status === "success" && <div className={styles.formSuccess} role="status">
