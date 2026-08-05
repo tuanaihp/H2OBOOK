@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-05 — 🎛️ Đã merge + deploy: 6 luật mở khóa giờ chỉnh được trực tiếp trên admin panel — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+- ✅ **Xác nhận migration 0033 và 0034 đều đã vào production**: 0034 sửa bảng `career_stage_resources`, nếu bảng chưa có thì lệnh đã báo lỗi — chạy được là bằng chứng cả hai đã thành công.
+- Vào **Academy Admin → Giai đoạn & tài liệu → Quản lý tài liệu**, mỗi tài liệu giờ chỉnh được:
+  - **Mức độ**: Bắt buộc · Tùy chọn · Mở rộng
+  - **Quyền xem**: Miễn phí · Khóa theo giai đoạn · Chỉ khi được cấp riêng
+  - **Luật mở khóa**: Mở ngay · Khi đang ở giai đoạn · **Sau khi học xong tài liệu khác** · **Khi đạt % tiến độ** · **Từ mốc thời gian** · Chỉ mở tay
+  - **Hiển thị ở**: Thư viện · Hành trình · Smart Home (tick chọn nhiều nơi)
+- **Ô nhập chỉ hiện khi luật cần đến nó** — ô "% tiến độ" đặt cạnh "mở ngay" chỉ khiến người dùng điền một con số không bao giờ được đọc.
+- Ô chọn tài liệu tiên quyết **liệt kê đúng các tài liệu trong cùng giai đoạn**, không phải gõ tay; giai đoạn chưa có tài liệu nào khác thì nói rõ thay vì đưa danh sách rỗng.
+- Chọn tài liệu **Miễn phí** thì luật mở khóa bị khóa lại kèm ghi chú — tài liệu miễn phí vốn luôn mở, cho cấu hình một luật không bao giờ áp dụng còn tệ hơn là không cho.
+- **Đã thêm chặn vòng lặp**: nếu tài liệu A cần B, B cần A thì cả hai khóa vĩnh viễn. Database không diễn đạt được ràng buộc này nên hệ thống tự kiểm tra chuỗi điều kiện trước khi lưu, chặn cả tự trỏ vào chính nó lẫn vòng dài hơn.
+
+---
+
 **2026-08-05 — 🧠 Đã merge + deploy module 18 (Content Access Engine V1) — ⚠️ CẦN CHẠY MIGRATION 0034.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → New query → dán file `supabase/_RUN-0034-ONLY.sql` → Run.
