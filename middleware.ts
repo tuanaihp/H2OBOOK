@@ -19,7 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // design, rate limited, and strips PII; the admin siblings stay out of this list on purpose:
 // /api/analytics/report requires owner/admin/teacher, and PUT /api/reader/campaign/[id] does its
 // own requireApiUser + resolveOrganizationAccess, so listing the prefix does not expose the write.
-const publicPrefixes = ["/login", "/signup", "/auth", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve", "/api/reader/campaign", "/api/reader/leads", "/api/analytics/events"];
+const publicPrefixes = ["/login", "/signup", "/auth", "/forgot-password", "/reset-password", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve", "/api/reader/campaign", "/api/reader/leads", "/api/analytics/events"];
 
 function isPathUnder(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);

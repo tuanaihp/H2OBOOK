@@ -1157,13 +1157,30 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
-/* Reader on narrow viewports. The page is a fixed A4 box shrunk with transform: scale(), and a
-   transform does not change the space an element takes in layout, so the untransformed 794px still
-   pushed the document sideways. The starting scale is now fitted to the viewport in JS; these rules
-   are the guard for everything that fitting cannot cover — a wide element inside the page, or a
-   reader who zooms back in — by letting the stage scroll instead of the page. */
-.reader-main-v2[data-narrow]{overflow-x:hidden}
-.reader-main-v2[data-narrow] .reader-stage-v2{overflow-x:auto;padding:12px}
-.reader-main-v2[data-narrow] .reader-page-frame{margin-inline:auto}
-/* Over the page rather than beside it: at this width there is no room for a column of its own. */
-.reader-main-v2[data-narrow] .reader-toc{position:absolute;inset-block:0;left:0;z-index:40;max-width:min(320px,86vw)}
+/* Reader on narrow viewports.
+   Two separate causes, both measured at 390px where the reader came out ~504px wide.
+   1. The toolbar: three flex groups with nowrap, and a title capped at 330px, so the header alone
+      exceeded the screen. It now wraps, the title shrinks, and the text labels beside the icons
+      drop away — the icons still carry a title/aria-label.
+   2. The page: a fixed A4 box shrunk with transform: scale(). A transform does not change the
+      space an element occupies, so the untransformed 794px kept pushing the document sideways
+      whatever the zoom said. The opening scale is fitted to the viewport in JS; these rules let the
+      stage scroll for everything fitting cannot cover, such as a reader zooming back in.
+   Scoped to a media query rather than the JS data-narrow flag because the toolbar is a sibling of
+   .reader-main-v2, not a descendant, and because layout should not wait on hydration. */
+@media(max-width:900px){
+  html:has(.reader-bar-v2){overflow-x:hidden}
+  .reader-bar-v2{flex-wrap:wrap;gap:6px;padding:8px 10px}
+  .reader-bar-left{min-width:0;flex:1 1 100%}
+  .reader-bar-left strong{max-width:none}
+  .reader-bar-center,.reader-bar-right{flex:1 1 auto;flex-wrap:wrap;justify-content:flex-start}
+  .reader-bar-right{justify-content:flex-end}
+  .reader-bar-center .reader-btn span,.reader-bar-right .reader-btn span{display:none}
+  .reader-main-v2{overflow-x:hidden}
+  .reader-stage-v2{overflow-x:auto;padding:12px}
+  .reader-page-frame{margin-inline:auto;max-width:100%}
+  /* Over the page rather than beside it: at this width there is no room for a column of its own. */
+  .reader-toc{position:absolute;inset-block:0;left:0;z-index:40;max-width:min(320px,86vw)}
+  .reader-footer-v2{flex-wrap:wrap;gap:8px;padding:8px 10px}
+  .reader-progress-v2{flex:1 1 100%;order:3}
+}

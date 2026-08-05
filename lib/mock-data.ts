@@ -139,10 +139,38 @@ export const demoBook: H2OBook = {
   ]
 };
 
-export const libraryBooks = [
+/**
+ * The two sibling demo books used to be `{ ...demoBook, id, title }`. A spread is shallow, so all
+ * three shared one `pages` array: opening "Kỹ thuật nền trong trẻo" showed the makeup-course pages
+ * verbatim, and every element carried the same id across all three books. This derives a real copy
+ * per book instead — its own pages, its own element ids, and the cover/section text carrying its
+ * own title rather than the template's.
+ *
+ * It does not invent curriculum. These are sample books; the point is that they now read as three
+ * different sample books rather than one shown three times.
+ */
+function deriveDemoBook(source: H2OBook, overrides: { id: string; title: string; subtitle: string; status: H2OBook["status"]; cover: string }): H2OBook {
+  const retitle = (value: string) =>
+    value.replaceAll(source.title, overrides.title).replaceAll(source.subtitle, overrides.subtitle);
+  return {
+    ...source,
+    ...overrides,
+    pages: source.pages.map((page, pageIndex) => ({
+      ...page,
+      id: `${overrides.id}_p${pageIndex + 1}`,
+      elements: page.elements.map((element) => ({
+        ...element,
+        id: `${overrides.id}_${element.id}`,
+        ...(typeof element.text === "string" ? { text: retitle(element.text) } : {})
+      }))
+    }))
+  };
+}
+
+export const libraryBooks: H2OBook[] = [
   demoBook,
-  { ...demoBook, id: "book_skin", title: "Kỹ thuật nền trong trẻo", subtitle: "Từ phân tích da đến hoàn thiện nền bền đẹp", status: "published" as const, cover: "linear-gradient(135deg,#173d4d,#4f95a2,#d7f2ef)" },
-  { ...demoBook, id: "book_hair", title: "Tóc cô dâu ứng dụng", subtitle: "Hệ thống form tóc từ cơ bản đến nâng cao", status: "template" as const, cover: "linear-gradient(135deg,#32231e,#85644e,#e8d5bc)" }
+  deriveDemoBook(demoBook, { id: "book_skin", title: "Kỹ thuật nền trong trẻo", subtitle: "Từ phân tích da đến hoàn thiện nền bền đẹp", status: "published", cover: "linear-gradient(135deg,#173d4d,#4f95a2,#d7f2ef)" }),
+  deriveDemoBook(demoBook, { id: "book_hair", title: "Tóc cô dâu ứng dụng", subtitle: "Hệ thống form tóc từ cơ bản đến nâng cao", status: "template", cover: "linear-gradient(135deg,#32231e,#85644e,#e8d5bc)" })
 ];
 
 export const studentRows = [
