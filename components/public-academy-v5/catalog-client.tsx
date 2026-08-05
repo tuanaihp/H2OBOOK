@@ -57,13 +57,16 @@ export function AcademyCatalogClient({
       </div>
     </div>
 
-    <div className={kind === "book" ? styles.bookGrid : kind === "course" ? styles.courseGrid : styles.strategyGrid}>
+    {/* The grid was rendered unconditionally, so a search with no matches left its empty container
+        sitting above the message — a blank block where the results used to be. It is skipped
+        entirely now, and the empty state takes its place rather than following it. */}
+    {filtered.length > 0 && <div className={kind === "book" ? styles.bookGrid : kind === "course" ? styles.courseGrid : styles.strategyGrid}>
       {filtered.map((item, index) => kind === "book"
         ? <BookCard key={item.id} item={item} index={index} />
         : kind === "course"
           ? <CourseCard key={item.id} item={item} />
           : <StrategyCard key={item.id} item={item} />)}
-    </div>
+    </div>}
 
     {!filtered.length && <div className={styles.emptyState}>
       <strong>Chưa tìm thấy nội dung phù hợp.</strong>

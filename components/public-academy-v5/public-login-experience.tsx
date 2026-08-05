@@ -121,6 +121,7 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
 
         <div className={styles.loginRow}>
           <label><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Ghi nhớ đăng nhập</label>
+          <Link href="/forgot-password">Quên mật khẩu?</Link>
           <Link href="/signup">Chưa có tài khoản?</Link>
         </div>
 

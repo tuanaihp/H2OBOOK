@@ -31,7 +31,10 @@ export async function GET(_: Request, context: { params: Promise<{ bookId: strin
   const admin = createSupabaseAdminClient();
   if (!admin) return NextResponse.json({ campaign: null }, { status: 503 });
   const { data: book } = await admin.from("books").select("id,client_key,status").eq(isUuid(bookId) ? "id" : "client_key", bookId).maybeSingle();
-  if (!book) return NextResponse.json({ campaign: null }, { status: 404 });
+  // A book we do not hold is not an error for the reader — the question is "what gates this book",
+  // and "nothing" is a valid answer. Answering 404 made the client treat it as a failure and retry
+  // on every page, which is what the demo books (never inserted into `books`) were triggering.
+  if (!book) return NextResponse.json({ campaign: null, mode: "unknown-book" });
   const [{ data: campaign }, { data: embed }] = await Promise.all([
     admin.from("reader_campaigns").select("*").eq("book_id", book.id).eq("status", "active").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("protected_embeds").select("allowed_domains,enabled,token_ttl_seconds").eq("book_id", book.id).maybeSingle()
