@@ -1,0 +1,38 @@
+.skills{list-style:none;margin:0 0 34px;padding:0;display:flex;flex-wrap:wrap;gap:9px}
+.skills li{display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:10px;background:#f7f0f4;font-size:var(--h2o-fs-label,12px);font-weight:700}
+.skills svg{width:14px;color:#34a981}
+
+.blockTitle{font-family:var(--font-serif);font-size:30px;letter-spacing:-.02em;margin:0 0 18px}
+
+.resourceGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.resourceCard{display:flex;flex-direction:column;gap:8px;padding:20px;border:1px solid #e5dbe0;border-radius:18px;background:#fff;text-decoration:none;color:inherit}
+.resourceCard strong{font-family:var(--font-serif);font-size:19px;line-height:1.2}
+.resourceCard p{margin:0;font-size:var(--h2o-fs-body,13px);line-height:1.6;color:#786670}
+.resourceCard em{margin-top:auto;display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--h2o-fs-label,12px);font-weight:900;color:var(--h2o-wine,#8d1d50)}
+.resourceCard svg{width:14px}
+
+.freeTag{display:inline-flex;align-items:center;gap:6px;width:fit-content;padding:5px 9px;border-radius:8px;background:#eafaf3;color:#177a54;font-size:var(--h2o-fs-micro,11px);font-weight:900}
+
+.emptyNote{margin:0;font-size:var(--h2o-fs-body,13px);color:#786670;line-height:1.7}
+.lockedNote{display:flex;align-items:center;gap:9px;margin:22px 0 0;padding:14px 16px;border-radius:12px;background:#fff6e6;color:#a05a13;font-size:var(--h2o-fs-body,13px)}
+.lockedNote svg{width:16px;flex:none}
+
+/* Sits above the footer rather than fixed to the viewport: a bar pinned over the content would
+   cover the free material it is trying to sell, and on a short phone screen there is not much
+   content to spare. */
+.stickyCta{position:sticky;bottom:0;z-index:30;border-top:1px solid rgba(255,255,255,.14);background:linear-gradient(120deg,#1a1030,#3d1440);color:#fff;padding:16px 0}
+.stickyCta>div{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.stickyCta strong{display:block;font-family:var(--font-serif);font-size:19px}
+.stickyCta small{display:block;margin-top:3px;font-size:var(--h2o-fs-label,12px);color:#c9b8c1}
+.stickyActions{display:flex;align-items:center;gap:10px}
+.stickyPrimary,.stickySecondary{display:flex;align-items:center;gap:7px;border-radius:11px;padding:12px 17px;text-decoration:none;font-size:var(--h2o-fs-label,12px);font-weight:900}
+.stickyPrimary{background:linear-gradient(90deg,#b30d59,#8146dc);color:#fff}
+.stickySecondary{border:1px solid rgba(255,255,255,.28);color:#fff}
+.stickyPrimary svg,.stickySecondary svg{width:15px}
+
+@media(max-width:640px){
+  .stickyCta>div{flex-direction:column;align-items:flex-start;gap:12px}
+  .stickyActions{width:100%}
+  .stickyPrimary,.stickySecondary{flex:1;justify-content:center}
+  .blockTitle{font-size:24px}
+}
