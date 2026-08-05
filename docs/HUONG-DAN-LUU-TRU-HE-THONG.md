@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-05 — 🧠 Đã merge + deploy module 18 (Content Access Engine V1) — ⚠️ CẦN CHẠY MIGRATION 0034.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → New query → dán file `supabase/_RUN-0034-ONLY.sql` → Run.
+
+- **Module gốc đề xuất 12 bảng mới. Tôi TỪ CHỐI cả 12** — vì trùng với bảng đã có: 3 bảng trùng đúng phần tôi làm hôm nay (0033), số còn lại trùng `entitlements`, `memberships`, `products`, `domain_events`, và các bảng nội dung thật. Chính README của module cũng yêu cầu audit trước.
+- **⚠️ Phát hiện lỗ hổng nghiêm trọng trong module gốc**: hàm xét quyền admin của nó đọc vai trò từ **metadata mà người dùng tự sửa được**. Nếu chạy nguyên bản, **bất kỳ ai tự đặt `role: "admin"` cho mình sẽ có toàn quyền ghi lên 12 bảng đó**. Nó còn coi token thiếu thông tin tổ chức là hợp lệ cho MỌI tổ chức. Đây là lý do đủ để từ chối, độc lập với chuyện trùng lặp.
+- **Phần đã nhận — giá trị thật**: repo đang có **4 nơi tự quyết định quyền truy cập**, mỗi nơi một luật riêng (đó là cách một màn hình hiện ra thứ mà cổng chặn phía sau lại không cho vào). Nay có **một bộ quyết định duy nhất** với thứ tự ưu tiên rõ ràng:
+  - **Lệnh chặn thắng mọi thứ** — kể cả người đã mua. Thu hồi quyền vì lý do bảo mật không bị gói thành viên vô hiệu hóa.
+  - **Phân biệt "hết hạn" với "chưa mở khóa"** — hai thông điệp hoàn toàn khác nhau với người học.
+- **Luật mở khóa nâng cao** thành **6 cột bổ sung** (không thêm bảng): mở ngay · khi đang ở giai đoạn · sau khi học xong tài liệu khác · khi đạt % tiến độ · theo mốc thời gian · chỉ mở tay. Kèm phân loại bắt buộc/tùy chọn/mở rộng và chọn nơi hiển thị.
+- Giá trị mặc định của 6 cột **giữ nguyên hành vi cũ**, nên dữ liệu hiện có không đổi nghĩa.
+- **Một quyết định kinh doanh cần bạn biết**: tôi coi "thu hồi quyền" là **chặn hẳn tài liệu đó**, chứ không chỉ hủy bản cấp quyền. Nếu bạn muốn ngược lại (thu hồi xong mà có gói thành viên thì vẫn xem được), báo tôi đổi — 1 dòng.
+- Chưa xong: 2 chế độ mở khóa theo tiến độ **đã code và có test đầy đủ** nhưng **chưa có nguồn dữ liệu tiến độ đọc sách**, nên với sách sẽ luôn ra "chưa đủ điều kiện". 6 cột mới chưa có ô nhập trên giao diện admin. 3 nơi quyết định quyền còn lại chưa gộp về bộ mới.
+- Chi tiết đầy đủ: `docs/H2OBOOK-CONTENT-ACCESS-ENGINE-V1-INTEGRATION-REPORT.md`.
+
+---
+
 **2026-08-05 — 🔗 Đã merge + deploy: nút "Xem nội dung phù hợp" giờ có đích đến thật + trang riêng cho từng giai đoạn — KHÔNG CẦN CHẠY MIGRATION GÌ THÊM (dùng bảng của 0033).**
 - **Lỗi đã sửa**: nút này trước đây trỏ về `/academy/learning-paths?stage=<id>` — **chính là trang đang đứng**, và không dòng code nào đọc tham số đó. Đã đối chiếu HTML thật trên production: giống nhau từng ký tự. Bấm vào chỉ đổi thanh địa chỉ, trang không đổi gì.
 - Nay mỗi giai đoạn có **trang riêng** `/academy/learning-paths/<giai-đoạn>`:
