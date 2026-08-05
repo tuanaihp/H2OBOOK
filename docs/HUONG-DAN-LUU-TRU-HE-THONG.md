@@ -6,6 +6,21 @@
 
 ---
 
+**2026-08-05 — ♿ Đã merge + deploy: sửa 3 lỗi đợt rà soát thứ 3 — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+
+1. **`book_skin` vẫn sai nội dung (lần 2 — lần trước tôi sửa chưa tới).** Lần trước tôi thay tên sách bằng cách tìm-và-thay chuỗi, nhưng **không khớp được gì cả**: bìa sách viết `"GIÁO TRÌNH\nMAKEUP CHUYÊN NGHIỆP"` — chữ hoa, xuống dòng — nên không chứa tên sách gốc; phần thân bài thì không nhắc tên sách lần nào. Nay **mỗi sách mẫu có nội dung viết riêng thật**: bìa, tên chương, thân bài, trích dẫn, checklist — cuốn về kỹ thuật nền và cuốn về tóc cô dâu.
+   - **Lý do thứ hai khiến bạn vẫn thấy nội dung cũ**: dữ liệu sách được **lưu trong trình duyệt**, nên máy nào đã từng vào web sẽ giữ bản cũ mãi. Đã nâng phiên bản lưu trữ kèm bước chuyển đổi **chỉ thay đúng 2 cuốn mẫu, và chỉ khi chúng vẫn đang là bản sao lỗi** — cuốn nào bạn đã sửa thì giữ nguyên. Không đụng vào bất kỳ dữ liệu nào khác.
+   - ⚠️ Máy đã vào web trước đây cần **tải lại trang một lần** để bước chuyển đổi chạy.
+2. **Reader thiếu nhãn cho nút biểu tượng** — **18 nút** giờ đều có nhãn đọc được bằng trình đọc màn hình, và biểu tượng được đánh dấu ẩn để không bị đọc lặp. Các nút bật/tắt giữ **nhãn cố định** kèm trạng thái riêng, thay vì đổi tên mỗi lần bấm (đổi tên sẽ khiến trình đọc thông báo như một nút khác).
+3. **PWA mở vào `/dashboard`** — cài app xong mở ra là bị đá về login. Nay mở vào trang chủ `/`. Đã kiểm chứng: `"start_url": "/"`.
+4. **Form — xin đính chính báo cáo**: không form công khai nào dùng `method=get`; cả 6 form đều chặn hành vi mặc định nên không có chuyện dữ liệu lộ lên URL. Phần đúng là **tự động điền**: 18 ô nhập ở form đăng nhập/đăng ký/membership/đăng ký khóa học thiếu thuộc tính `name` nên trình quản lý mật khẩu và tự động điền của trình duyệt không nhận ra. Đã bổ sung.
+
+✅ Đã kiểm chứng sau deploy: health 200 · `start_url` = `/` · nội dung riêng của `book_skin` đã có trong bản build.
+
+⚠️ Còn lại: ~134 ô nhập thiếu `name` nằm trong trình soạn thảo và trang quản trị — đều là ô do React quản lý, không gửi form kiểu cũ, nên tôi không sửa hàng loạt để tránh rủi ro.
+
+---
+
 **2026-08-05 — 🧰 Đã merge + deploy: sửa 5 lỗi còn lại của đợt rà soát — ⚠️ CẦN CHẠY MIGRATION 0035.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0035-ONLY.sql` → Run. **Chưa chạy thì analytics vẫn lỗi.**
