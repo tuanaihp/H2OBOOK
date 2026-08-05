@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
 import { attachResource } from "@/lib/career-stages/admin";
-import { isStageResourceAccess, isStageResourceType } from "@/lib/career-stages/types";
+import { isRequirementType, isStageResourceAccess, isStageResourceType, isUnlockMode, toDisplayLocations } from "@/lib/career-stages/types";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { access, response } = await resolveAcademyAdminAccess(request);
@@ -16,7 +16,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     title: typeof body.title === "string" ? body.title : undefined,
     summary: typeof body.summary === "string" ? body.summary : undefined,
     href: typeof body.href === "string" ? body.href : undefined,
-    access: isStageResourceAccess(body.access) ? body.access : undefined
+    access: isStageResourceAccess(body.access) ? body.access : undefined,
+    unlockMode: isUnlockMode(body.unlockMode) ? body.unlockMode : undefined,
+    requirementType: isRequirementType(body.requirementType) ? body.requirementType : undefined,
+    displayLocations: toDisplayLocations(body.displayLocations)
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result.data, { status: 201 });

@@ -73,6 +73,29 @@ export interface CareerStageResourceInput {
   position?: number;
   access?: StageResourceAccess;
   status?: StageStatus;
+  unlockMode?: UnlockMode;
+  prerequisiteBindingId?: string | null;
+  requiredProgress?: number | null;
+  unlockAt?: string | null;
+  requirementType?: RequirementType;
+  displayLocations?: string[];
+}
+
+export const DISPLAY_LOCATIONS = ["library", "journey", "smart_home"] as const;
+export type DisplayLocation = (typeof DISPLAY_LOCATIONS)[number];
+
+export function isUnlockMode(value: unknown): value is UnlockMode {
+  return typeof value === "string" && (UNLOCK_MODES as readonly string[]).includes(value);
+}
+
+export function isRequirementType(value: unknown): value is RequirementType {
+  return typeof value === "string" && (REQUIREMENT_TYPES as readonly string[]).includes(value);
+}
+
+/** Keeps unknown location names out of the array; an empty result means "nowhere", which is valid. */
+export function toDisplayLocations(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((item): item is string => typeof item === "string" && (DISPLAY_LOCATIONS as readonly string[]).includes(item));
 }
 
 export function isStageResourceType(value: unknown): value is StageResourceType {
