@@ -6,6 +6,17 @@
 
 ---
 
+**2026-08-05 — 🩹 Đã merge + deploy: sửa 4 lỗi chặn chuyển đổi từ đợt rà soát production — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+
+1. **API công khai của Reader bị chặn đăng nhập.** 3 API (`/api/reader/campaign`, `/api/reader/leads`, `/api/analytics/events`) vốn thiết kế cho người chưa đăng nhập, nhưng bị middleware đá về `/login`. Hậu quả: người đọc chưa đăng nhập **không tải được campaign, không thu được lead, và không ghi nhận được analytics nào cả** — mọi lệnh gọi đều thất bại âm thầm. Đã mở đúng 3 đường dẫn này; `/api/analytics/report` (báo cáo nội bộ) vẫn được bảo vệ. Đã kiểm chứng sau deploy: 3 API trả 404/200/400 (tức chạy tới logic thật), `report` vẫn trả 307.
+2. **Đăng ký membership luôn lỗi 503.** Nguyên nhân: code đọc biến `PUBLIC_ACADEMY_ORGANIZATION_ID` — **một biến thứ hai chưa từng được đặt ở đâu cả** — trong khi `ACADEMY_ORGANIZATION_ID` nằm ngay dòng dưới trong cùng file thì đã có giá trị. Hai cái tên cho một sự thật, và cái rỗng thắng. Đã kiểm chứng trên Vercel: biến rỗng đó **không tồn tại**, biến đúng thì **có**. Nay dùng chung bộ giải quyết mà cả app đang dùng.
+3. **Thanh toán membership luôn lỗi 400.** Màn hình gửi `productId` mà chỉ có giá trị khi sản phẩm đã tồn tại sẵn trong database. Luồng khóa học không dính lỗi này vì nó hỏi qua catalog trước — và catalog **tự tạo sản phẩm nếu chưa có**. Cơ chế đó đã hỗ trợ membership sẵn, chỉ là màn hình membership không gọi. Nay đã gọi.
+4. **Reader hiện chữ thô `{{brand.name}}` và tràn ngang trên điện thoại.** Placeholder nay được phân giải theo thương hiệu đang chọn lúc hiển thị — sửa cho mọi sách cùng lúc, không phải sửa từng nội dung, và không đụng vào dữ liệu đã lưu. Về tràn ngang: trang sách là khổ A4 cố định thu nhỏ bằng `transform`, mà `transform` **không làm thay đổi chỗ nó chiếm trong bố cục** — nên dù thu nhỏ bao nhiêu, chiều rộng 794px vẫn đẩy trang lệch. Nay cỡ hiển thị tự khớp màn hình và mục lục tự đóng dưới 900px.
+
+⚠️ **Chưa sửa** (cũng từ đợt rà soát đó): `/forgot-password` và `/recovery` bị đá về login · nút thanh toán gửi hồ sơ đăng ký lần 2 · `/reader/book_skin` dùng chung nội dung với giáo trình makeup (đây là dữ liệu mẫu, không phải lỗi code) · chưa có thông báo khi tìm kiếm không ra kết quả · vài lỗi ngữ nghĩa form.
+
+---
+
 **2026-08-05 — 🎛️ Đã merge + deploy: 6 luật mở khóa giờ chỉnh được trực tiếp trên admin panel — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 - ✅ **Xác nhận migration 0033 và 0034 đều đã vào production**: 0034 sửa bảng `career_stage_resources`, nếu bảng chưa có thì lệnh đã báo lỗi — chạy được là bằng chứng cả hai đã thành công.
 - Vào **Academy Admin → Giai đoạn & tài liệu → Quản lý tài liệu**, mỗi tài liệu giờ chỉnh được:
