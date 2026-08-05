@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-05 — 🧰 Đã merge + deploy: sửa 5 lỗi còn lại của đợt rà soát — ⚠️ CẦN CHẠY MIGRATION 0035.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0035-ONLY.sql` → Run. **Chưa chạy thì analytics vẫn lỗi.**
+
+1. **Analytics lỗi 400 trên mọi trang.** Nguyên nhân: migration 0015 tạo ràng buộc chống trùng dưới dạng **index "một phần"** (chỉ áp dụng khi `event_id` khác rỗng). PostgreSQL **không cho phép dùng index một phần** để chống ghi trùng trừ khi câu lệnh lặp lại đúng điều kiện đó — thư viện thì không gửi. Kết quả: ràng buộc có thật, hoạt động đúng, nhưng **vô hình** với lệnh ghi. Mà điều kiện đó cũng thừa: `event_id` luôn được gửi. Đã bỏ điều kiện → không thay đổi gì về dữ liệu được phép, chỉ là lệnh ghi chạy được.
+2. **Quên mật khẩu — đính chính báo cáo**: 2 trang này **không bị chặn, mà chưa hề tồn tại**. Middleware đá mọi đường dẫn lạ về login nên nhìn từ ngoài giống hệt nhau. Nay đã dựng đủ luồng: `/forgot-password` gửi mail → `/reset-password` đặt mật khẩu mới → trang đăng nhập đã có link "Quên mật khẩu?".
+   - Form báo thành công **giống nhau dù email có tồn tại hay không** — báo khác nhau sẽ biến nó thành công cụ dò xem email nào đã đăng ký.
+3. **Reader tràn ngang trên điện thoại (lần 2).** Lần trước tôi sửa phần trang mà **bỏ sót thủ phạm chính là thanh công cụ**: 3 nhóm nút không xuống dòng, cộng tiêu đề giới hạn 330px → riêng thanh đó đã vượt màn 390px. Nay thanh tự xuống dòng, tiêu đề bỏ giới hạn, chữ cạnh icon tự ẩn.
+4. **`book_skin` dùng chung nội dung với giáo trình makeup.** Nguyên nhân: 3 sách demo được tạo bằng cách sao chép nông (`spread`) từ một cuốn — nên **dùng chung y nguyên một bộ trang, trùng cả mã của từng phần tử**. Nay mỗi sách có bộ trang riêng, mã riêng, và bìa mang đúng tên của nó.
+   - Sửa kèm: API campaign trả 404 cho sách không có trong database → nay trả 200 với "không có campaign". Câu hỏi là "sách này bị khóa bởi cái gì", và "không có gì" là câu trả lời hợp lệ; trả 404 khiến trình duyệt coi là lỗi và **thử lại liên tục**.
+5. **Thiếu robots.txt / sitemap.xml** — đã có cả hai. Sitemap chỉ liệt kê trang mà người chưa đăng nhập mở được, và **tự lấy các giai đoạn từ database** nên bạn thêm giai đoạn mới trong admin là nó tự xuất hiện. Đã kiểm chứng sau deploy: **31 URL**.
+6. **Tìm kiếm không có kết quả**: thông báo vốn đã có sẵn, nhưng **lưới rỗng vẫn được vẽ phía trên nó** — tạo ra đúng khoảng trống bạn thấy. Nay bỏ lưới khi không có kết quả.
+
+✅ Đã kiểm chứng sau deploy: `/robots.txt` 200 · `/sitemap.xml` 200 (31 URL) · `/forgot-password` 200 · `/reset-password` 200 · campaign `book_skin` 200 (hết 404).
+
+---
+
 **2026-08-05 — 🩹 Đã merge + deploy: sửa 4 lỗi chặn chuyển đổi từ đợt rà soát production — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 
 1. **API công khai của Reader bị chặn đăng nhập.** 3 API (`/api/reader/campaign`, `/api/reader/leads`, `/api/analytics/events`) vốn thiết kế cho người chưa đăng nhập, nhưng bị middleware đá về `/login`. Hậu quả: người đọc chưa đăng nhập **không tải được campaign, không thu được lead, và không ghi nhận được analytics nào cả** — mọi lệnh gọi đều thất bại âm thầm. Đã mở đúng 3 đường dẫn này; `/api/analytics/report` (báo cáo nội bộ) vẫn được bảo vệ. Đã kiểm chứng sau deploy: 3 API trả 404/200/400 (tức chạy tới logic thật), `report` vẫn trả 307.
