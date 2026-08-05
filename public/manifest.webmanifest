@@ -2,7 +2,7 @@
   "name": "H2OBOOK 4.14 — AI Learning Universe",
   "short_name": "H2OBOOK",
   "description": "Hệ sinh thái sách, khóa học, chiến lược nghề Makeup và trải nghiệm học viên thông minh — AI tùy chọn.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

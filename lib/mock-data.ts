@@ -140,42 +140,75 @@ export const demoBook: H2OBook = {
 };
 
 /**
- * The two sibling demo books used to be `{ ...demoBook, id, title }`. A spread is shallow, so all
- * three shared one `pages` array: opening "Kỹ thuật nền trong trẻo" showed the makeup-course pages
- * verbatim, and every element carried the same id across all three books. This derives a real copy
- * per book instead — its own pages, its own element ids, and the cover/section text carrying its
- * own title rather than the template's.
+ * Copy for a sample book, keyed by the element ids in demoBook's three pages.
  *
- * It does not invent curriculum. These are sample books; the point is that they now read as three
- * different sample books rather than one shown three times.
+ * The sibling books were originally `{ ...demoBook, id, title }`. A spread is shallow, so all three
+ * shared one pages array: opening "Kỹ thuật nền trong trẻo" showed the makeup-course pages word for
+ * word, and every element carried the same id in all three books. A later pass gave each book its
+ * own pages and retitled anything containing the source title — which missed everything, because
+ * the cover reads "GIÁO TRÌNH\nMAKEUP CHUYÊN NGHIỆP" in caps across a line break and the chapter
+ * text never mentions the title at all. Hence real copy per book rather than string substitution.
+ *
+ * These stay sample books. The point is that three sample books now read as three different books,
+ * which is what a reader demo is for.
  */
-function deriveDemoBook(source: H2OBook, overrides: { id: string; title: string; subtitle: string; status: H2OBook["status"]; cover: string }): H2OBook {
-  const retitle = (value: string) =>
-    value.replaceAll(source.title, overrides.title).replaceAll(source.subtitle, overrides.subtitle);
+interface SampleBookCopy {
+  cover_title: string;
+  cover_subtitle: string;
+  intro_title: string;
+  intro_body: string;
+  intro_quote: string;
+  check_text: string;
+}
+
+function buildSampleBook(
+  source: H2OBook,
+  meta: { id: string; title: string; subtitle: string; status: H2OBook["status"]; cover: string },
+  copy: SampleBookCopy
+): H2OBook {
+  const overrides = copy as unknown as Record<string, string>;
   return {
     ...source,
-    ...overrides,
+    ...meta,
     pages: source.pages.map((page, pageIndex) => ({
       ...page,
-      id: `${overrides.id}_p${pageIndex + 1}`,
-      elements: page.elements.map((element) => ({
-        ...element,
-        id: `${overrides.id}_${element.id}`,
-        ...(typeof element.text === "string" ? { text: retitle(element.text) } : {})
-      }))
+      id: `${meta.id}_p${pageIndex + 1}`,
+      elements: page.elements.map((element) => {
+        const replacement = overrides[element.id];
+        return {
+          ...element,
+          id: `${meta.id}_${element.id}`,
+          ...(replacement === undefined ? {} : { text: replacement })
+        };
+      })
     }))
   };
 }
 
 export const libraryBooks: H2OBook[] = [
   demoBook,
-  deriveDemoBook(demoBook, { id: "book_skin", title: "Kỹ thuật nền trong trẻo", subtitle: "Từ phân tích da đến hoàn thiện nền bền đẹp", status: "published", cover: "linear-gradient(135deg,#173d4d,#4f95a2,#d7f2ef)" }),
-  deriveDemoBook(demoBook, { id: "book_hair", title: "Tóc cô dâu ứng dụng", subtitle: "Hệ thống form tóc từ cơ bản đến nâng cao", status: "template", cover: "linear-gradient(135deg,#32231e,#85644e,#e8d5bc)" })
-];
-
-export const studentRows = [
-  { id: 1, name: "Nguyễn Minh Anh", email: "minhanh@example.com", course: "Makeup Pro K26", progress: 78, status: "Đang học" },
-  { id: 2, name: "Trần Thu Hà", email: "thuha@example.com", course: "Makeup Pro K26", progress: 46, status: "Đang học" },
-  { id: 3, name: "Lê Ngọc Mai", email: "ngocmai@example.com", course: "Nền trong trẻo", progress: 100, status: "Hoàn thành" },
-  { id: 4, name: "Phạm Khánh Linh", email: "khanhlinh@example.com", course: "Tóc cô dâu", progress: 21, status: "Đang học" }
+  buildSampleBook(
+    demoBook,
+    { id: "book_skin", title: "Kỹ thuật nền trong trẻo", subtitle: "Từ phân tích da đến hoàn thiện nền bền đẹp", status: "published", cover: "linear-gradient(135deg,#173d4d,#4f95a2,#d7f2ef)" },
+    {
+      cover_title: "KỸ THUẬT NỀN\nTRONG TRẺO",
+      cover_subtitle: "Phân tích da • Lớp nền • Độ bền • Ánh sáng",
+      intro_title: "Đọc da trước khi chạm cọ",
+      intro_body: "Một lớp nền trong trẻo được quyết định trước khi mở hộp phấn. Hãy đọc da theo bốn thông tin: độ ẩm, độ dầu ở vùng chữ T, kết cấu lỗ chân lông và sắc độ dưới ánh sáng trắng. Bốn thông tin này quyết định lượng dưỡng, độ che phủ cần thiết và thời gian chờ giữa các lớp. Nền dày không làm da đẹp hơn; nền đúng thứ tự mới giữ được vẻ trong.",
+      intro_quote: "“Nền đẹp là nền nhìn thấy da, không phải nhìn thấy lớp phấn.”",
+      check_text: "01  Làm sạch và cân bằng độ ẩm\n\n02  Đọc da dưới ánh sáng trắng\n\n03  Chọn độ che phủ theo tình trạng da\n\n04  Chờ đủ thời gian giữa các lớp\n\n05  Khóa nền theo từng vùng"
+    }
+  ),
+  buildSampleBook(
+    demoBook,
+    { id: "book_hair", title: "Tóc cô dâu ứng dụng", subtitle: "Hệ thống form tóc từ cơ bản đến nâng cao", status: "template", cover: "linear-gradient(135deg,#32231e,#85644e,#e8d5bc)" },
+    {
+      cover_title: "TÓC CÔ DÂU\nỨNG DỤNG",
+      cover_subtitle: "Form tóc • Giữ nếp • Phụ kiện • Thời gian",
+      intro_title: "Chọn form tóc theo khuôn mặt và trang phục",
+      intro_body: "Form tóc cô dâu không chọn theo xu hướng mà chọn theo ba ràng buộc: tỉ lệ khuôn mặt, cổ áo của trang phục và thời lượng buổi lễ. Một búi thấp gọn phù hợp cổ thuyền và lễ kéo dài; tóc xõa uốn hợp cổ tim nhưng cần lớp giữ nếp kỹ hơn. Xác định ba ràng buộc này trước khi tạo khối sẽ tiết kiệm phần lớn thời gian chỉnh sửa.",
+      intro_quote: "“Form tóc giữ được đến cuối buổi lễ mới là form tóc đúng.”",
+      check_text: "01  Xác định tỉ lệ khuôn mặt và cổ áo\n\n02  Tạo chân tóc và lớp giữ nếp\n\n03  Dựng khối chính\n\n04  Cân đối phụ kiện\n\n05  Kiểm tra độ bền sau 30 phút"
+    }
+  )
 ];

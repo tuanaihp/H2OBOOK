@@ -156,6 +156,23 @@ const resetState = () => ({
   reusableBlocks: structuredClone(seedReusableBlocks), activeBrandId: "brand_thuyh2o"
 });
 
+/**
+ * Swaps a stale sample book for its current seed. "Stale" means its cover still reads as the
+ * makeup course while claiming to be another book — the exact shape of the shallow-copy bug. A
+ * book whose cover has since been edited fails that test and is left alone.
+ */
+function refreshStaleSampleBooks(books: BookRecord[] | undefined): BookRecord[] {
+  const seeds = structuredClone(seedBooks);
+  if (!books?.length) return seeds;
+  const staleCover = "MAKEUP CHUY\u1ec2N NGHI\u1ec6P";
+  return books.map((book) => {
+    const seed = seeds.find((candidate) => candidate.id === book.id);
+    if (!seed || book.id === "book_makeup_pro") return book;
+    const looksStale = book.pages?.[0]?.elements?.some((element) => typeof element.text === "string" && element.text.includes(staleCover));
+    return looksStale ? seed : book;
+  });
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -400,10 +417,17 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "h2obook-platform-v2",
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown, persistedVersion: number) => {
         const previous = (persistedState ?? {}) as Partial<AppState>;
-        if (persistedVersion >= 4) return previous as AppState;
+        // v5: the two sibling sample books used to be shallow copies of the makeup course and so
+        // carried its pages verbatim. Fixing the seed alone was not enough — this store is
+        // persisted, so any browser that had already opened the app kept the stale copies for
+        // good. Refresh just those two, and only while they still look like the duplicate, so a
+        // book someone actually edited is never overwritten. Everything else is left untouched;
+        // a blanket reset here would take real work with it.
+        if (persistedVersion >= 5) return previous as AppState;
+        if (persistedVersion >= 4) return { ...previous, books: refreshStaleSampleBooks(previous.books) } as AppState;
         return {
           ...resetState(),
           ...previous,
@@ -422,7 +446,8 @@ export const useAppStore = create<AppState>()(
           flashcards: previous.flashcards ?? structuredClone(seedFlashcards),
           studySessions: previous.studySessions ?? structuredClone(seedStudySessions),
           knowledgeSources: previous.knowledgeSources ?? structuredClone(seedKnowledgeSources),
-          reusableBlocks: previous.reusableBlocks ?? structuredClone(seedReusableBlocks)
+          reusableBlocks: previous.reusableBlocks ?? structuredClone(seedReusableBlocks),
+          books: refreshStaleSampleBooks(previous.books)
         } as AppState;
       }
     }
