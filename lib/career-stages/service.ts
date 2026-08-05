@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { learningPaths } from "@/lib/public-site/content";
-import type { CareerStage, CareerStageResource, StageResourceAccess, StageResourceType, StageStatus } from "./types";
+import type { CareerStage, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, UnlockMode } from "./types";
 
 type StageRow = {
   id: string; slug: string; position: number; index_label: string | null; title: string;
@@ -11,6 +11,8 @@ type StageRow = {
 type ResourceRow = {
   id: string; stage_id: string; resource_type: string; resource_id: string; title_override: string | null;
   summary: string | null; href: string | null; position: number; access: string; status: string;
+  unlock_mode: string | null; prerequisite_binding_id: string | null; required_progress: number | null;
+  unlock_at: string | null; requirement_type: string | null; display_locations: string[] | null;
 };
 
 function mapResource(row: ResourceRow): CareerStageResource {
@@ -24,7 +26,13 @@ function mapResource(row: ResourceRow): CareerStageResource {
     href: String(row.href ?? ""),
     position: Number(row.position ?? 0),
     access: row.access as StageResourceAccess,
-    status: row.status as StageStatus
+    status: row.status as StageStatus,
+    unlockMode: (row.unlock_mode ?? "immediate") as UnlockMode,
+    prerequisiteBindingId: row.prerequisite_binding_id ? String(row.prerequisite_binding_id) : null,
+    requiredProgress: row.required_progress === null || row.required_progress === undefined ? null : Number(row.required_progress),
+    unlockAt: row.unlock_at ? String(row.unlock_at) : null,
+    requirementType: (row.requirement_type ?? "required") as RequirementType,
+    displayLocations: Array.isArray(row.display_locations) ? row.display_locations.map(String) : ["library", "journey"]
   };
 }
 
@@ -55,7 +63,7 @@ export async function loadCareerStages(organizationId: string, options?: { inclu
   if (!admin) return [];
   const [{ data: stageRows }, { data: resourceRows }] = await Promise.all([
     admin.from("career_stages").select("id,slug,position,index_label,title,subtitle,description,duration_label,skills,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
-    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
+    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
   ]);
   const stages = (stageRows ?? []) as StageRow[];
   const resources = (resourceRows ?? []) as ResourceRow[];
