@@ -3,12 +3,18 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
-import { AlertTriangle, CheckCircle2, CloudUpload, File, FileImage, FileText, FolderOpen, LoaderCircle, Search, ShieldCheck, Tag, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CloudUpload, File, FileImage, FileText, FolderOpen, LayoutGrid, List, LoaderCircle, RotateCcw, Search, ShieldCheck, Tag, Trash2, Upload } from "lucide-react";
 import { ASSET_SUBTYPES, ASSET_TYPES, CLASSIFICATION_LABEL, CLASSIFICATION_STATUSES, LIFECYCLE_LABEL, LIFECYCLE_STATUSES, PAGE_SIZE, REVIEW_LABEL, REVIEW_STATUSES, TYPE_LABEL, assetDisplayName, filtersToQuery, type AssetQuery } from "@/lib/assets/governance";
 import { AssetOrganizationPanel, SECONDARY_VIEWS, type SavedView, type TagRow } from "@/components/assets/asset-organization-panel";
 import type { FolderNode } from "@/lib/assets/organization-rules";
 
-type UploadedAsset = { id: string; title: string | null; fileName: string; assetType: string; assetSubtype: string | null; mimeType: string; sizeBytes: number; key: string; mode: "demo" | "cloud"; createdAt: string; status: string; quarantineStatus: string; classificationStatus: string; reviewStatus: string; lifecycleStatus: string; folderId: string | null };
+type UploadedAsset = { id: string; title: string | null; fileName: string; assetType: string; assetSubtype: string | null; mimeType: string; sizeBytes: number; key: string; mode: "demo" | "cloud"; createdAt: string; status: string; quarantineStatus: string; classificationStatus: string; reviewStatus: string; lifecycleStatus: string; folderId: string | null; deletedAt: string | null };
+const OPTIONAL_COLUMNS = [
+  { id: "subtype", label: "Phân loại con" },
+  { id: "key", label: "Đường dẫn lưu trữ" },
+  { id: "date", label: "Ngày tải lên" }
+] as const;
+type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number]["id"];
 type Folder = { id: string; name: string; parent_id: string | null };
 type Counts = { total: number; unclassified: number } | null;
 
@@ -33,11 +39,16 @@ export default function AssetsPage() {
   const [totalMatching, setTotalMatching] = useState(0);
   const [counts, setCounts] = useState<Counts>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [trashed, setTrashed] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [visibleColumns, setVisibleColumns] = useState<OptionalColumn[]>(["subtype"]);
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const filtered = assets;
 
   const loadAssets = async () => {
     const search = filtersToQuery({ ...filters, search: query });
-    const response = await fetch(`/api/assets?organizationId=${encodeURIComponent(workspace.id)}${search ? `&${search}` : ""}`, { cache: "no-store" });
+    const trashParam = trashed ? "&trashed=1" : "";
+    const response = await fetch(`/api/assets?organizationId=${encodeURIComponent(workspace.id)}${search ? `&${search}` : ""}${trashParam}`, { cache: "no-store" });
     if (!response.ok) return;
     const payload = await response.json();
     setFolders(payload.folders ?? []);
@@ -50,11 +61,12 @@ export default function AssetsPage() {
       mode: payload.mode === "cloud" ? "cloud" : "demo", createdAt: String(asset.created_at ?? new Date().toISOString()),
       status: String(asset.status ?? "ready"), quarantineStatus: String(asset.quarantine_status ?? "clean"),
       classificationStatus: String(asset.classification_status ?? "unclassified"), reviewStatus: String(asset.review_status ?? "not_required"),
-      lifecycleStatus: String(asset.lifecycle_status ?? "active"), folderId: asset.folder_id ? String(asset.folder_id) : null
+      lifecycleStatus: String(asset.lifecycle_status ?? "active"), folderId: asset.folder_id ? String(asset.folder_id) : null,
+      deletedAt: asset.deleted_at ? String(asset.deleted_at) : null
     })));
   };
   // Debounced so typing in the search box does not fire a request per keystroke.
-  useEffect(() => { const timer = window.setTimeout(() => { void loadAssets(); }, 250); return () => window.clearTimeout(timer); }, [workspace.id, query, filters]);
+  useEffect(() => { const timer = window.setTimeout(() => { void loadAssets(); }, 250); return () => window.clearTimeout(timer); }, [workspace.id, query, filters, trashed]);
 
   const loadOrganization = useCallback(async () => {
     const org = `organizationId=${encodeURIComponent(workspace.id)}`;
@@ -85,9 +97,12 @@ export default function AssetsPage() {
     if (viewId.startsWith("saved:")) {
       const view = savedViews.find(candidate => `saved:${candidate.id}` === viewId);
       setFilters((view?.filters ?? {}) as AssetQuery);
+      setTrashed(false);
       return;
     }
-    setFilters((SECONDARY_VIEWS.find(view => view.id === viewId)?.filters ?? {}) as AssetQuery);
+    const secondary = SECONDARY_VIEWS.find(view => view.id === viewId);
+    setFilters((secondary?.filters ?? {}) as AssetQuery);
+    setTrashed(Boolean(secondary?.trashed));
   };
 
   const classify = async (assetId: string, patch: Record<string, unknown>) => {
@@ -96,6 +111,21 @@ export default function AssetsPage() {
     });
     await loadAssets();
   };
+
+  // Soft delete only: assets.deleted_at, unwound by the restore call below. Neither route touches
+  // the R2 object, so a restored asset is exactly the file it was.
+  const moveToTrash = async (assetId: string) => {
+    if (!confirm("Chuyển tài sản này vào thùng rác? Bạn có thể khôi phục sau.")) return;
+    await fetch(`/api/assets/${assetId}?organizationId=${encodeURIComponent(workspace.id)}`, { method: "DELETE" });
+    await loadAssets();
+  };
+  const restoreFromTrash = async (assetId: string) => {
+    await fetch(`/api/assets/${assetId}?organizationId=${encodeURIComponent(workspace.id)}`, {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ restore: true })
+    });
+    await loadAssets();
+  };
+  const toggleColumn = (id: OptionalColumn) => setVisibleColumns(current => current.includes(id) ? current.filter(c => c !== id) : [...current, id]);
 
   const uploadFiles = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []); if (!files.length) return;
@@ -137,6 +167,7 @@ export default function AssetsPage() {
       onCreateTag={name => void post("tags", { name })}
       onDeleteView={id => { if (confirm("Xóa chế độ xem này? Tài sản không bị ảnh hưởng.")) void post(`saved-views/${id}`, {}, "DELETE"); }}
       onManage={() => setMessage("Thư mục và thẻ được tạo, đổi tên và lưu trữ ngay tại thanh bên này.")}
+      onReorderFolder={(folderId, newPosition) => void post(`folders/${folderId}`, { position: newPosition }, "PATCH")}
     />
     <div style={{ minWidth: 0 }}>
     {counts && <section className="smart-metric-grid" style={{ marginBottom: 16 }}>
@@ -148,8 +179,26 @@ export default function AssetsPage() {
 
     <section className="section-card">
       <div className="section-head">
-        <div><h2>Tài sản của workspace</h2><p>Lọc theo loại, trạng thái phân loại và thư mục. Bộ lọc chạy trên máy chủ nên áp dụng cho toàn bộ kho, không chỉ trang đang xem.</p></div>
-        <div className="search-box compact"><Search/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm theo tên hiển thị hoặc tên file..."/></div>
+        <div><h2>{trashed ? "Thùng rác" : "Tài sản của workspace"}</h2><p>{trashed ? "Tài sản đã xóa mềm. Khôi phục để đưa trở lại danh sách chính; không có gì bị mất trên lưu trữ." : "Lọc theo loại, trạng thái phân loại và thư mục. Bộ lọc chạy trên máy chủ nên áp dụng cho toàn bộ kho, không chỉ trang đang xem."}</p></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="search-box compact"><Search/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm theo tên hiển thị hoặc tên file..."/></div>
+          {/* view_mode is saved with a view (migration 0038); the toggle here is the only place that
+              sets it before saving. */}
+          <div style={{ display: "flex", border: "1px solid #dfe3e8", borderRadius: 8, overflow: "hidden" }}>
+            <button type="button" aria-pressed={viewMode === "table"} aria-label="Xem dạng danh sách" onClick={() => setViewMode("table")}
+              style={{ border: 0, padding: "7px 9px", background: viewMode === "table" ? "rgba(141,29,80,.08)" : "#fff", cursor: "pointer" }}><List size={14}/></button>
+            <button type="button" aria-pressed={viewMode === "grid"} aria-label="Xem dạng lưới" onClick={() => setViewMode("grid")}
+              style={{ border: 0, borderLeft: "1px solid #dfe3e8", padding: "7px 9px", background: viewMode === "grid" ? "rgba(141,29,80,.08)" : "#fff", cursor: "pointer" }}><LayoutGrid size={14}/></button>
+          </div>
+          {viewMode === "table" && <div style={{ position: "relative" }}>
+            <button className="btn btn-secondary" onClick={() => setColumnMenuOpen(open => !open)} aria-expanded={columnMenuOpen}>Cột hiển thị</button>
+            {columnMenuOpen && <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 10, background: "#fff", border: "1px solid #dfe3e8", borderRadius: 10, padding: 10, boxShadow: "0 8px 24px rgba(0,0,0,.08)", display: "grid", gap: 6, minWidth: 180 }}>
+              {OPTIONAL_COLUMNS.map(column => <label key={column.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12 }}>
+                <input type="checkbox" checked={visibleColumns.includes(column.id)} onChange={() => toggleColumn(column.id)} />{column.label}
+              </label>)}
+            </div>}
+          </div>}
+        </div>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "0 0 14px" }}>
@@ -190,17 +239,25 @@ export default function AssetsPage() {
         <button className="btn btn-secondary" onClick={() => setSelected([])}>Bỏ chọn</button>
       </div>}
 
-      <div className="asset-list">{filtered.length ? filtered.map(asset => <article key={asset.id}>
-        {canManage && <label style={{ display: "flex", alignItems: "center", paddingRight: 4 }}>
-          <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Chọn {assetDisplayName({ title: asset.title, original_name: asset.fileName })}</span>
+      <div className={viewMode === "grid" ? "asset-grid" : "asset-list"}>{filtered.length ? filtered.map(asset => {
+        const icon = asset.mimeType.startsWith("image/") ? <FileImage/> : asset.mimeType.includes("pdf") || asset.mimeType.includes("word") ? <FileText/> : <File/>;
+        const name = assetDisplayName({ title: asset.title, original_name: asset.fileName });
+        return <article key={asset.id} className={viewMode === "grid" ? "asset-grid-item" : undefined}>
+        {canManage && !trashed && <label style={{ display: "flex", alignItems: "center", paddingRight: 4 }}>
+          <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Chọn {name}</span>
           <input type="checkbox" name="selectAsset" checked={selected.includes(asset.id)}
             onChange={e => setSelected(current => e.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} />
         </label>}
-        <span className="asset-file-icon">{asset.mimeType.startsWith("image/") ? <FileImage/> : asset.mimeType.includes("pdf") || asset.mimeType.includes("word") ? <FileText/> : <File/>}</span>
+        <span className="asset-file-icon">{icon}</span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <strong>{assetDisplayName({ title: asset.title, original_name: asset.fileName })}</strong>
-          <small>{TYPE_LABEL[asset.assetType] ?? asset.assetType}{asset.assetSubtype ? ` · ${asset.assetSubtype}` : ""} · {(asset.sizeBytes / 1024 / 1024).toFixed(2)} MB</small>
-          <code>{asset.key}</code>
+          <strong>{name}</strong>
+          <small>
+            {TYPE_LABEL[asset.assetType] ?? asset.assetType}
+            {visibleColumns.includes("subtype") && asset.assetSubtype ? ` · ${asset.assetSubtype}` : ""}
+            {` · ${(asset.sizeBytes / 1024 / 1024).toFixed(2)} MB`}
+            {visibleColumns.includes("date") ? ` · ${new Date(asset.createdAt).toLocaleDateString("vi-VN")}` : ""}
+          </small>
+          {visibleColumns.includes("key") && viewMode === "table" && <code>{asset.key}</code>}
           {editing === asset.id && <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
             <label style={{ display: "grid", gap: 4, fontSize: 11 }}>Tên hiển thị
               <input className="input" defaultValue={asset.title ?? ""} placeholder={asset.fileName}
@@ -228,11 +285,21 @@ export default function AssetsPage() {
           </div>}
         </div>
         <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
-          <Badge tone={asset.classificationStatus === "classified" ? "success" : "warning"}>{CLASSIFICATION_LABEL[asset.classificationStatus as keyof typeof CLASSIFICATION_LABEL] ?? asset.classificationStatus}</Badge>
-          <Badge tone={asset.quarantineStatus === "clean" ? "success" : asset.quarantineStatus === "blocked" ? "danger" : "warning"}>{asset.quarantineStatus === "clean" ? "Đã quét" : asset.quarantineStatus === "blocked" ? <><AlertTriangle/>Bị chặn</> : "Chờ quét"}</Badge>
-          <button className="btn btn-secondary" onClick={() => setEditing(editing === asset.id ? null : asset.id)}>{editing === asset.id ? "Đóng" : "Phân loại"}</button>
+          {trashed ? (
+            canManage && <>
+              <button className="btn btn-secondary" onClick={() => void restoreFromTrash(asset.id)}><RotateCcw size={13}/>Khôi phục</button>
+            </>
+          ) : <>
+            <Badge tone={asset.classificationStatus === "classified" ? "success" : "warning"}>{CLASSIFICATION_LABEL[asset.classificationStatus as keyof typeof CLASSIFICATION_LABEL] ?? asset.classificationStatus}</Badge>
+            <Badge tone={asset.quarantineStatus === "clean" ? "success" : asset.quarantineStatus === "blocked" ? "danger" : "warning"}>{asset.quarantineStatus === "clean" ? "Đã quét" : asset.quarantineStatus === "blocked" ? <><AlertTriangle/>Bị chặn</> : "Chờ quét"}</Badge>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn btn-secondary" onClick={() => setEditing(editing === asset.id ? null : asset.id)}>{editing === asset.id ? "Đóng" : "Phân loại"}</button>
+              {canManage && <button className="btn btn-secondary" aria-label={`Chuyển ${name} vào thùng rác`} onClick={() => void moveToTrash(asset.id)}><Trash2 size={13}/></button>}
+            </div>
+          </>}
         </div>
-      </article>) : <div className="asset-empty"><CloudUpload/><strong>Không có tài sản nào khớp bộ lọc</strong><p>Thử xóa bộ lọc, hoặc tải một file để kiểm tra luồng signed upload.</p></div>}</div>
+      </article>;
+      }) : <div className="asset-empty"><CloudUpload/><strong>{trashed ? "Thùng rác trống" : "Không có tài sản nào khớp bộ lọc"}</strong><p>{trashed ? "Chưa có tài sản nào bị chuyển vào thùng rác." : "Thử xóa bộ lọc, hoặc tải một file để kiểm tra luồng signed upload."}</p></div>}</div>
       {totalMatching > PAGE_SIZE && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, paddingTop: 12 }}>
         <button className="btn btn-secondary" disabled={(filters.page ?? 1) <= 1} onClick={() => setFilters(f => ({ ...f, page: Math.max(1, (f.page ?? 1) - 1) }))}>Trang trước</button>
         <small style={{ color: "#6b7a89" }}>Trang {filters.page ?? 1} · {totalMatching} tài sản khớp bộ lọc</small>
@@ -245,7 +312,7 @@ export default function AssetsPage() {
         <button className="btn btn-secondary" onClick={() => {
           const name = prompt("Tên chế độ xem"); if (!name?.trim()) return;
           const shared = canManage && confirm("Chia sẻ chế độ xem này cho cả workspace?\n\nOK = dùng chung · Cancel = chỉ mình bạn");
-          void post("saved-views", { name: name.trim(), filters, isShared: shared, sortBy: filters.sortBy, sortDirection: filters.sortDirection });
+          void post("saved-views", { name: name.trim(), filters, isShared: shared, sortBy: filters.sortBy, sortDirection: filters.sortDirection, viewMode, visibleColumns });
         }}>Lưu chế độ xem</button>
       </div>
     </section>

@@ -1190,3 +1190,9 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
    above the thing it navigates rather than squeezed next to it. */
 .asset-governance-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
 @media(max-width:1024px){.asset-governance-layout{grid-template-columns:1fr}.asset-governance-layout>aside{max-width:none}}
+
+/* Asset grid view: thumbnail-first, versus the default row list. Fixed 3-column minimum keeps a
+   card readable at any width instead of stretching a lone item edge to edge. */
+.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.asset-grid-item{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #eef1f4;border-radius:12px}
+.asset-grid-item .asset-file-icon{align-self:flex-start}

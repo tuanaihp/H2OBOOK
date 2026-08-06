@@ -2,7 +2,7 @@
 // given student may actually open a resource — is decided elsewhere (entitlements, and the stage
 // unlock rules in lib/student/stage-access.ts). This module only answers "what belongs where".
 
-export const STAGE_RESOURCE_TYPES = ["book", "course", "publication", "template", "knowledge_space", "roadmap", "link"] as const;
+export const STAGE_RESOURCE_TYPES = ["book", "course", "publication", "template", "knowledge_space", "roadmap", "link", "asset"] as const;
 export type StageResourceType = (typeof STAGE_RESOURCE_TYPES)[number];
 
 export const STAGE_RESOURCE_ACCESS = ["free_preview", "stage_locked", "entitlement_only"] as const;

@@ -11,7 +11,7 @@ type Stage = { id: string; slug: string; position: number; indexLabel: string; t
 
 const TYPE_LABEL: Record<string, string> = {
   book: "Sách / giáo trình", course: "Khóa học", publication: "Ấn phẩm", template: "Mẫu thiết kế",
-  knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Liên kết ngoài"
+  knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Liên kết ngoài", asset: "Tài sản trong kho"
 };
 const ACCESS_LABEL: Record<string, string> = {
   free_preview: "Miễn phí — ai cũng xem",
