@@ -1,10 +1,12 @@
 "use client";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
 import { AlertTriangle, CheckCircle2, CloudUpload, File, FileImage, FileText, FolderOpen, LoaderCircle, Search, ShieldCheck, Tag, Upload } from "lucide-react";
-import { ASSET_SUBTYPES, ASSET_TYPES, CLASSIFICATION_LABEL, CLASSIFICATION_STATUSES, LIFECYCLE_LABEL, LIFECYCLE_STATUSES, REVIEW_LABEL, REVIEW_STATUSES, TYPE_LABEL, assetDisplayName, filtersToQuery, type AssetFilters } from "@/lib/assets/governance";
+import { ASSET_SUBTYPES, ASSET_TYPES, CLASSIFICATION_LABEL, CLASSIFICATION_STATUSES, LIFECYCLE_LABEL, LIFECYCLE_STATUSES, PAGE_SIZE, REVIEW_LABEL, REVIEW_STATUSES, TYPE_LABEL, assetDisplayName, filtersToQuery, type AssetQuery } from "@/lib/assets/governance";
+import { AssetOrganizationPanel, SECONDARY_VIEWS, type SavedView, type TagRow } from "@/components/assets/asset-organization-panel";
+import type { FolderNode } from "@/lib/assets/organization-rules";
 
 type UploadedAsset = { id: string; title: string | null; fileName: string; assetType: string; assetSubtype: string | null; mimeType: string; sizeBytes: number; key: string; mode: "demo" | "cloud"; createdAt: string; status: string; quarantineStatus: string; classificationStatus: string; reviewStatus: string; lifecycleStatus: string; folderId: string | null };
 type Folder = { id: string; name: string; parent_id: string | null };
@@ -20,8 +22,15 @@ export default function AssetsPage() {
   // Filtering moved server-side with Asset Governance V1. Narrowing a list capped at 200 rows in the
   // browser only ever filters the page you happened to receive, which is the opposite of useful once
   // a library runs to thousands of files.
-  const [filters, setFilters] = useState<AssetFilters>({});
+  const [filters, setFilters] = useState<AssetQuery>({});
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [tree, setTree] = useState<FolderNode[]>([]);
+  const [tags, setTags] = useState<TagRow[]>([]);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [canManage, setCanManage] = useState(false);
+  const [activeView, setActiveView] = useState("all");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [totalMatching, setTotalMatching] = useState(0);
   const [counts, setCounts] = useState<Counts>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const filtered = assets;
@@ -33,6 +42,7 @@ export default function AssetsPage() {
     const payload = await response.json();
     setFolders(payload.folders ?? []);
     setCounts(payload.counts ?? null);
+    setTotalMatching(Number(payload.totalMatching ?? 0));
     setAssets((payload.assets ?? []).map((asset: Record<string, unknown>) => ({
       id: String(asset.id), title: asset.title ? String(asset.title) : null, fileName: String(asset.original_name ?? "asset"),
       assetType: String(asset.asset_type ?? "other"), assetSubtype: asset.asset_subtype ? String(asset.asset_subtype) : null,
@@ -45,6 +55,40 @@ export default function AssetsPage() {
   };
   // Debounced so typing in the search box does not fire a request per keystroke.
   useEffect(() => { const timer = window.setTimeout(() => { void loadAssets(); }, 250); return () => window.clearTimeout(timer); }, [workspace.id, query, filters]);
+
+  const loadOrganization = useCallback(async () => {
+    const org = `organizationId=${encodeURIComponent(workspace.id)}`;
+    const [foldersRes, tagsRes, viewsRes] = await Promise.all([
+      fetch(`/api/assets/folders?${org}`, { cache: "no-store" }),
+      fetch(`/api/assets/tags?${org}`, { cache: "no-store" }),
+      fetch(`/api/assets/saved-views?${org}`, { cache: "no-store" })
+    ]);
+    if (foldersRes.ok) { const payload = await foldersRes.json(); setTree(payload.tree ?? []); setCanManage(Boolean(payload.canManage)); }
+    if (tagsRes.ok) { const payload = await tagsRes.json(); setTags(payload.tags ?? []); }
+    if (viewsRes.ok) { const payload = await viewsRes.json(); setSavedViews(payload.views ?? []); }
+  }, [workspace.id]);
+  useEffect(() => { void loadOrganization(); }, [loadOrganization]);
+
+  const post = async (path: string, body: unknown, method = "POST") => {
+    const response = await fetch(`/api/assets/${path}${path.includes("?") ? "&" : "?"}organizationId=${encodeURIComponent(workspace.id)}`, {
+      method, headers: { "content-type": "application/json" }, body: JSON.stringify(body)
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) { setMessage(payload?.error === "FOLDER_NOT_EMPTY" ? `Thư mục còn ${payload.assetCount} tài sản — hãy chuyển chúng đi trước.` : payload?.error ?? "Thao tác thất bại."); return false; }
+    await Promise.all([loadOrganization(), loadAssets()]);
+    return true;
+  };
+
+  const applyView = (viewId: string) => {
+    setActiveView(viewId);
+    setSelected([]);
+    if (viewId.startsWith("saved:")) {
+      const view = savedViews.find(candidate => `saved:${candidate.id}` === viewId);
+      setFilters((view?.filters ?? {}) as AssetQuery);
+      return;
+    }
+    setFilters((SECONDARY_VIEWS.find(view => view.id === viewId)?.filters ?? {}) as AssetQuery);
+  };
 
   const classify = async (assetId: string, patch: Record<string, unknown>) => {
     await fetch(`/api/assets/${assetId}/classify?organizationId=${encodeURIComponent(workspace.id)}`, {
@@ -82,6 +126,19 @@ export default function AssetsPage() {
   return <AppShell>
     <div className="page-header"><div><span className="eyebrow">PRIVATE ASSET LIBRARY</span><h1>Kho tài sản production</h1><p>Tải ảnh, PDF, Word, audio và video qua signed URL; file phải vượt kiểm tra workspace và quét an toàn trước khi tải xuống.</p></div><button className="btn btn-primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? <LoaderCircle className="spin"/> : <Upload/>}Tải file lên</button><input ref={inputRef} hidden multiple type="file" accept="image/jpeg,image/png,image/webp,image/avif,application/pdf,.docx,.txt,audio/mpeg,audio/wav,video/mp4" onChange={uploadFiles}/></div>
     <section className="asset-upload-hero"><div><CloudUpload/><h2>Direct-to-R2 Upload</h2><p>H2OBOOK kiểm tra tên, MIME, dung lượng, object thực tế, quyền workspace và trạng thái quét file.</p><div><Badge tone="success"><ShieldCheck/>Private by default</Badge><Badge tone="purple">Max 250 MB</Badge></div></div><div className="asset-upload-status"><CheckCircle2/><span><strong>Trạng thái gần nhất</strong><small>{message}</small></span></div></section>
+    <div className="asset-governance-layout">
+    <AssetOrganizationPanel
+      tree={tree} tags={tags} savedViews={savedViews} activeView={activeView}
+      activeFolderId={filters.folderId} activeTagId={filters.tagId} canManage={canManage}
+      onSelectView={applyView}
+      onSelectFolder={id => { setActiveView("all"); setFilters(f => ({ ...f, folderId: f.folderId === id ? undefined : id, unfiled: false, page: 1 })); }}
+      onSelectTag={id => setFilters(f => ({ ...f, tagId: f.tagId === id ? undefined : id, page: 1 }))}
+      onCreateFolder={name => void post("folders", { name, parentId: filters.folderId ?? null })}
+      onCreateTag={name => void post("tags", { name })}
+      onDeleteView={id => { if (confirm("Xóa chế độ xem này? Tài sản không bị ảnh hưởng.")) void post(`saved-views/${id}`, {}, "DELETE"); }}
+      onManage={() => setMessage("Thư mục và thẻ được tạo, đổi tên và lưu trữ ngay tại thanh bên này.")}
+    />
+    <div style={{ minWidth: 0 }}>
     {counts && <section className="smart-metric-grid" style={{ marginBottom: 16 }}>
       <article><span><FolderOpen/></span><div><strong>{counts.total}</strong><small>Tổng tài sản</small></div></article>
       <article><span><Tag/></span><div><strong>{counts.unclassified}</strong><small>Chưa phân loại</small></div></article>
@@ -117,7 +174,28 @@ export default function AssetsPage() {
         {(filters.assetType || filters.classificationStatus || filters.reviewStatus || filters.folderId || filters.unfiled || query) && <button className="btn btn-secondary" onClick={() => { setFilters({}); setQuery(""); }}>Xóa bộ lọc</button>}
       </div>
 
+      {canManage && selected.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "10px 12px", marginBottom: 12, borderRadius: 10, background: "rgba(141,29,80,.06)" }}>
+        <strong style={{ fontSize: 12 }}>Đã chọn {selected.length} tài sản</strong>
+        {/* Bulk actions touch only the ids in `selected`; the server scopes the same update by
+            organization, so an id from another workspace matches no row. */}
+        <select className="select" defaultValue="" onChange={e => { if (!e.target.value) return; void post("bulk", { action: "move", assetIds: selected, folderId: e.target.value === "__none" ? null : e.target.value }).then(() => setSelected([])); e.target.value = ""; }}>
+          <option value="">Chuyển vào thư mục…</option>
+          <option value="__none">— Bỏ khỏi thư mục —</option>
+          {folders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+        </select>
+        {tags.length > 0 && <select className="select" defaultValue="" onChange={e => { if (!e.target.value) return; void post(`tags/${e.target.value}`, { assetIds: selected, attach: true }).then(() => setSelected([])); e.target.value = ""; }}>
+          <option value="">Gắn thẻ hàng loạt…</option>
+          {tags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+        </select>}
+        <button className="btn btn-secondary" onClick={() => setSelected([])}>Bỏ chọn</button>
+      </div>}
+
       <div className="asset-list">{filtered.length ? filtered.map(asset => <article key={asset.id}>
+        {canManage && <label style={{ display: "flex", alignItems: "center", paddingRight: 4 }}>
+          <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Chọn {assetDisplayName({ title: asset.title, original_name: asset.fileName })}</span>
+          <input type="checkbox" name="selectAsset" checked={selected.includes(asset.id)}
+            onChange={e => setSelected(current => e.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} />
+        </label>}
         <span className="asset-file-icon">{asset.mimeType.startsWith("image/") ? <FileImage/> : asset.mimeType.includes("pdf") || asset.mimeType.includes("word") ? <FileText/> : <File/>}</span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <strong>{assetDisplayName({ title: asset.title, original_name: asset.fileName })}</strong>
@@ -155,6 +233,23 @@ export default function AssetsPage() {
           <button className="btn btn-secondary" onClick={() => setEditing(editing === asset.id ? null : asset.id)}>{editing === asset.id ? "Đóng" : "Phân loại"}</button>
         </div>
       </article>) : <div className="asset-empty"><CloudUpload/><strong>Không có tài sản nào khớp bộ lọc</strong><p>Thử xóa bộ lọc, hoặc tải một file để kiểm tra luồng signed upload.</p></div>}</div>
+      {totalMatching > PAGE_SIZE && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, paddingTop: 12 }}>
+        <button className="btn btn-secondary" disabled={(filters.page ?? 1) <= 1} onClick={() => setFilters(f => ({ ...f, page: Math.max(1, (f.page ?? 1) - 1) }))}>Trang trước</button>
+        <small style={{ color: "#6b7a89" }}>Trang {filters.page ?? 1} · {totalMatching} tài sản khớp bộ lọc</small>
+        <button className="btn btn-secondary" disabled={(filters.page ?? 1) * PAGE_SIZE >= totalMatching} onClick={() => setFilters(f => ({ ...f, page: (f.page ?? 1) + 1 }))}>Trang sau</button>
+      </div>}
+
+      <div style={{ paddingTop: 12, borderTop: "1px solid #eef1f4", marginTop: 12 }}>
+        {/* A saved view stores this filter set, not the rows it currently matches — an asset
+            uploaded tomorrow shows up in it without anyone reopening the view. */}
+        <button className="btn btn-secondary" onClick={() => {
+          const name = prompt("Tên chế độ xem"); if (!name?.trim()) return;
+          const shared = canManage && confirm("Chia sẻ chế độ xem này cho cả workspace?\n\nOK = dùng chung · Cancel = chỉ mình bạn");
+          void post("saved-views", { name: name.trim(), filters, isShared: shared, sortBy: filters.sortBy, sortDirection: filters.sortDirection });
+        }}>Lưu chế độ xem</button>
+      </div>
     </section>
+    </div>
+    </div>
   </AppShell>;
 }
