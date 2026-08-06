@@ -19,7 +19,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     access: isStageResourceAccess(body.access) ? body.access : undefined,
     unlockMode: isUnlockMode(body.unlockMode) ? body.unlockMode : undefined,
     requirementType: isRequirementType(body.requirementType) ? body.requirementType : undefined,
-    displayLocations: toDisplayLocations(body.displayLocations)
+    displayLocations: toDisplayLocations(body.displayLocations),
+    programId: typeof body.programId === "string" ? body.programId : undefined
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result.data, { status: 201 });

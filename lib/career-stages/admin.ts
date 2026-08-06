@@ -2,7 +2,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { defaultStageSeed, loadCareerStages } from "./service";
-import { toStageSlug, type CareerStage, type CareerStageInput, type CareerStageResourceInput } from "./types";
+import { toStageSlug, type CareerStage, type CareerStageInput, type CareerStageProgramInput, type CareerStageResourceInput } from "./types";
 
 // Writes go through the request-scoped client, not the admin client, so the RLS policies added in
 // migration 0033 are the thing actually enforcing owner/admin — the API guard is the first check,
@@ -73,6 +73,59 @@ export async function archiveStage(access: AcademyAdminAccess, stageId: string):
   return { ok: true, data: null };
 }
 
+export async function createProgram(access: AcademyAdminAccess, stageId: string, input: CareerStageProgramInput): Promise<Result<{ id: string }>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const title = input.title?.trim();
+  if (!title) return { ok: false, error: "TITLE_REQUIRED" };
+  const slug = toStageSlug(input.slug?.trim() || title);
+  if (!slug) return { ok: false, error: "SLUG_REQUIRED" };
+  const { data, error } = await supabase.from("career_stage_programs").insert({
+    organization_id: access.organizationId,
+    stage_id: stageId,
+    parent_id: input.parentId ?? null,
+    slug,
+    title,
+    description: input.description?.trim() || "",
+    position: input.position ?? (await nextProgramPosition(access, stageId, input.parentId ?? null)),
+    status: input.status ?? "active"
+  }).select("id").single();
+  if (error || !data) return { ok: false, error: error?.code === "23505" ? "SLUG_ALREADY_EXISTS" : error?.message ?? "PROGRAM_CREATE_FAILED" };
+  return { ok: true, data: { id: String(data.id) } };
+}
+
+export async function updateProgram(access: AcademyAdminAccess, programId: string, input: Partial<CareerStageProgramInput>): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.title !== undefined) {
+    if (!input.title.trim()) return { ok: false, error: "TITLE_REQUIRED" };
+    patch.title = input.title.trim();
+  }
+  if (input.slug !== undefined) patch.slug = toStageSlug(input.slug);
+  if (input.parentId !== undefined) patch.parent_id = input.parentId;
+  if (input.description !== undefined) patch.description = input.description.trim();
+  if (input.position !== undefined) patch.position = input.position;
+  if (input.status !== undefined) patch.status = input.status;
+  const { error } = await supabase.from("career_stage_programs").update(patch).eq("id", programId).eq("organization_id", access.organizationId);
+  if (error) return { ok: false, error: error.code === "23505" ? "SLUG_ALREADY_EXISTS" : error.message };
+  return { ok: true, data: null };
+}
+
+/**
+ * Archive rather than hard delete, matching archiveStage. Resources pointing at this program are
+ * not archived with it — program_id is ON DELETE SET NULL at the schema level, and an archived
+ * program should release its resources back to "ungrouped" rather than hide them.
+ */
+export async function archiveProgram(access: AcademyAdminAccess, programId: string): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const { error } = await supabase.from("career_stage_programs").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", programId).eq("organization_id", access.organizationId);
+  if (error) return { ok: false, error: error.message };
+  await supabase.from("career_stage_resources").update({ program_id: null, updated_at: new Date().toISOString() }).eq("program_id", programId).eq("organization_id", access.organizationId);
+  return { ok: true, data: null };
+}
+
 /**
  * A prerequisite chain that loops back on itself never opens — every binding in the cycle waits on
  * one further down, forever. The database cannot express this constraint (it is a walk, not a
@@ -114,7 +167,8 @@ export async function attachResource(access: AcademyAdminAccess, stageId: string
     required_progress: input.requiredProgress ?? null,
     unlock_at: input.unlockAt ?? null,
     requirement_type: input.requirementType ?? "required",
-    display_locations: input.displayLocations ?? ["library", "journey"]
+    display_locations: input.displayLocations ?? ["library", "journey"],
+    program_id: input.programId ?? null
   }).select("id").single();
   if (error || !data) return { ok: false, error: error?.code === "23505" ? "RESOURCE_ALREADY_ATTACHED" : error?.message ?? "RESOURCE_ATTACH_FAILED" };
   return { ok: true, data: { id: String(data.id) } };
@@ -141,6 +195,7 @@ export async function updateResource(access: AcademyAdminAccess, resourceRowId: 
   if (input.unlockAt !== undefined) patch.unlock_at = input.unlockAt || null;
   if (input.requirementType !== undefined) patch.requirement_type = input.requirementType;
   if (input.displayLocations !== undefined) patch.display_locations = input.displayLocations;
+  if (input.programId !== undefined) patch.program_id = input.programId;
   const { error } = await supabase.from("career_stage_resources").update(patch).eq("id", resourceRowId).eq("organization_id", access.organizationId);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
@@ -189,4 +244,11 @@ async function nextResourcePosition(access: AcademyAdminAccess, stageId: string)
   const stages = await loadCareerStages(access.organizationId, { includeHidden: true });
   const stage = stages.find((candidate) => candidate.id === stageId);
   return (stage?.resources ?? []).reduce((max, resource) => Math.max(max, resource.position), -1) + 1;
+}
+
+async function nextProgramPosition(access: AcademyAdminAccess, stageId: string, parentId: string | null): Promise<number> {
+  const stages = await loadCareerStages(access.organizationId, { includeHidden: true });
+  const stage = stages.find((candidate) => candidate.id === stageId);
+  const siblings = (stage?.programs ?? []).filter((program) => program.parentId === parentId);
+  return siblings.reduce((max, program) => Math.max(max, program.position), -1) + 1;
 }

@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-06 — 🧩 Đã merge + deploy: nhóm tài liệu theo chương trình/module (phần được duyệt của module 20) — ⚠️ CẦN CHẠY MIGRATION 0040.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0040-ONLY.sql` → Run.
+
+- **Bối cảnh**: bạn nhờ đánh giá và tích hợp `v5/20-h2obook-student-experience-builder-final-v2`. Module đề xuất **12 bảng** dựng thành một hệ CMS quản lý sidebar học viên hoàn chỉnh (versioning, draft/publish/rollback, luật hiển thị theo role/membership, override từng học viên) — audit đầy đủ ở `docs/module-20-student-experience-builder-audit.md`.
+- **Từ chối 11/12 bảng vì trùng lặp trực tiếp** với 3 hệ đã deploy trong chính phiên này: `career_stages`/`career_stage_resources` (0033/0036), bộ giải quyết quyền `lib/content-access/resolver.ts` (0034), và **sidebar học viên thật đang chạy production** `lib/student/compact-navigation.ts`. Rủi ro cao nhất trong đề xuất gốc là thay thế toàn bộ sidebar đang sống bằng cấu hình database — việc này **không đụng tới**.
+- **Lỗi bảo mật cùng khuôn mẫu đã gặp ở module 18 và 19**: hàm xác thực riêng của module `h2obook_can_manage_student_experience()` cho phép vai trò `'academic_ops'` — vai trò **không tồn tại** trong `public.member_role` (chỉ có `owner/admin/designer/partner/teacher/student`) — và tự dò bảng `workspace_members` không có thật, thay vì dùng `has_org_role()` đã có.
+- **Vì đây là quyết định phạm vi sản phẩm (không phải sửa lỗi), tôi dừng lại hỏi bạn** thay vì tự quyết — bạn chọn phương án hẹp nhất trong 4 phương án: **chỉ nhóm tài liệu trong 1 giai đoạn thành chương trình/module**, không đụng sidebar, không dựng hệ versioning.
+- **Đã xây đúng phần đó, cộng thêm vào hệ có sẵn**: bảng mới `career_stage_programs` (tên, mô tả, thuộc `career_stages` qua khóa ngoại thật — không phải `stage_key` tự do như module gốc đề xuất), tối đa **1 cấp lồng** (chương trình chứa module, module không chứa gì thêm — chặn bằng trigger, không phải bằng cách dò đệ quy vì đó đúng là độ sâu cần dùng). `career_stage_resources` có thêm cột `program_id` — có thể để trống, tài liệu tạo trước migration này đọc như chưa hề có cột.
+- **Màn hình Academy Admin → Giai đoạn & tài liệu** có thêm: mục "Chương trình & module" để thêm/lưu trữ chương trình và module con, cột "Chương trình" trong bảng tài liệu để gắn/gỡ từng tài liệu vào một chương trình hoặc module, và ô chọn chương trình ngay khi gắn tài liệu mới.
+- **Sửa kèm 1 lỗi tôi tự viết trước khi commit**: migration 0040 bản nháp đầu thiếu `drop policy if exists`/`drop trigger if exists` trước các lệnh `create policy`/`create trigger` — đúng lỗi đã gặp và sửa ở module 0037. Đã thêm guard trước khi chạy, nên chạy lại file này bao nhiêu lần cũng không báo lỗi trùng.
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, không phát sinh mới) · **143/143 test** · test:sql qua · build thành công.
+
+⚠️ **Chưa kiểm chứng trên production**: tôi chưa chạy migration 0040 trên database thật — bạn cần tự chạy `_RUN-0040-ONLY.sql` rồi xác nhận, tôi không thể tự kiểm tra thay bạn. ⚠️ **Chưa làm**: không có giao diện kéo-thả sắp xếp chương trình/module (dùng số `position` mặc định theo thứ tự tạo), không có test tự động riêng cho trigger chặn lồng quá 1 cấp (đây là ràng buộc ở database, bộ test dự án chạy không có database thật — giống caveat đã nêu ở module 0038).
+
+---
+
 **2026-08-06 — 🔙 Đã merge + deploy: hoàn thiện 5 việc còn dang dở của module 0038 + nút quay lại cho mọi trang quản trị — ⚠️ CẦN CHẠY MIGRATION 0039 để dùng tính năng gắn tài sản vào lộ trình.**
 
 - **1. Gắn tài sản vào lộ trình** — mở rộng `career_stage_resources.resource_type` để nhận thêm `'asset'`, thay vì dựng bảng liên kết thứ ba. Màn hình Academy Admin → Giai đoạn & tài liệu đã dùng được ngay, không cần giao diện mới. **⚠️ Cần chạy `_RUN-0039-ONLY.sql`, nếu không thao tác này sẽ báo lỗi ràng buộc dữ liệu.**

@@ -29,7 +29,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     requiredProgress: typeof body.requiredProgress === "number" ? body.requiredProgress : body.requiredProgress === null ? null : undefined,
     unlockAt: typeof body.unlockAt === "string" ? body.unlockAt : body.unlockAt === null ? null : undefined,
     requirementType: isRequirementType(body.requirementType) ? body.requirementType : undefined,
-    displayLocations: toDisplayLocations(body.displayLocations)
+    displayLocations: toDisplayLocations(body.displayLocations),
+    // "" clears the grouping (moves the resource back to ungrouped); undefined leaves it untouched.
+    programId: typeof body.programId === "string" ? body.programId || null : body.programId === null ? null : undefined
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ ok: true });
