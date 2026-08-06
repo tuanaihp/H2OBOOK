@@ -18,7 +18,7 @@ function VideoSurface({ lesson, onPosition }: { lesson: StudentLesson; onPositio
   }
   if (lesson.videoProvider === "direct" && lesson.videoUrl) return <video key={lesson.id} controls preload="metadata" src={lesson.videoUrl} onTimeUpdate={(event) => onPosition(Math.floor(event.currentTarget.currentTime))}/>;
   if (lesson.videoProvider === "embed" && lesson.videoUrl?.startsWith("https://")) return <iframe key={lesson.id} src={lesson.videoUrl} title={lesson.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen/>;
-  return <div className="h2o-player-placeholder"><span><Play/></span><small>LESSON CONTENT</small><h2>{lesson.title}</h2><p>{lesson.description}</p><em>Thêm Cloudflare Stream playback ID trong bảng <code>academy_course_lessons</code> để phát video riêng tư tại đây.</em></div>;
+  return <div className="h2o-player-placeholder"><span><Play/></span><small>LESSON CONTENT</small><h2>{lesson.title}</h2><p>{lesson.description}</p><em>Bài học này chưa có video. Bạn vẫn có thể đọc nội dung, làm checklist và nộp bài tập bên dưới; video sẽ xuất hiện ngay khi giảng viên tải lên.</em></div>;
 }
 
 export function CoursePlayer({ initialCourse }: { initialCourse: StudentCourseData }) {

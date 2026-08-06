@@ -13,3 +13,9 @@ __pycache__/
 tests/fixtures/input/generated-pdf/
 
 .vercel
+
+# Audit and test artefacts — screenshots, Playwright traces, generated reports. Produced by
+# tooling run against the deployed site, not source, and large/binary.
+audit-output/
+test-results/
+playwright-report/

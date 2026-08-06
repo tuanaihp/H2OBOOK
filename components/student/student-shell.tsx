@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAppStore } from "@/store/app-store";
 import { cn } from "@/lib/utils";
 import { Bell, BookOpen, Bot, Brain, Briefcase, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
 import { buildCompactNavigation, resolveActiveItem, toAccountRole } from "@/lib/student/compact-navigation";
+import { StudentDataProvider, useStudentName, useStudentProgress } from "./student-data";
 
 // Compact Navigation Upgrade V2: HOME / LEARN / CREATE (if unlocked) / BUSINESS instead of the
 // previous flat 8-item list. Group membership and unlock rules live in
@@ -22,10 +22,15 @@ const ITEM_ICONS: Record<string, typeof Home> = {
 const NAV_OPEN_STATE_KEY = "h2o-student-nav-open-groups";
 
 export function StudentShell({ children, currentUser }: { children: React.ReactNode; currentUser?: { name: string; email: string; role: string; demo: boolean } }) {
+  // The provider has to wrap the shell body too — the sidebar reads the same name and progress
+  // the pages do, which is the whole point of having one source.
+  return <StudentDataProvider identity={currentUser}><StudentShellBody currentUser={currentUser}>{children}</StudentShellBody></StudentDataProvider>;
+}
+
+function StudentShellBody({ children, currentUser }: { children: React.ReactNode; currentUser?: { name: string; email: string; role: string; demo: boolean } }) {
   const pathname = usePathname();
-  const store = useAppStore();
-  const activeStudent = store.students.find((student) => student.status === "active") ?? store.students[0];
-  const studentName = currentUser && !currentUser.demo ? currentUser.name : activeStudent?.name ?? "H2O Student";
+  const studentName = useStudentName("H2O Student");
+  const progressPercent = useStudentProgress();
   const groups = buildCompactNavigation({ role: toAccountRole(currentUser?.role ?? "student"), subscription: "basic" });
   const flatItems = groups.flatMap((group) => group.items);
   const { itemId: activeItemId, groupId: activeGroupId } = resolveActiveItem(groups, pathname);
@@ -62,7 +67,7 @@ export function StudentShell({ children, currentUser }: { children: React.ReactN
   return <div className="h2o-student-shell">
     <aside className="h2o-student-sidebar">
       <Link href="/student" className="h2o-student-brand"><span>H₂</span><div><strong>H2OBOOK</strong><small>Learning Universe</small></div></Link>
-      <div className="h2o-student-profile-mini"><div>{studentName.split(" ").slice(-1)[0]?.slice(0,1) ?? "H"}</div><span><small>Học viên</small><strong>{studentName}</strong><em>{activeStudent?.progress ?? 0}% hành trình</em></span></div>
+      <div className="h2o-student-profile-mini"><div>{studentName.split(" ").slice(-1)[0]?.slice(0,1) ?? "H"}</div><span><small>Học viên</small><strong>{studentName}</strong><em>{progressPercent === null ? "Đang tải tiến độ…" : `${progressPercent}% hành trình`}</em></span></div>
       {groups.map((group) => {
         // A one-item group (HOME) has nothing to reveal, so it stays a plain label rather than
         // becoming a control that visibly does nothing.
