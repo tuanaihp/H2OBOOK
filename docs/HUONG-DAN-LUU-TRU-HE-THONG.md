@@ -6,6 +6,22 @@
 
 ---
 
+**2026-08-05 — 📝 Đã merge + deploy: luồng nộp bài → chấm → phản hồi → nộp lại (phía học viên) — ⚠️ CẦN CHẠY MIGRATION 0036.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0036-ONLY.sql` → Run.
+
+- **Audit trước đã thay đổi hẳn khối lượng công việc**: hệ thống này **đã dựng gần xong từ trước** — bảng `assignment_definitions` (đề bài, tiêu chí chấm, cho phép nộp lại), `brain_assignment_submissions` (đủ 5 trạng thái: nháp → đã nộp → đang chấm → cần sửa → đã chấm), `rubrics` + `rubric_criteria`. **Không có ràng buộc chống trùng** nên nhiều lần nộp vốn đã được phép — tức **lịch sử nộp bài chỉ là một câu truy vấn, không cần đổi cấu trúc**. Phía giảng viên (chấm theo tiêu chí, yêu cầu sửa) cũng đã chạy từ lâu.
+  → Nên tôi **không tạo bảng mới nào**. Chỉ thêm **1 cột** và viết phần còn thiếu: phía học viên.
+- **Cột thêm vào**: khi giảng viên chấm, hệ thống tính điểm theo từng tiêu chí rồi **vứt đi**, chỉ lưu điểm tổng và một đoạn nhận xét. Nói "72%" thì học viên không học được gì; nói "tiêu chí độ phủ nền được 4/10" thì lần sau biết sửa chỗ nào. Nay điểm từng tiêu chí được lưu lại và học viên xem được.
+- **Học viên giờ làm được**: xem bài được giao kèm trạng thái thật · nộp bài · đọc nhận xét theo từng tiêu chí · xem điểm · **xem lịch sử các lần nộp** · **nộp lại** khi giảng viên yêu cầu sửa.
+- **Nộp bài luôn tạo bản ghi mới, không ghi đè** — lần nộp trước và nhận xét kèm theo chính là bằng chứng cho biết đã sửa những gì; ghi đè sẽ xóa mất lý do phải làm lại.
+- **Portfolio trong hồ sơ nay sinh ra từ bài đã được giảng viên duyệt** — đóng luôn khoảng trống của lần trước. Một mục xuất hiện vì **có người duyệt nó**, đó là điều biến nó thành bằng chứng chứ không phải lời tự nhận. Cũng vì vậy mà **không có nút "thêm tác phẩm"**.
+- Đã thêm **8 test** khoá lại luật chống nộp trùng khi giảng viên đang chấm.
+
+⚠️ **Chưa làm, nói rõ**: **tải ảnh bài làm chưa dựng** — form hiện nhận mô tả bằng chữ và có ghi chú rõ; cột lưu ảnh đã có sẵn nên đây là chỗ trống chờ, không phải thiếu sót cấu trúc. Chưa có thông báo khi giảng viên phản hồi. Bài tập bắt buộc phải thuộc một Knowledge Space — nếu bạn muốn gắn thẳng vào bài học của khóa thì đó là quyết định về cấu trúc dữ liệu, tôi chưa tự quyết. **Chưa kiểm chứng xuyên suốt trên production** — cần một tài khoản giảng viên và một tài khoản học viên đi hết vòng nộp → chấm → sửa → nộp lại.
+
+---
+
 **2026-08-05 — 🧹 Đã merge + deploy: quét sạch số liệu bịa khỏi khu vực học viên (P0 báo cáo Codex) — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 
 Nguyên tắc áp dụng: **tài khoản thật chỉ được thấy số liệu thật, hoặc trạng thái rỗng nói đúng sự thật.** Dữ liệu mẫu chỉ còn dành cho chế độ demo và được dán nhãn rõ.
