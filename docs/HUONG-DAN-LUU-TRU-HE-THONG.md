@@ -6,6 +6,26 @@
 
 ---
 
+**2026-08-06 — 📁 Đã merge + deploy module 0038 (Asset Organization UI) — ✅ MIGRATION 0037 VÀ 0038 ĐỀU ĐÃ CHẠY XONG.**
+
+- **Giao diện mới ở `/assets`**: thanh bên có 6 chế độ xem sẵn (Tất cả · Hộp thư đầu vào · Chưa xếp thư mục · Cần duyệt · Lưu trữ · Ngừng dùng), **cây thư mục cha/con** kèm số tài sản, **khu vực thẻ có ô tìm kiếm**, và nút **"Lưu chế độ xem"**.
+- **Chọn nhiều tài sản** → chuyển thư mục hàng loạt, gắn thẻ hàng loạt.
+- **Phân trang, sắp xếp, lọc theo thẻ** đều chạy trên máy chủ. Số hiển thị là **số tài sản khớp bộ lọc**, không phải tổng kho — bộ lọc khớp 12 trong 4.000 file thì phải nói 12.
+- **🔴 Sửa một lỗi thật trong module 0037 của tôi**: ràng buộc chống trùng tên thư mục `unique(organization_id, parent_id, name)` **không có tác dụng ở cấp gốc**, vì PostgreSQL coi hai `NULL` là khác nhau — mà thư mục gốc có `parent_id = NULL`. Nghĩa là **tạo hai thư mục gốc trùng tên vẫn thành công**, đúng cấp người dùng tạo nhiều nhất. Đã thay bằng 2 chỉ mục kiểu khác không dính vấn đề này.
+- **🔴 Sửa lỗi thứ hai trong 0037**: file **chỉ chạy được đúng một lần**, lần hai đổ ở policy đầu tiên (PostgreSQL không có `create policy if not exists`). Đây là hình dạng tệ nhất cho migration mà người ta chạy lại **chính vì không chắc nó đã vào chưa**. Nay 8 policy + 2 trigger đều `drop … if exists` trước → chạy lại bao nhiêu lần cũng được. Thêm file `supabase/_CHECK-0037-APPLIED.sql` để trả lời câu hỏi "đã vào chưa" **bằng số**, không phải suy đoán từ thông báo lỗi.
+- **Lưu trữ thay vì xóa**: thư mục **còn tài sản thì bị từ chối xóa** (kèm số lượng) — xóa thì hoặc bỏ rơi tài sản, hoặc kéo theo mất tài sản, không cái nào là ý nghĩa của "dọn lại danh sách thư mục". Lưu trữ thẻ **vẫn giữ nguyên liên kết** — một tấm ảnh không ngừng là ảnh before/after chỉ vì ai đó dọn danh sách thẻ.
+- **Chống vòng lặp thư mục** (A → B → A khiến cây không bao giờ vẽ được) chặn trước khi ghi, vì database không diễn đạt được ràng buộc kiểu này.
+- **Phân quyền kiểm ở mọi lệnh ghi, không dựa vào ẩn nút.** Chủ sở hữu/quản trị/nhà thiết kế quản trị cấu trúc chung; **giảng viên thì không** — đổi tên một thẻ dùng chung ảnh hưởng mọi màn hình. Riêng bộ lọc cá nhân: **chủ sở hữu cũng không sửa được view riêng của người khác**.
+- **Nhãn tiếng Việt dài thì xuống dòng, không cắt** — "Ảnh cô dâu mùa c…" là thư mục không ai phân biệt được với thư mục bên cạnh. Thanh bên gộp thành 1 cột dưới 1024px.
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, **không phát sinh mới**) · **143/143 test** (18 mới) · test:sql qua · build thành công · 5 API mới đều đã lên production và được bảo vệ đúng.
+- 4 tài liệu: `docs/module-0038-asset-organization-{audit,changelog,test-report,rollback}.md`.
+
+⚠️ **2/8 yêu cầu kiểm thử KHÔNG được phủ bằng test tự động, và tôi nói rõ thay vì che**: **cách ly giữa 2 organization** và **phạm vi chuyển thư mục hàng loạt** là hành vi của database (RLS), trong khi bộ test của dự án chạy **không có database**. Test dùng mock sẽ chỉ chứng minh mock trả về đúng thứ tôi lập trình cho nó — **xanh kể cả khi RLS bị tắt hoàn toàn**, tệ hơn là không có test. Báo cáo kiểm thử ghi 4 bước kiểm chứng thủ công cần 2 workspace thật.
+
+⚠️ **Chưa làm**: kéo-thả sắp xếp thư mục · chế độ hiển thị dạng lưới · chọn cột hiển thị · mục "Theo lộ trình" (cần quyết định có thêm `'asset'` vào `career_stage_resources` hay không — quyết định về cấu trúc dữ liệu, tôi không tự quyết) · màn hình Thùng rác.
+
+---
+
 **2026-08-06 — 🗂️ Đã merge + deploy module 19 (Asset Governance V1) — ⚠️ CẦN CHẠY MIGRATION 0037.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0037-ONLY.sql` → Run.
