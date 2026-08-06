@@ -36,6 +36,34 @@ export interface CareerStageResource {
   unlockAt: string | null;
   requirementType: RequirementType;
   displayLocations: string[];
+  // Migration 0040. Optional grouping — null means the resource sits directly under the stage,
+  // exactly as every resource did before this column existed.
+  programId: string | null;
+}
+
+/**
+ * A named group of resources within a stage — "Module 1: Nền tảng" rather than one long flat list.
+ * One level of nesting only: a program may contain modules (parentId set), a module may not
+ * contain further children. Enforced by a trigger in migration 0040, not by this type.
+ */
+export interface CareerStageProgram {
+  id: string;
+  stageId: string;
+  parentId: string | null;
+  slug: string;
+  title: string;
+  description: string;
+  position: number;
+  status: StageStatus;
+}
+
+export interface CareerStageProgramInput {
+  slug: string;
+  title: string;
+  parentId?: string | null;
+  description?: string;
+  position?: number;
+  status?: StageStatus;
 }
 
 export interface CareerStage {
@@ -50,6 +78,7 @@ export interface CareerStage {
   skills: string[];
   status: StageStatus;
   resources: CareerStageResource[];
+  programs: CareerStageProgram[];
 }
 
 export interface CareerStageInput {
@@ -79,6 +108,7 @@ export interface CareerStageResourceInput {
   unlockAt?: string | null;
   requirementType?: RequirementType;
   displayLocations?: string[];
+  programId?: string | null;
 }
 
 export const DISPLAY_LOCATIONS = ["library", "journey", "smart_home"] as const;

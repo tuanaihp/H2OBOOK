@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { learningPaths } from "@/lib/public-site/content";
-import type { CareerStage, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, UnlockMode } from "./types";
+import type { CareerStage, CareerStageProgram, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, UnlockMode } from "./types";
 
 type StageRow = {
   id: string; slug: string; position: number; index_label: string | null; title: string;
@@ -13,7 +13,25 @@ type ResourceRow = {
   summary: string | null; href: string | null; position: number; access: string; status: string;
   unlock_mode: string | null; prerequisite_binding_id: string | null; required_progress: number | null;
   unlock_at: string | null; requirement_type: string | null; display_locations: string[] | null;
+  program_id: string | null;
 };
+type ProgramRow = {
+  id: string; stage_id: string; parent_id: string | null; slug: string; title: string;
+  description: string | null; position: number; status: string;
+};
+
+function mapProgram(row: ProgramRow): CareerStageProgram {
+  return {
+    id: String(row.id),
+    stageId: String(row.stage_id),
+    parentId: row.parent_id ? String(row.parent_id) : null,
+    slug: String(row.slug),
+    title: String(row.title),
+    description: String(row.description ?? ""),
+    position: Number(row.position ?? 0),
+    status: row.status as StageStatus
+  };
+}
 
 function mapResource(row: ResourceRow): CareerStageResource {
   return {
@@ -32,11 +50,12 @@ function mapResource(row: ResourceRow): CareerStageResource {
     requiredProgress: row.required_progress === null || row.required_progress === undefined ? null : Number(row.required_progress),
     unlockAt: row.unlock_at ? String(row.unlock_at) : null,
     requirementType: (row.requirement_type ?? "required") as RequirementType,
-    displayLocations: Array.isArray(row.display_locations) ? row.display_locations.map(String) : ["library", "journey"]
+    displayLocations: Array.isArray(row.display_locations) ? row.display_locations.map(String) : ["library", "journey"],
+    programId: row.program_id ? String(row.program_id) : null
   };
 }
 
-function mapStage(row: StageRow, resources: ResourceRow[]): CareerStage {
+function mapStage(row: StageRow, resources: ResourceRow[], programs: ProgramRow[]): CareerStage {
   return {
     id: String(row.id),
     slug: String(row.slug),
@@ -48,7 +67,8 @@ function mapStage(row: StageRow, resources: ResourceRow[]): CareerStage {
     durationLabel: String(row.duration_label ?? ""),
     skills: Array.isArray(row.skills) ? row.skills.map(String) : [],
     status: row.status as StageStatus,
-    resources: resources.filter((resource) => String(resource.stage_id) === String(row.id)).map(mapResource).sort((a, b) => a.position - b.position)
+    resources: resources.filter((resource) => String(resource.stage_id) === String(row.id)).map(mapResource).sort((a, b) => a.position - b.position),
+    programs: programs.filter((program) => String(program.stage_id) === String(row.id)).map(mapProgram).sort((a, b) => a.position - b.position)
   };
 }
 
@@ -61,15 +81,18 @@ function mapStage(row: StageRow, resources: ResourceRow[]): CareerStage {
 export async function loadCareerStages(organizationId: string, options?: { includeHidden?: boolean }): Promise<CareerStage[]> {
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
-  const [{ data: stageRows }, { data: resourceRows }] = await Promise.all([
+  const [{ data: stageRows }, { data: resourceRows }, { data: programRows }] = await Promise.all([
     admin.from("career_stages").select("id,slug,position,index_label,title,subtitle,description,duration_label,skills,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
-    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
+    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations,program_id").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
+    admin.from("career_stage_programs").select("id,stage_id,parent_id,slug,title,description,position,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
   ]);
   const stages = (stageRows ?? []) as StageRow[];
   const resources = (resourceRows ?? []) as ResourceRow[];
+  const programs = (programRows ?? []) as ProgramRow[];
   const visible = options?.includeHidden ? stages : stages.filter((row) => row.status === "active");
   const visibleResources = options?.includeHidden ? resources : resources.filter((row) => row.status === "active");
-  return visible.map((row) => mapStage(row, visibleResources));
+  const visiblePrograms = options?.includeHidden ? programs : programs.filter((row) => row.status === "active");
+  return visible.map((row) => mapStage(row, visibleResources, visiblePrograms));
 }
 
 /**
