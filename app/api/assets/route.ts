@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireApiUser, resolveOrganizationAccess } from "@/lib/auth/api";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { queryToFilters } from "@/lib/assets/governance";
 
+// Asset Governance V1 added filtering and the folder list on top of the existing query. Reads still
+// go through the request-scoped client, so RLS is what actually scopes the workspace —
+// resolveOrganizationAccess is the first check, not the only one.
 export async function GET(request: Request) {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;
@@ -9,13 +13,40 @@ export async function GET(request: Request) {
   const access = await resolveOrganizationAccess(auth.user!, url.searchParams.get("organizationId") ?? undefined);
   if (!access) return NextResponse.json({ error: "WORKSPACE_FORBIDDEN" }, { status: 403 });
   const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ mode: "demo", assets: [] });
-  const { data, error } = await supabase.from("assets")
-    .select("id,original_name,mime_type,size_bytes,storage_key,status,quarantine_status,created_at,metadata")
+  if (!supabase) return NextResponse.json({ mode: "demo", assets: [], folders: [], counts: null });
+
+  const filters = queryToFilters(url.searchParams);
+
+  let query = supabase.from("assets")
+    .select("id,title,original_name,asset_type,asset_subtype,mime_type,size_bytes,storage_key,status,quarantine_status,classification_status,review_status,lifecycle_status,rights_status,folder_id,created_at,metadata")
     .eq("organization_id", access.organizationId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(200);
+    .is("deleted_at", null);
+
+  if (filters.assetType) query = query.eq("asset_type", filters.assetType);
+  if (filters.classificationStatus) query = query.eq("classification_status", filters.classificationStatus);
+  if (filters.reviewStatus) query = query.eq("review_status", filters.reviewStatus);
+  if (filters.lifecycleStatus) query = query.eq("lifecycle_status", filters.lifecycleStatus);
+  if (filters.folderId) query = query.eq("folder_id", filters.folderId);
+  if (filters.unfiled) query = query.is("folder_id", null);
+  // Searches the curated title and the original filename together: half a library has real names
+  // and half is still IMG_4821.jpg, and whoever is looking usually knows only one of the two.
+  if (filters.search) {
+    const term = filters.search.replace(/[%,()]/g, " ").trim();
+    if (term) query = query.or(`title.ilike.%${term}%,original_name.ilike.%${term}%`);
+  }
+
+  const [{ data, error }, { data: folders }, { count: total }, { count: unclassified }] = await Promise.all([
+    query.order("created_at", { ascending: false }).limit(200),
+    supabase.from("asset_folders").select("id,name,parent_id").eq("organization_id", access.organizationId).order("position", { ascending: true }),
+    supabase.from("assets").select("id", { count: "exact", head: true }).eq("organization_id", access.organizationId).is("deleted_at", null),
+    supabase.from("assets").select("id", { count: "exact", head: true }).eq("organization_id", access.organizationId).is("deleted_at", null).eq("classification_status", "unclassified")
+  ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ mode: "cloud", assets: data ?? [] });
+
+  return NextResponse.json({
+    mode: "cloud",
+    assets: data ?? [],
+    folders: folders ?? [],
+    counts: { total: total ?? 0, unclassified: unclassified ?? 0 }
+  });
 }
