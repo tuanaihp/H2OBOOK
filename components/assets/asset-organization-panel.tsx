@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderOpen, FolderPlus, Inbox, Search, Tag, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, FolderOpen, FolderPlus, Inbox, Search, Tag, Trash2 } from "lucide-react";
 import type { FolderNode } from "@/lib/assets/organization-rules";
 import type { AssetQuery } from "@/lib/assets/governance";
 
@@ -12,19 +12,30 @@ export interface SavedView { id: string; name: string; filters: Record<string, u
 // "Ảnh cô dâu mùa cưới 2026" that renders as "Ảnh cô dâu mùa c…" is a folder nobody can tell apart
 // from its neighbour.
 
-export const SECONDARY_VIEWS: { id: string; label: string; filters: Partial<AssetQuery> }[] = [
+export const SECONDARY_VIEWS: { id: string; label: string; filters: Partial<AssetQuery>; trashed?: boolean }[] = [
   { id: "all", label: "Tất cả tài sản", filters: {} },
   { id: "inbox", label: "Hộp thư đầu vào", filters: { classificationStatus: "unclassified" } },
   { id: "unfiled", label: "Chưa xếp thư mục", filters: { unfiled: true } },
   { id: "review", label: "Cần duyệt", filters: { reviewStatus: "pending" } },
   { id: "archived", label: "Lưu trữ", filters: { lifecycleStatus: "archived" } },
-  { id: "retired", label: "Ngừng dùng", filters: { lifecycleStatus: "retired" } }
+  { id: "retired", label: "Ngừng dùng", filters: { lifecycleStatus: "retired" } },
+  // Trash is not a lifecycle_status — it is assets.deleted_at, a separate axis from
+  // active/archived/retired, so it is its own view rather than a fifth lifecycle value.
+  { id: "trash", label: "Thùng rác", filters: {}, trashed: true }
 ];
 
-function FolderBranch({ node, activeId, depth, onSelect }: { node: FolderNode; activeId?: string; depth: number; onSelect: (id: string) => void }) {
+// Renders its own row plus a nested <ul> of children — never its own <li>, so the caller (either
+// the top-level folder list or a recursive call one level up) is always the one that supplies the
+// <li>. That is what keeps <li> a direct child of <ul>/<ol> at every depth instead of nesting one
+// inside a <div> inside another <li>, which is invalid HTML and unpredictable in a screen reader's
+// list semantics.
+function FolderBranch({ node, activeId, depth, canManage, onSelect, onReorder }: {
+  node: FolderNode; activeId?: string; depth: number; canManage: boolean; onSelect: (id: string) => void;
+  onReorder: (siblings: FolderNode[], fromIndex: number, direction: -1 | 1) => void;
+}) {
   const [open, setOpen] = useState(depth < 1);
   const hasChildren = node.children.length > 0;
-  return <li>
+  return <>
     <div style={{ display: "flex", alignItems: "flex-start", gap: 4, paddingLeft: depth * 12 }}>
       {hasChildren
         ? <button type="button" aria-label={open ? `Thu gọn ${node.name}` : `Mở rộng ${node.name}`} aria-expanded={open} onClick={() => setOpen(!open)}
@@ -41,14 +52,27 @@ function FolderBranch({ node, activeId, depth, onSelect }: { node: FolderNode; a
       </button>
     </div>
     {hasChildren && open && <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-      {node.children.map((child) => <FolderBranch key={child.id} node={child} activeId={activeId} depth={depth + 1} onSelect={onSelect} />)}
+      {node.children.map((child, index) => <li key={child.id} style={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <FolderBranch node={child} activeId={activeId} depth={depth + 1} canManage={canManage} onSelect={onSelect} onReorder={onReorder} />
+        </div>
+        {/* Up/down rather than drag-and-drop: `position` already exists on the row, a swap is one
+            API call, and this needs no pointer-drag machinery to get right on touch as well as
+            mouse. Only shown with more than one sibling, since reordering a list of one does nothing. */}
+        {canManage && node.children.length > 1 && <div style={{ display: "flex", flexDirection: "column", paddingTop: 3 }}>
+          <button type="button" aria-label={`Đưa ${child.name} lên trước`} disabled={index === 0} onClick={() => onReorder(node.children, index, -1)}
+            style={{ border: 0, background: "none", padding: 1, cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#dfe3e8" : "#6b7a89" }}><ArrowUp size={11} aria-hidden="true" /></button>
+          <button type="button" aria-label={`Đưa ${child.name} xuống sau`} disabled={index === node.children.length - 1} onClick={() => onReorder(node.children, index, 1)}
+            style={{ border: 0, background: "none", padding: 1, cursor: index === node.children.length - 1 ? "default" : "pointer", color: index === node.children.length - 1 ? "#dfe3e8" : "#6b7a89" }}><ArrowDown size={11} aria-hidden="true" /></button>
+        </div>}
+      </li>)}
     </ul>}
-  </li>;
+  </>;
 }
 
 export function AssetOrganizationPanel({
   tree, tags, savedViews, activeView, activeFolderId, activeTagId, canManage,
-  onSelectView, onSelectFolder, onSelectTag, onCreateFolder, onCreateTag, onDeleteView, onManage
+  onSelectView, onSelectFolder, onSelectTag, onCreateFolder, onCreateTag, onDeleteView, onManage, onReorderFolder
 }: {
   tree: FolderNode[];
   tags: TagRow[];
@@ -64,7 +88,16 @@ export function AssetOrganizationPanel({
   onCreateTag: (name: string) => void;
   onDeleteView: (id: string) => void;
   onManage: () => void;
+  onReorderFolder: (folderId: string, newPosition: number) => void;
 }) {
+  const reorder = (siblings: FolderNode[], fromIndex: number, direction: -1 | 1) => {
+    const toIndex = fromIndex + direction;
+    if (toIndex < 0 || toIndex >= siblings.length) return;
+    // Swap the two positions rather than renumbering the whole list — position only has to be
+    // locally ordered among siblings, and a swap is one PATCH per folder instead of N.
+    onReorderFolder(siblings[fromIndex].id, siblings[toIndex].position);
+    onReorderFolder(siblings[toIndex].id, siblings[fromIndex].position);
+  };
   const [tagQuery, setTagQuery] = useState("");
   const visibleTags = tags.filter((tag) => tag.name.toLowerCase().includes(tagQuery.toLowerCase()));
 
@@ -78,7 +111,9 @@ export function AssetOrganizationPanel({
         {SECONDARY_VIEWS.map((view) => <li key={view.id}>
           <button type="button" onClick={() => onSelectView(view.id)} aria-current={activeView === view.id ? "page" : undefined}
             style={{ ...rowButton, background: activeView === view.id ? "rgba(141,29,80,.08)" : "none", fontWeight: activeView === view.id ? 700 : 400 }}>
-            <Inbox size={13} aria-hidden="true" style={{ flex: "none", marginTop: 2 }} />
+            {view.trashed
+              ? <Trash2 size={13} aria-hidden="true" style={{ flex: "none", marginTop: 2 }} />
+              : <Inbox size={13} aria-hidden="true" style={{ flex: "none", marginTop: 2 }} />}
             <span style={{ overflowWrap: "anywhere" }}>{view.label}</span>
           </button>
         </li>)}
@@ -105,7 +140,17 @@ export function AssetOrganizationPanel({
       {tree.length === 0
         ? <p style={{ fontSize: 11, color: "#6b7a89", margin: 0 }}>Chưa có thư mục nào.</p>
         : <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {tree.map((node) => <FolderBranch key={node.id} node={node} activeId={activeFolderId} depth={0} onSelect={onSelectFolder} />)}
+            {tree.map((node, index) => <li key={node.id} style={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <FolderBranch node={node} activeId={activeFolderId} depth={0} canManage={canManage} onSelect={onSelectFolder} onReorder={reorder} />
+              </div>
+              {canManage && tree.length > 1 && <div style={{ display: "flex", flexDirection: "column", paddingTop: 3 }}>
+                <button type="button" aria-label={`Đưa ${node.name} lên trước`} disabled={index === 0} onClick={() => reorder(tree, index, -1)}
+                  style={{ border: 0, background: "none", padding: 1, cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#dfe3e8" : "#6b7a89" }}><ArrowUp size={11} aria-hidden="true" /></button>
+                <button type="button" aria-label={`Đưa ${node.name} xuống sau`} disabled={index === tree.length - 1} onClick={() => reorder(tree, index, 1)}
+                  style={{ border: 0, background: "none", padding: 1, cursor: index === tree.length - 1 ? "default" : "pointer", color: index === tree.length - 1 ? "#dfe3e8" : "#6b7a89" }}><ArrowDown size={11} aria-hidden="true" /></button>
+              </div>}
+            </li>)}
           </ul>}
       {canManage && <button type="button" onClick={() => { const name = prompt("Tên thư mục mới"); if (name?.trim()) onCreateFolder(name.trim()); }}
         style={{ ...rowButton, marginTop: 6, color: "#8d1d50", fontWeight: 700 }}>

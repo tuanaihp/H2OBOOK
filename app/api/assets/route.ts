@@ -27,10 +27,14 @@ export async function GET(request: Request) {
     if (tagAssetIds.length === 0) return NextResponse.json({ mode: "cloud", assets: [], folders: [], counts: { total: 0, unclassified: 0 }, page: paging.page, pageSize: PAGE_SIZE, totalMatching: 0 });
   }
 
+  // Trash is a real filter rather than a separate endpoint, so it shares paging, sorting and
+  // search with every other view instead of needing its own copy of them.
+  const trashed = url.searchParams.get("trashed") === "1";
+
   let query = supabase.from("assets")
-    .select("id,title,original_name,asset_type,asset_subtype,mime_type,size_bytes,storage_key,status,quarantine_status,classification_status,review_status,lifecycle_status,rights_status,folder_id,created_at,metadata", { count: "exact" })
-    .eq("organization_id", access.organizationId)
-    .is("deleted_at", null);
+    .select("id,title,original_name,asset_type,asset_subtype,mime_type,size_bytes,storage_key,status,quarantine_status,classification_status,review_status,lifecycle_status,rights_status,folder_id,created_at,deleted_at,metadata", { count: "exact" })
+    .eq("organization_id", access.organizationId);
+  query = trashed ? query.not("deleted_at", "is", null) : query.is("deleted_at", null);
 
   if (filters.assetType) query = query.eq("asset_type", filters.assetType);
   if (filters.classificationStatus) query = query.eq("classification_status", filters.classificationStatus);
