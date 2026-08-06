@@ -51,6 +51,11 @@ export const RIGHTS_LABEL: Record<RightsStatus, string> = {
   unknown: "Chưa rõ", owned: "Sở hữu", licensed: "Có bản quyền", restricted: "Hạn chế"
 };
 
+export const SORTABLE_COLUMNS = ["created_at", "original_name", "title", "size_bytes", "asset_type"] as const;
+export type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
+
+export const PAGE_SIZE = 50;
+
 export interface AssetFilters {
   search?: string;
   assetType?: string;
@@ -58,12 +63,23 @@ export interface AssetFilters {
   reviewStatus?: string;
   lifecycleStatus?: string;
   folderId?: string;
+  tagId?: string;
   /** "unfiled" is a real filter, not the absence of one — it is how orphaned uploads get found. */
   unfiled?: boolean;
 }
 
-export function filtersToQuery(filters: AssetFilters): string {
+export interface AssetQuery extends AssetFilters {
+  page?: number;
+  sortBy?: SortableColumn;
+  sortDirection?: "asc" | "desc";
+}
+
+export function filtersToQuery(filters: AssetQuery): string {
   const params = new URLSearchParams();
+  if (filters.page && filters.page > 1) params.set("page", String(filters.page));
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
+  if (filters.sortDirection) params.set("sortDirection", filters.sortDirection);
+  if (filters.tagId) params.set("tagId", filters.tagId);
   if (filters.search?.trim()) params.set("search", filters.search.trim());
   if (filters.assetType) params.set("assetType", filters.assetType);
   if (filters.classificationStatus) params.set("classificationStatus", filters.classificationStatus);
@@ -72,6 +88,18 @@ export function filtersToQuery(filters: AssetFilters): string {
   if (filters.folderId) params.set("folderId", filters.folderId);
   if (filters.unfiled) params.set("unfiled", "1");
   return params.toString();
+}
+
+/** Page and sort, validated the same way filters are: anything unrecognised falls back rather than reaching the query. */
+export function queryToPaging(params: URLSearchParams): { page: number; sortBy: SortableColumn; sortDirection: "asc" | "desc" } {
+  const page = Number(params.get("page") ?? 1);
+  const sortBy = params.get("sortBy");
+  const direction = params.get("sortDirection");
+  return {
+    page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
+    sortBy: sortBy && (SORTABLE_COLUMNS as readonly string[]).includes(sortBy) ? sortBy as SortableColumn : "created_at",
+    sortDirection: direction === "asc" ? "asc" : "desc"
+  };
 }
 
 export function queryToFilters(params: URLSearchParams): AssetFilters {
@@ -86,6 +114,7 @@ export function queryToFilters(params: URLSearchParams): AssetFilters {
     reviewStatus: pick("reviewStatus", REVIEW_STATUSES),
     lifecycleStatus: pick("lifecycleStatus", LIFECYCLE_STATUSES),
     folderId: params.get("folderId") ?? undefined,
+    tagId: params.get("tagId") ?? undefined,
     unfiled: params.get("unfiled") === "1"
   };
 }
