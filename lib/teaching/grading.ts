@@ -52,6 +52,9 @@ export async function gradeBrainSubmission(access: TeachingAccessSnapshot, submi
       status,
       score: readiness.scorePercent,
       instructor_feedback: input.writtenFeedback,
+      // Persisted so the student can see which criterion fell short, not just the total. A score
+      // of 72%% tells a learner nothing about what to change on the next attempt.
+      criterion_scores: input.criteria,
       graded_by: access.userId,
       graded_at: new Date().toISOString(),
       portfolio_ready: decision === "portfolio_ready"

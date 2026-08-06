@@ -1,5 +1,6 @@
 "use client";
-import { Award, BookOpen, Camera, Clock3, GraduationCap, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Award, BookOpen, Camera, CheckCircle2, Clock3, GraduationCap, Star } from "lucide-react";
 import { useStudentData, useStudentName } from "@/components/student/student-data";
 import { studentAchievements } from "@/lib/student/experience";
 
@@ -15,9 +16,22 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
   return <p style={{ margin: 0, padding: "14px 0", color: "#718092", fontSize: 13, lineHeight: 1.6 }}>{children}</p>;
 }
 
+interface PortfolioItem { id: string; title: string; score: number | null; approvedAt: string | null; summary: string }
+
 export default function StudentProfilePage() {
   const studentName = useStudentName("Học viên H2O");
   const { identity, summary, loaded, live } = useStudentData();
+
+  // Portfolio entries are derived from graded submissions an instructor marked portfolio_ready.
+  // Nothing here can be added by hand — that is what separates evidence from a claim.
+  const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    fetch("/api/student/portfolio", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { items?: PortfolioItem[] } | null) => setPortfolio(payload?.items ?? []))
+      .catch(() => setPortfolio([]));
+  }, [live]);
   const production = summary?.mode === "production" ? summary : null;
 
   // Only four figures have a real source today. Practice hours, books read and average score do
@@ -74,7 +88,15 @@ export default function StudentProfilePage() {
         </div>
       </header>
       {live
-        ? <EmptyNote>Portfolio của bạn còn trống. Mỗi bài thực hành được duyệt sẽ tự động trở thành một mục ở đây — bạn không cần tự thêm.</EmptyNote>
+        ? (portfolio === null
+            ? <EmptyNote>Đang tải portfolio…</EmptyNote>
+            : portfolio.length === 0
+              ? <EmptyNote>Portfolio của bạn còn trống. Mỗi bài thực hành được giảng viên duyệt sẽ tự động trở thành một mục ở đây — bạn không cần tự thêm.</EmptyNote>
+              : <div className="h2o-portfolio-grid">{portfolio.map((item, index) => <article key={item.id}>
+                  <div><span>{String(index + 1).padStart(2, "0")}</span><CheckCircle2 /></div>
+                  <strong>{item.title}</strong>
+                  <small>{item.approvedAt ? `Được duyệt ${new Date(item.approvedAt).toLocaleDateString("vi-VN")}` : "Đã được duyệt"}{item.score !== null ? ` · ${item.score} điểm` : ""}</small>
+                </article>)}</div>)
         : <div className="h2o-portfolio-grid">{["Nền cô dâu trong trẻo", "Makeup tiệc ứng dụng", "Sóng lơi cô dâu"].map((title, index) => <article key={title}>
             <div><span>0{index + 1}</span><Camera /></div>
             <strong>{title}</strong>
