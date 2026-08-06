@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-06 — 🗂️ Đã merge + deploy module 19 (Asset Governance V1) — ⚠️ CẦN CHẠY MIGRATION 0037.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0037-ONLY.sql` → Run.
+
+- **🔴 Phát hiện chặn đường**: migration của module mở đầu bằng `create table if not exists public.media_assets`. **Trong hệ thống không có bảng nào tên `media_assets`** — bảng tài sản thật là **`public.assets`**, và có **22 khóa ngoại từ 10 migration** trỏ tới nó (thương hiệu, trang sách, nguồn dữ liệu, nhập liệu, marketplace…).
+  → Câu lệnh đó **sẽ không báo lỗi**. Nó sẽ lặng lẽ tạo **bảng tài sản thứ hai, rỗng**, trong khi toàn bộ dữ liệu thật và 22 khóa ngoại vẫn ở bảng cũ — và màn hình quản trị mới sẽ nhìn vào cái rỗng. Chính README của module cấm đúng điều này ("không tạo bảng song song nếu đã tồn tại") — nó có tồn tại, chỉ là dưới tên khác.
+- **Từ chối 7/11 bảng** vì trùng: nhật ký tài sản → `domain_events` (module 17 đã chốt) · lô tải file → `input_sessions`/`ingestion_runs`/`document_jobs` đã có · **liên kết giai đoạn + liên kết tài nguyên → `career_stage_resources` (0033) đã làm đúng việc đó** và bộ giải quyết quyền (0034) đang đọc nó — thêm bảng nữa sẽ phá vỡ đúng thứ vừa gom lại.
+- **Nhận 4 bảng mới**: thư mục · thẻ · gắn thẻ · bộ lọc đã lưu. Bộ lọc đã lưu **lưu điều kiện lọc chứ không lưu kết quả**, nên không bao giờ cũ đi khi thêm tài sản mới.
+- **Thêm 15 cột vào bảng `assets` thật**: tên hiển thị, mô tả, phân loại con, thư mục, người phụ trách, trạng thái phân loại/duyệt/vòng đời, quyền sử dụng… Tất cả đều có giá trị mặc định giữ nguyên hành vi cũ.
+- **Lọc chuyển sang chạy trên máy chủ.** Lọc trong trình duyệt trên danh sách giới hạn 200 dòng chỉ lọc được đúng trang bạn nhận — vô dụng khi kho lên hàng nghìn file, mà đó chính là tình huống module sinh ra để giải.
+- Tìm kiếm quét **cả tên hiển thị lẫn tên file gốc** — nửa kho đã có tên tử tế, nửa còn lại vẫn là `IMG_4821.jpg`, và người tìm thường chỉ nhớ một trong hai.
+- Đặt loại cho tài sản thì **trạng thái phân loại tự chuyển theo**, không bắt nhớ tích thêm ô.
+- Báo cáo audit đầy đủ: `docs/asset-governance-integration-audit.md`.
+
+⚠️ **Chưa làm**: chưa có màn hình tạo thư mục/thẻ/bộ lọc đã lưu (bảng và quyền đã có, giao diện chưa). Thao tác hàng loạt, trình hướng dẫn tải theo lô, phát hiện trùng và 10 mục điều hướng cấp hai là các bản sau. `asset_versions` **hoãn chứ không phải trùng** — `asset_variants` là bản kết xuất, không phải phiên bản.
+
+---
+
 **2026-08-05 — 📝 Đã merge + deploy: luồng nộp bài → chấm → phản hồi → nộp lại (phía học viên) — ⚠️ CẦN CHẠY MIGRATION 0036.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0036-ONLY.sql` → Run.
