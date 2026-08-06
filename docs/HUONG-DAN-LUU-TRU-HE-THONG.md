@@ -6,6 +6,19 @@
 
 ---
 
+**2026-08-06 — 🔙 Đã merge + deploy: hoàn thiện 5 việc còn dang dở của module 0038 + nút quay lại cho mọi trang quản trị — ⚠️ CẦN CHẠY MIGRATION 0039 để dùng tính năng gắn tài sản vào lộ trình.**
+
+- **1. Gắn tài sản vào lộ trình** — mở rộng `career_stage_resources.resource_type` để nhận thêm `'asset'`, thay vì dựng bảng liên kết thứ ba. Màn hình Academy Admin → Giai đoạn & tài liệu đã dùng được ngay, không cần giao diện mới. **⚠️ Cần chạy `_RUN-0039-ONLY.sql`, nếu không thao tác này sẽ báo lỗi ràng buộc dữ liệu.**
+- **2. Thùng rác** — cột `deleted_at` đã có sẵn từ trước (migration 0011), chỉ là chưa ai đọc nó. Thêm mục "Thùng rác" trong thanh bên, nút xóa mềm và khôi phục. Không đụng tới file gốc, khôi phục là ra đúng file cũ.
+- **3. Chế độ xem dạng lưới** — nút chuyển đổi danh sách/lưới hoạt động thật (trước đây lưu được cài đặt nhưng không có gì đọc nó).
+- **4. Chọn cột hiển thị** — 3 trường có thể ẩn/hiện: phân loại con, đường dẫn lưu trữ, ngày tải lên.
+- **5. Sắp xếp thư mục** — dùng mũi tên lên/xuống thay vì kéo-thả: đơn giản hơn, không cần xử lý cảm ứng, và tận dụng cột `position` đã có sẵn.
+  - **Sửa kèm 1 lỗi HTML thật** phát hiện khi dựng tính năng này: bản nháp đầu tiên lồng `<li>` trong `<div>` trong `<li>` khác — sai chuẩn HTML và không đáng tin với trình đọc màn hình. Đã viết lại để `<li>` luôn là con trực tiếp của `<ul>`.
+- **Nút quay lại cho mọi trang quản trị** (yêu cầu riêng của bạn): mỗi khu quản trị con (Academy Admin, Instructor, Platform Admin, System, Operations) tự đặt "trang chủ" là gốc của chính nó — **không phải Dashboard chính**. Nên trước đây vào sâu trong Academy Control Center thì không có đường quay lại Dashboard. Nay có **2 nút**: "Quay lại" (lùi 1 bước, giống nút back trình duyệt) và "Dashboard" (về thẳng trang chủ, dùng được ngay cả khi vừa vào từ link ngoài, không có lịch sử để lùi).
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, không phát sinh mới) · **143/143 test** · test:sql qua · build thành công · production health 200.
+
+---
+
 **2026-08-06 — 📁 Đã merge + deploy module 0038 (Asset Organization UI) — ✅ MIGRATION 0037 VÀ 0038 ĐỀU ĐÃ CHẠY XONG.**
 
 - **Giao diện mới ở `/assets`**: thanh bên có 6 chế độ xem sẵn (Tất cả · Hộp thư đầu vào · Chưa xếp thư mục · Cần duyệt · Lưu trữ · Ngừng dùng), **cây thư mục cha/con** kèm số tài sản, **khu vực thẻ có ô tìm kiếm**, và nút **"Lưu chế độ xem"**.
