@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-05 — 👤 Đã merge + deploy: khu vực học viên giờ chỉ còn MỘT nguồn danh tính & tiến độ — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+
+**Lỗi nghiêm trọng nhất đã sửa.** Một tài khoản đăng nhập thật nhìn thấy **4 câu trả lời khác nhau** cho cùng câu hỏi "tôi là ai, học tới đâu": thanh bên ghi `Nguyen Van Tuan 78%`, dashboard ghi `Tuan 0%`, tải lại thành `Anh 78%`, hồ sơ lại ghi `Nguyễn Minh Anh`.
+
+- **Nguyên nhân**: mỗi màn hình tự trả lời riêng, và phương án dự phòng khác nhau. Thanh bên đọc phiên đăng nhập thật nhưng **lấy % tiến độ từ dữ liệu demo** (học viên mẫu 78%). Dashboard cũng rơi về dữ liệu demo cho tới khi tải xong — đó là hiện tượng nhảy số khi tải lại. Trang hồ sơ thì **chưa bao giờ rời khỏi dữ liệu demo**.
+- **Dữ liệu demo là dữ liệu mẫu cho người chưa đăng nhập.** Trộn nó vào phiên thật chính là thứ khiến phần mềm trông như không biết ai đang dùng.
+- Nay có **một nguồn duy nhất**: danh tính lấy từ phiên đăng nhập phía máy chủ nên **đúng ngay từ khung hình đầu tiên, không nhảy số**; tiến độ tải một lần rồi dùng chung cho mọi màn hình.
+- Khi chưa biết tiến độ, hệ thống hiện **"Đang tải…"** chứ không hiện một con số nghe hợp lý — thà không nói còn hơn nói sai.
+- **H2O Mentor**: khung "Dữ liệu đang dùng" trước đây liệt kê 4 con số **bịa hoàn toàn** (32/48 bài, 6 kỹ năng, 3 bài tập, giai đoạn thực hành). Đặt dưới tiêu đề "dữ liệu đang dùng" thì con số cố định lại càng giống bằng chứng thật — đây là kiểu sai tệ nhất. Nay hiện số thật hoặc dấu gạch ngang. Lời chào cũng thôi gọi mọi người là "Minh Anh".
+- **Video bài học**: player vốn không có lỗi — đã hỗ trợ sẵn Cloudflare Stream, video trực tiếp và nhúng. Hai vấn đề thật: (1) chỗ trống hiện **hướng dẫn dành cho lập trình viên** ("thêm playback ID vào bảng…") cho **học viên** đọc — người ít có khả năng làm nhất; (2) **màn hình quản trị chỉ báo "Có video / Chưa có video" mà không có ô nhập**, dù backend đã nhận `videoUrl` từ lâu — nên mọi bài học đều trống trừ khi viết SQL tay. **Nay đã có ô nhập** trong Academy Admin → Chương trình đào tạo.
+- **Về 8 route 404**: đó là URL đoán từ bên ngoài, **không phải link sản phẩm đưa ra**. Tôi đã rà **25 link nội bộ** trong toàn bộ khu vực học viên/reader/academy — **không có link nào hỏng**. Nút "Xem toàn bộ" vốn đã trỏ đúng `/student/roadmap`. Không tạo/xoá gì cho mục này.
+
+⚠️ **Chưa sửa, cùng loại lỗi**: thẻ "Academy Pro · 18 ngày trong hành trình · 68%" ở thanh bên **vẫn là số cứng** — cần nguồn dữ liệu gói thành viên thật, không phải đổi sang một hằng số khác. Bài tập chưa có tiêu chí chấm chi tiết, nộp lại, phản hồi giảng viên. Portfolio/chứng nhận vẫn nằm trong trang hồ sơ.
+
+📌 Thư mục `audit-output/` và `test-results/` đã được thêm vào danh sách bỏ qua của git — đó là ảnh chụp và kết quả kiểm thử, không phải mã nguồn.
+
+---
+
 **2026-08-05 — ♿ Đã merge + deploy: sửa 3 lỗi đợt rà soát thứ 3 — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 
 1. **`book_skin` vẫn sai nội dung (lần 2 — lần trước tôi sửa chưa tới).** Lần trước tôi thay tên sách bằng cách tìm-và-thay chuỗi, nhưng **không khớp được gì cả**: bìa sách viết `"GIÁO TRÌNH\nMAKEUP CHUYÊN NGHIỆP"` — chữ hoa, xuống dòng — nên không chứa tên sách gốc; phần thân bài thì không nhắc tên sách lần nào. Nay **mỗi sách mẫu có nội dung viết riêng thật**: bìa, tên chương, thân bài, trích dẫn, checklist — cuốn về kỹ thuật nền và cuốn về tóc cô dâu.
