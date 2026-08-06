@@ -56,6 +56,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
     await load();
   }
 
+  async function saveLessonVideo(lessonId: string, videoUrl: string) {
+    await fetch(`/api/academy-admin/lessons/${lessonId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ videoUrl })
+    });
+    await load();
+  }
+
   async function toggleLessonStatus(lessonId: string, status: string) {
     await fetch(`/api/academy-admin/lessons/${lessonId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: status === "published" ? "draft" : "published" }) });
     await load();
@@ -97,7 +106,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
             {module.lessons.map((lesson) => (
               <div key={lesson.id} className={styles.listItem}>
                 <span className={styles.listItemIcon}><BookOpenCheck size={16} /></span>
-                <div><strong>{lesson.title}</strong><small>{lesson.videoUrl ? "Có video" : "Chưa có video"}</small></div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <strong>{lesson.title}</strong>
+                  <LessonVideoField lesson={lesson} onSave={(videoUrl) => saveLessonVideo(lesson.id, videoUrl)} />
+                </div>
                 <div className={styles.listItemMeta}>
                   <span className={styles.badge} data-tone={lesson.status === "published" ? "success" : "warning"}>{lesson.status}</span>
                   <button style={{ display: "block", marginTop: 4, fontSize: 9, border: "none", background: "none", color: "#0c6e86", cursor: "pointer" }} onClick={() => toggleLessonStatus(lesson.id, lesson.status)}>{lesson.status === "published" ? "Ẩn" : "Xuất bản"}</button>
@@ -113,4 +125,19 @@ export default function CourseDetailPage({ params }: { params: Promise<{ id: str
       </section>
     ))}
   </SimpleOperationsShell>;
+}
+
+// Accepts a Cloudflare Stream playback id or a full URL — the player already branches on the
+// lesson's provider, so the same field covers both. Saves on blur rather than behind a button:
+// this sits inside a list row where an extra button per lesson would crowd out the row itself.
+function LessonVideoField({ lesson, onSave }: { lesson: Lesson; onSave: (videoUrl: string) => void }) {
+  const [value, setValue] = useState(lesson.videoUrl ?? "");
+  return <input
+    value={value}
+    onChange={(event) => setValue(event.target.value)}
+    onBlur={() => { if (value.trim() !== (lesson.videoUrl ?? "")) onSave(value.trim()); }}
+    placeholder="Playback ID hoặc URL video — để trống nếu chưa có"
+    aria-label={`Video cho bài ${lesson.title}`}
+    style={{ width: "100%", marginTop: 4, padding: "6px 8px", borderRadius: 8, border: "1px solid #dfe3e8", fontSize: 11 }}
+  />;
 }
