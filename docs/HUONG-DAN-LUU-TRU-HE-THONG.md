@@ -6,6 +6,19 @@
 
 ---
 
+**2026-08-05 — 🧹 Đã merge + deploy: quét sạch số liệu bịa khỏi khu vực học viên (P0 báo cáo Codex) — KHÔNG CẦN CHẠY MIGRATION GÌ.**
+
+Nguyên tắc áp dụng: **tài khoản thật chỉ được thấy số liệu thật, hoặc trạng thái rỗng nói đúng sự thật.** Dữ liệu mẫu chỉ còn dành cho chế độ demo và được dán nhãn rõ.
+
+- **Smart Home**: 4 ô đầu trang trước đây là số cứng — chuỗi 7 ngày, 42 giờ thực hành, 6/9 kỹ năng, 4 thành tựu. "Chuỗi ngày học" và "giờ thực hành" **không có nguồn dữ liệu nào trong hệ thống**, nên tôi bỏ hẳn thay vì để dấu gạch — hai ô đó nay hiện **số bài đã hoàn thành** và **số khóa đang học** (có thật). Danh sách bài tập trước đây lấy từ dữ liệu demo và nhãn "Còn 2 ngày" suy ra từ **thứ tự trong mảng** chứ không phải hạn nộp thật. Khối thành tựu cũng là danh sách cố định.
+- **Hồ sơ** — nặng nhất: 68% tiến độ, 42 giờ, 7 sách, điểm 82, "Lớp K26", tên thành phố, "tham gia 18 ngày", 1 chứng nhận đã cấp và 6 tác phẩm portfolio có tên — **tất cả đều là số cứng**, và học viên ngày đầu tiên đọc chúng như hồ sơ của chính mình. Nay hiện số thật nếu có nguồn, còn lại là trạng thái rỗng **kèm giải thích cái gì sẽ lấp đầy nó**.
+- **Bài tập**: các con số 3/8/6/82 là số cứng, trạng thái thẻ suy từ **vị trí trong mảng**, và **mọi nút đều không có hành vi** — trang trông như bản ghi thực hành có thật của một việc chưa từng xảy ra. Nay tài khoản thật thấy trạng thái rỗng và **nói thẳng rằng luồng nộp bài đang được xây dựng**.
+- **H2O Mentor**: đã đóng ở bản deploy trước.
+
+⚠️ **Chưa làm, không giấu**: luồng **nộp bài → giảng viên duyệt → phản hồi → nộp lại** (kèm tải ảnh, tiêu chí chấm riêng từng bài, lịch sử, thông báo) là **một tính năng cần dựng riêng**, không phải vá. Thẻ "Academy Pro · 18 ngày · 68%" ở thanh bên vẫn là số cứng. Chứng nhận và portfolio **chưa có bảng dữ liệu**, nên hiện tại chỉ có thể để trống.
+
+---
+
 **2026-08-05 — 👤 Đã merge + deploy: khu vực học viên giờ chỉ còn MỘT nguồn danh tính & tiến độ — KHÔNG CẦN CHẠY MIGRATION GÌ.**
 
 **Lỗi nghiêm trọng nhất đã sửa.** Một tài khoản đăng nhập thật nhìn thấy **4 câu trả lời khác nhau** cho cùng câu hỏi "tôi là ai, học tới đâu": thanh bên ghi `Nguyen Van Tuan 78%`, dashboard ghi `Tuan 0%`, tải lại thành `Anh 78%`, hồ sơ lại ghi `Nguyễn Minh Anh`.
