@@ -4784,6 +4784,10 @@ commit;
 --
 -- Four are genuinely new and land as-is: folders, tags, tag links, saved views.
 
+-- Re-runnable. Postgres has no `create policy if not exists`, so every policy and trigger below
+-- drops first — otherwise a second run fails with 42710 on the first policy and rolls the whole
+-- transaction back, which makes it impossible to tell a partly-applied migration from a fully
+-- applied one by running it again.
 begin;
 
 -- ---------------------------------------------------------------------------
@@ -4874,27 +4878,35 @@ alter table public.asset_tags enable row level security;
 alter table public.asset_tag_links enable row level security;
 alter table public.asset_saved_views enable row level security;
 
+drop policy if exists "asset folders member read" on public.asset_folders;
 create policy "asset folders member read" on public.asset_folders for select to authenticated
 using (public.is_org_member(organization_id));
+drop policy if exists "asset folders admin write" on public.asset_folders;
 create policy "asset folders admin write" on public.asset_folders for all to authenticated
 using (public.has_org_role(organization_id, array['owner','admin','designer']::public.member_role[]))
 with check (public.has_org_role(organization_id, array['owner','admin','designer']::public.member_role[]));
 
+drop policy if exists "asset tags member read" on public.asset_tags;
 create policy "asset tags member read" on public.asset_tags for select to authenticated
 using (public.is_org_member(organization_id));
+drop policy if exists "asset tags admin write" on public.asset_tags;
 create policy "asset tags admin write" on public.asset_tags for all to authenticated
 using (public.has_org_role(organization_id, array['owner','admin','designer']::public.member_role[]))
 with check (public.has_org_role(organization_id, array['owner','admin','designer']::public.member_role[]));
 
+drop policy if exists "asset tag links member read" on public.asset_tag_links;
 create policy "asset tag links member read" on public.asset_tag_links for select to authenticated
 using (public.is_org_member(organization_id));
+drop policy if exists "asset tag links admin write" on public.asset_tag_links;
 create policy "asset tag links admin write" on public.asset_tag_links for all to authenticated
 using (public.has_org_role(organization_id, array['owner','admin','designer']::public.member_role[]))
 with check (public.has_org_role(organization_id, array['owner','admin','designer']::public.member_role[]));
 
 -- A private saved view belongs to whoever made it; a shared one is visible to the workspace.
+drop policy if exists "asset saved views read" on public.asset_saved_views;
 create policy "asset saved views read" on public.asset_saved_views for select to authenticated
 using (public.is_org_member(organization_id) and (is_shared or created_by = auth.uid()));
+drop policy if exists "asset saved views write" on public.asset_saved_views;
 create policy "asset saved views write" on public.asset_saved_views for all to authenticated
 using (public.is_org_member(organization_id) and created_by = auth.uid())
 with check (public.is_org_member(organization_id) and created_by = auth.uid());
@@ -4902,9 +4914,11 @@ with check (public.is_org_member(organization_id) and created_by = auth.uid());
 -- ---------------------------------------------------------------------------
 -- Audit. Replaces the proposed asset_audit_logs table with the mechanism already in use.
 -- ---------------------------------------------------------------------------
+drop trigger if exists assets_domain_event on public.assets;
 create trigger assets_domain_event after insert or update or delete on public.assets
 for each row execute function public.capture_domain_event();
 
+drop trigger if exists asset_folders_domain_event on public.asset_folders;
 create trigger asset_folders_domain_event after insert or update or delete on public.asset_folders
 for each row execute function public.capture_domain_event();
 
