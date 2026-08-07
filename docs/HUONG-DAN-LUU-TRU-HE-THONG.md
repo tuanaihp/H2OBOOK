@@ -6,6 +6,35 @@
 
 ---
 
+**2026-08-07 — 🧠 Đã merge + deploy: H2O Brain — hàng đợi duyệt giữa Kho tài sản và Lộ trình (KHÔNG dùng AI) — ⚠️ CẦN CHẠY MIGRATION 0044.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → chạy `_RUN-0044-ONLY.sql`.
+
+- **Bối cảnh**: module nguồn `v5/24-H2OBOOK_H2O_BRAIN_CURATOR_V1` đề xuất một lớp AI nội bộ cho Admin: AI đọc tài liệu → đề xuất giai đoạn/vị trí → Admin duyệt → ghi vào lộ trình. Audit đầy đủ ở `docs/module-24-brain-curator-audit.md`.
+- **Đây là module sạch nhất từ đầu phiên về schema** — 6 bảng đề xuất, **không bảng nào trùng lặp** với hệ đã có, tự cấm đúng các bảng từng bị tạo nhầm, và thiết kế "AI chỉ đề xuất, Admin duyệt mới ghi" là đúng.
+- **🔴 Nhưng phần AI không thể chạy như hiện trạng, vì 2 lý do:**
+  1. **Gói không có provider AI nào.** `provider-gateway.ts` chỉ có một registry rỗng, không file nào đăng ký provider → hàm gọi AI **luôn ném lỗi**. Gói giao kiến trúc, không giao phần chạy được.
+  2. **Không có nội dung cho AI đọc.** Code đòi `asset.extractedText` nhưng **bảng `assets` không có cột đó**. Văn bản trích xuất nằm ở `content_nodes.text_content` gắn với `book_documents` — chỉ có với tài liệu đã qua luồng nhập sách. Nghĩa là AI thực tế chỉ nhìn thấy **tên file + tiêu đề + mô tả**.
+- **Vì đây là quyết định liên quan tới khóa API và chi phí của bạn, tôi dừng lại hỏi** — bạn chọn phương án hẹp nhất trong 4: **xây hàng đợi duyệt + luật xác định, chừa sẵn chỗ cắm AI về sau**.
+
+**Đã xây (chạy được ngay, không cần khóa API, không tốn phí gọi):**
+- **Màn hình mới `/academy-admin/brain`** với 2 tab: **Hàng đợi** và **Luật phân loại**.
+- **Hàng đợi**: chọn tài sản từ kho → hệ thống đề xuất giai đoạn/chương trình/khu vực → bạn xem lại, sửa nếu cần, rồi **Duyệt vào lộ trình** hoặc **Từ chối**. Không có gì tự động ghi vào lộ trình học viên.
+- **Đề xuất đến từ 2 nguồn, cả hai đều giải thích được**:
+  - **Luật bạn tự viết** (ví dụ: "tên file chứa `makeup` → Giai đoạn 1, khu vực Learn"). Số ưu tiên nhỏ hơn thì thắng khi 2 luật cùng chỉ định một trường.
+  - **Tiền lệ đã duyệt** — đây là phần thay thế AI trong bản này: duyệt 3 lần "video trong thư mục X → Giai đoạn 2" thì lần thứ 4 hệ thống tự đề xuất như vậy. **Chính quyết định của bạn trở thành bộ phân loại**, không cần mô hình, không cần khóa API.
+  - Mỗi đề xuất ghi rõ lý do và độ tin cậy; luật (95%) luôn xếp trên tiền lệ (tối đa 85%).
+- **Khi duyệt, việc ghi đi qua đúng hàm `attachResource` mà Stage Workspace đang dùng** — tài liệu do Brain xếp không khác gì tài liệu xếp tay, cùng ràng buộc chống trùng, cùng cách tính thứ tự. Brain **không có đường ghi riêng** vào `career_stage_resources`.
+
+**Đã cố ý BỎ 2/6 bảng của gói nguồn, nêu rõ lý do:**
+- **`brain_provider_settings`** — bảng này lưu **khóa API bên thứ ba mã hóa trong database**. Toàn bộ repo hiện lưu khóa bên thứ ba trong **biến môi trường, không khóa nào nằm trong Postgres** (`lib/email/provider.ts`, `lib/payments/provider.ts`). Chưa có provider AI nào thì bảng cũng chưa có ai đọc.
+- **`brain_runs`** — ghi mỗi lần gọi AI kèm chi phí/lỗi. Với luật xác định, việc đánh giá là đồng bộ và không thể hỏng nửa chừng; dòng đề xuất đã ghi luật nào khớp và lúc nào, còn `domain_events` đã là nhật ký kiểm toán. Một bảng mà người ghi duy nhất luôn ghi "thành công" không phải là nhật ký.
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, không phát sinh mới) · **166/166 test — trong đó 23 test mới thật sự cho logic khớp luật/tiền lệ** (lần đầu trong nhiều lượt có logic thuần để test) · test:sql qua · build thành công.
+
+⚠️ **Chưa kiểm chứng trên production**: chưa chạy migration 0044. ⚠️ **Chưa làm**: **không có AI trong bản này** — cột `source` của bảng đề xuất đã chừa sẵn giá trị `'ai'` nên cắm provider sau không cần migration mới, nhưng muốn AI chạy thật thì vẫn cần (a) viết provider gọi Gemini/OpenAI/Anthropic, (b) giải quyết việc chưa có nội dung tài liệu để đọc. Luật hiện chỉ hỗ trợ 1 điều kiện khi tạo từ giao diện (engine hỗ trợ nhiều điều kiện, giao diện chưa cho nhập nhiều).
+
+---
+
 **2026-08-07 — 🔧 Đã merge + deploy: rà soát tổng thể Admin Panel — sửa 3 lỗi hồi quy + 6 nâng cấp cho việc cấu hình giai đoạn — ⚠️ CẦN CHẠY MIGRATION 0043.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → chạy `_RUN-0043-ONLY.sql` (sau 0040/0041/0042 đã chạy).

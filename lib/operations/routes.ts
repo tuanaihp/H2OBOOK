@@ -41,6 +41,7 @@ export const academyAdminRoutes = [
   { href: "/academy-admin", label: "Tổng quan đào tạo", icon: LayoutDashboard },
   { href: "/academy-admin/stages", label: "Giai đoạn & lộ trình", icon: Compass },
   { href: "/academy-admin/content", label: "Kho nội dung Academy", icon: LibraryBig },
+  { href: "/academy-admin/brain", label: "H2O Brain", icon: Brain },
   { href: "/academy-admin/programs", label: "Khóa học video", icon: GraduationCap },
   { href: "/academy-admin/distribution", label: "Phân phối & cấp quyền", icon: BadgeCheck }
 ];
