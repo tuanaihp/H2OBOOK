@@ -90,6 +90,11 @@ export interface CareerStage {
   status: StageStatus;
   resources: CareerStageResource[];
   programs: CareerStageProgram[];
+  // Migration 0042. Set the first time a stage's status moves to 'active' via publishStage() /
+  // archived_at when it moves to 'archived' — 'hidden' remains the practical pre-publish/draft
+  // state, so no new status value was added alongside these.
+  publishedAt: string | null;
+  archivedAt: string | null;
 }
 
 export interface CareerStageInput {

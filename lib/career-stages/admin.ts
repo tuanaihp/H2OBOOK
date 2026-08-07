@@ -67,9 +67,24 @@ export async function updateStage(access: AcademyAdminAccess, stageId: string, i
 export async function archiveStage(access: AcademyAdminAccess, stageId: string): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
-  const { error } = await supabase.from("career_stages").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", stageId).eq("organization_id", access.organizationId);
+  const { error } = await supabase.from("career_stages").update({ status: "archived", archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", stageId).eq("organization_id", access.organizationId);
   if (error) return { ok: false, error: error.message };
   await supabase.from("career_stage_resources").update({ status: "archived", updated_at: new Date().toISOString() }).eq("stage_id", stageId).eq("organization_id", access.organizationId);
+  return { ok: true, data: null };
+}
+
+/**
+ * Publishing a stage is "make it active" plus recording when — first publish only, later
+ * republishes (e.g. after unhiding) do not reset the original published_at.
+ */
+export async function publishStage(access: AcademyAdminAccess, stageId: string): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const { data: existing } = await supabase.from("career_stages").select("published_at").eq("id", stageId).eq("organization_id", access.organizationId).single();
+  const patch: Record<string, unknown> = { status: "active", updated_at: new Date().toISOString() };
+  if (!existing?.published_at) patch.published_at = new Date().toISOString();
+  const { error } = await supabase.from("career_stages").update(patch).eq("id", stageId).eq("organization_id", access.organizationId);
+  if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
 }
 
