@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Check, X } from "lucide-react";
+import { Plus, Trash2, Check, X, Sparkles, RefreshCw } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import { RULE_FIELDS, RULE_OPERATORS, type RuleField, type RuleOperator } from "@/lib/brain/types";
@@ -15,6 +15,7 @@ type InboxItem = {
 type Stage = { id: string; title: string; indexLabel: string; position: number };
 type Node = { id: string; parentId: string | null; nodeType: string; title: string; position: number };
 type Rule = { id: string; name: string; enabled: boolean; priority: number; conditions: { field: string; operator: string; value: string }[]; actions: { stageId?: string; nodeId?: string; surface?: string } };
+type AiStatus = { configured: boolean; provider: string | null; model: string | null };
 
 const field = { padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 12 } as const;
 const SURFACE_LABEL: Record<string, string> = { learn: "Learn", create: "Create", business: "Business", coaching: "H2O Coaching" };
@@ -28,6 +29,7 @@ export default function BrainCuratorPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [nodesByStage, setNodesByStage] = useState<Record<string, Node[]>>({});
   const [rules, setRules] = useState<Rule[]>([]);
+  const [ai, setAi] = useState<AiStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -35,17 +37,20 @@ export default function BrainCuratorPage() {
 
   async function load() {
     setLoading(true);
-    const [inboxRes, stagesRes, rulesRes] = await Promise.all([
+    const [inboxRes, stagesRes, rulesRes, aiRes] = await Promise.all([
       fetch("/api/academy-admin/brain/inbox", { cache: "no-store" }),
       fetch("/api/academy-admin/stages", { cache: "no-store" }),
-      fetch("/api/academy-admin/brain/rules", { cache: "no-store" })
+      fetch("/api/academy-admin/brain/rules", { cache: "no-store" }),
+      fetch("/api/academy-admin/brain/status", { cache: "no-store" })
     ]);
     const inboxJson = await inboxRes.json().catch(() => null);
     const stagesJson = await stagesRes.json().catch(() => null);
     const rulesJson = await rulesRes.json().catch(() => null);
+    const aiJson = await aiRes.json().catch(() => null);
     if (inboxRes.ok) setItems(inboxJson?.items ?? []);
     if (stagesRes.ok) setStages(stagesJson?.stages ?? []);
     if (rulesRes.ok) setRules(rulesJson?.items ?? []);
+    if (aiRes.ok) setAi(aiJson ?? null);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -78,9 +83,13 @@ export default function BrainCuratorPage() {
         <span className={styles.eyebrow}>H2O BRAIN · HÀNG ĐỢI DUYỆT</span>
         <h1>Từ kho tài sản vào lộ trình</h1>
         <p>
-          Đưa tài sản vào hàng đợi, hệ thống đề xuất chỗ đặt dựa trên <strong>luật bạn tự viết</strong> và <strong>những gì bạn đã duyệt trước đó</strong> — bạn xem lại rồi mới duyệt vào lộ trình học viên.
-          Chưa có AI trong bản này: mọi đề xuất đều giải thích được và không tốn phí gọi API.
+          Đưa tài sản vào hàng đợi, hệ thống đề xuất chỗ đặt theo thứ tự: <strong>luật bạn tự viết</strong> → <strong>tiền lệ bạn đã duyệt</strong> → <strong>AI</strong> (chỉ khi hai cái trước không xử lý được).
+          Bạn xem lại rồi mới duyệt vào lộ trình học viên.
         </p>
+        {ai && <p style={{ margin: "8px 0 0", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, background: ai.configured ? "#ecfeff" : "#f1f5f9", color: ai.configured ? "#0e7490" : "#64748b" }}>
+          <Sparkles size={12} />
+          {ai.configured ? `AI đang bật · ${ai.provider} · ${ai.model}` : "AI chưa cấu hình — chỉ dùng luật và tiền lệ"}
+        </p>}
       </div>
       <button className={`${styles.button} ${styles.buttonPrimary}`} onClick={() => setPickerOpen(true)}><Plus size={14} />Đưa tài sản vào hàng đợi</button>
     </header>
@@ -102,6 +111,7 @@ export default function BrainCuratorPage() {
       </div>}
       {pending.map((item) => <ReviewCard key={item.id} item={item} stages={stages} nodesByStage={nodesByStage} busy={busy}
         onEnsureNodes={ensureNodes}
+        onReanalyze={() => call("/api/academy-admin/brain/analyze", { method: "POST", body: JSON.stringify({ itemIds: [item.id] }) }, "Đã phân tích lại.")}
         onApprove={(payload) => call(`/api/academy-admin/brain/suggestions/${item.suggestion?.id}/approve`, { method: "POST", body: JSON.stringify(payload) }, "Đã duyệt và gắn vào lộ trình.")}
         onReject={() => call(`/api/academy-admin/brain/suggestions/${item.suggestion?.id}/reject`, { method: "POST", body: "{}" }, "Đã từ chối.")}
         onRemove={() => { if (confirm("Bỏ khỏi hàng đợi? Tài sản gốc không bị xóa.")) call(`/api/academy-admin/brain/inbox/${item.id}`, { method: "DELETE" }, "Đã bỏ khỏi hàng đợi."); }} />)}
@@ -127,9 +137,10 @@ export default function BrainCuratorPage() {
   </SimpleOperationsShell>;
 }
 
-function ReviewCard({ item, stages, nodesByStage, busy, onEnsureNodes, onApprove, onReject, onRemove }: {
+function ReviewCard({ item, stages, nodesByStage, busy, onEnsureNodes, onReanalyze, onApprove, onReject, onRemove }: {
   item: InboxItem; stages: Stage[]; nodesByStage: Record<string, Node[]>; busy: boolean;
   onEnsureNodes: (stageId: string) => Promise<void>;
+  onReanalyze: () => Promise<boolean>;
   onApprove: (payload: Record<string, unknown>) => Promise<boolean>;
   onReject: () => Promise<boolean>;
   onRemove: () => void;
@@ -186,6 +197,7 @@ function ReviewCard({ item, stages, nodesByStage, busy, onEnsureNodes, onApprove
       <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy || !stageId || !suggestion}
         onClick={() => onApprove({ stageId, nodeId: nodeId || null, surface: surface || null })}><Check size={13} />Duyệt vào lộ trình</button>
       <button className={styles.button} disabled={busy || !suggestion} onClick={onReject}><X size={13} />Từ chối</button>
+      <button className={styles.button} disabled={busy} title="Chạy lại luật, tiền lệ và AI cho mục này" onClick={onReanalyze}><RefreshCw size={13} />Phân tích lại</button>
     </div>
   </div>;
 }

@@ -37,7 +37,14 @@ export interface BrainRule {
   actions: BrainRuleAction;
 }
 
-/** The asset facts a rule is allowed to look at. Nothing here requires reading the file itself. */
+/**
+ * The asset facts a suggestion can be based on. Nothing here requires reading the file itself —
+ * public.assets stores no extracted text, so this is genuinely all that is knowable about a
+ * document without a separate extraction step.
+ *
+ * The last three are optional context used only when describing an asset to an AI provider; rules
+ * match on the fields above them, which every asset always has.
+ */
 export interface BrainCandidate {
   assetId: string;
   title: string;
@@ -45,6 +52,9 @@ export interface BrainCandidate {
   mimeType: string;
   assetSubtype: string | null;
   folderId: string | null;
+  description?: string | null;
+  folderName?: string | null;
+  tags?: string[];
 }
 
 export interface BrainMemorySignal {

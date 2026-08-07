@@ -3,8 +3,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import type { StageSurface } from "@/lib/academy-control/types";
 import { attachResource } from "@/lib/career-stages/admin";
+import { describeAi, requestAiSuggestions } from "./ai";
 import { buildSuggestion, computeSignalKeys } from "./rules";
-import { loadBrainRules, loadMemorySignals } from "./service";
+import { enrichCandidates, loadBrainRules, loadBrainTaxonomy, loadMemorySignals } from "./service";
 import type { BrainCandidate, BrainRuleAction, BrainRuleCondition } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -12,40 +13,71 @@ type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 // Writes go through the request-scoped client so the RLS policies from migration 0044 are the real
 // enforcement — same split as every other admin module here.
 
+async function loadCandidates(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, organizationId: string, assetIds: string[]): Promise<BrainCandidate[]> {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("assets")
+    .select("id,original_name,title,description,mime_type,asset_subtype,folder_id")
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null)
+    .in("id", assetIds);
+  return ((data ?? []) as { id: string; original_name: string | null; title: string | null; description: string | null; mime_type: string | null; asset_subtype: string | null; folder_id: string | null }[]).map((asset) => ({
+    assetId: String(asset.id),
+    title: String(asset.title ?? ""),
+    originalName: String(asset.original_name ?? ""),
+    mimeType: String(asset.mime_type ?? ""),
+    assetSubtype: asset.asset_subtype ? String(asset.asset_subtype) : null,
+    folderId: asset.folder_id ? String(asset.folder_id) : null,
+    description: asset.description ? String(asset.description) : null
+  }));
+}
+
 /**
- * Queues assets and computes a suggestion for each in the same pass. Rules and memory are loaded
- * once for the whole batch rather than per asset: filing thirty photos at once is the normal case,
- * and the rule set does not change between them.
+ * Fills in suggestions for a batch, cheapest and most authoritative source first.
+ *
+ * Rules are explicit instructions the owner wrote, so they win outright. Precedent is what the admin
+ * actually did before, so it wins over a guess. Only what neither can place is sent to an AI
+ * provider — which keeps the deterministic path in charge, and means a large drop of already-covered
+ * documents costs nothing at all. When no provider is configured this step simply does not happen.
+ */
+async function draftSuggestions(organizationId: string, candidates: BrainCandidate[]): Promise<Map<string, ReturnType<typeof buildSuggestion>>> {
+  const [rules, signals] = await Promise.all([loadBrainRules(organizationId), loadMemorySignals(organizationId)]);
+  const drafts = new Map(candidates.map((candidate) => [candidate.assetId, buildSuggestion(candidate, rules, signals)]));
+
+  const unresolved = candidates.filter((candidate) => drafts.get(candidate.assetId)?.stageId == null);
+  if (!unresolved.length || !describeAi().configured) return drafts;
+
+  const [enriched, taxonomy] = await Promise.all([
+    enrichCandidates(organizationId, unresolved),
+    loadBrainTaxonomy(organizationId)
+  ]);
+  const aiDrafts = await requestAiSuggestions(enriched, taxonomy);
+  // Only overwrite where the AI actually produced a stage; a failed or unhelpful call leaves the
+  // rule/precedent draft exactly as it was.
+  for (const [assetId, aiDraft] of aiDrafts) {
+    if (aiDraft.stageId) drafts.set(assetId, aiDraft);
+  }
+  return drafts;
+}
+
+/**
+ * Queues assets and computes a suggestion for each in the same pass. Rules, precedent and the
+ * taxonomy are loaded once for the whole batch rather than per asset: filing thirty photos at once
+ * is the normal case, and none of them change between items.
  */
 export async function enqueueAssets(access: AcademyAdminAccess, assetIds: string[]): Promise<Result<{ queued: number; skipped: number }>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
   if (!assetIds.length) return { ok: false, error: "ASSET_IDS_REQUIRED" };
 
-  const { data: assetRows } = await supabase
-    .from("assets")
-    .select("id,original_name,title,mime_type,asset_subtype,folder_id")
-    .eq("organization_id", access.organizationId)
-    .is("deleted_at", null)
-    .in("id", assetIds);
+  const candidates = await loadCandidates(supabase, access.organizationId, assetIds);
+  if (!candidates.length) return { ok: false, error: "ASSET_NOT_FOUND" };
 
-  const assets = (assetRows ?? []) as { id: string; original_name: string | null; title: string | null; mime_type: string | null; asset_subtype: string | null; folder_id: string | null }[];
-  if (!assets.length) return { ok: false, error: "ASSET_NOT_FOUND" };
-
-  const [rules, signals] = await Promise.all([loadBrainRules(access.organizationId), loadMemorySignals(access.organizationId)]);
-
-  let queued = 0;
+  // Insert first, then draft only for what was actually queued — an asset already in the queue must
+  // not cost an AI call.
+  const accepted: { itemId: string; candidate: BrainCandidate }[] = [];
   let skipped = 0;
-  for (const asset of assets) {
-    const candidate: BrainCandidate = {
-      assetId: String(asset.id),
-      title: String(asset.title ?? ""),
-      originalName: String(asset.original_name ?? ""),
-      mimeType: String(asset.mime_type ?? ""),
-      assetSubtype: asset.asset_subtype ? String(asset.asset_subtype) : null,
-      folderId: asset.folder_id ? String(asset.folder_id) : null
-    };
-
+  for (const candidate of candidates) {
     const { data: item, error } = await supabase.from("brain_inbox_items").insert({
       organization_id: access.organizationId,
       source_asset_id: candidate.assetId,
@@ -57,11 +89,63 @@ export async function enqueueAssets(access: AcademyAdminAccess, assetIds: string
     // 23505 is the unique(organization_id, source_asset_id) guard: already queued, not an error.
     if (error?.code === "23505") { skipped += 1; continue; }
     if (error || !item) return { ok: false, error: error?.message ?? "ENQUEUE_FAILED" };
+    accepted.push({ itemId: String(item.id), candidate });
+  }
 
-    const draft = buildSuggestion(candidate, rules, signals);
+  if (accepted.length) {
+    const drafts = await draftSuggestions(access.organizationId, accepted.map((entry) => entry.candidate));
+    await supabase.from("brain_suggestions").insert(accepted.map(({ itemId, candidate }) => {
+      const draft = drafts.get(candidate.assetId);
+      return {
+        organization_id: access.organizationId,
+        inbox_item_id: itemId,
+        source: draft?.source ?? "manual",
+        suggested_stage_id: draft?.stageId ?? null,
+        suggested_node_id: draft?.nodeId ?? null,
+        surface: draft?.surface ?? null,
+        confidence: draft?.confidence ?? 0,
+        reason: draft?.reason ?? ""
+      };
+    }));
+  }
+
+  return { ok: true, data: { queued: accepted.length, skipped } };
+}
+
+/**
+ * Re-runs classification for queue items the admin has not decided yet, replacing their pending
+ * suggestion. This is the explicit, admin-initiated way to spend an AI call — useful after writing
+ * a new rule, or when the first pass came back with nothing.
+ */
+export async function reanalyzeInboxItems(access: AcademyAdminAccess, itemIds: string[]): Promise<Result<{ analyzed: number }>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  if (!itemIds.length) return { ok: false, error: "ITEM_IDS_REQUIRED" };
+
+  const { data: itemRows } = await supabase
+    .from("brain_inbox_items")
+    .select("id,source_asset_id")
+    .eq("organization_id", access.organizationId)
+    .eq("status", "review")
+    .in("id", itemIds);
+
+  const items = ((itemRows ?? []) as { id: string; source_asset_id: string | null }[]).filter((item) => item.source_asset_id);
+  if (!items.length) return { ok: false, error: "NO_ITEM_TO_ANALYZE" };
+
+  const candidates = await loadCandidates(supabase, access.organizationId, items.map((item) => String(item.source_asset_id)));
+  const drafts = await draftSuggestions(access.organizationId, candidates);
+  const byAsset = new Map(items.map((item) => [String(item.source_asset_id), String(item.id)]));
+
+  for (const candidate of candidates) {
+    const itemId = byAsset.get(candidate.assetId);
+    const draft = drafts.get(candidate.assetId);
+    if (!itemId || !draft) continue;
+    // Undecided suggestions are replaced rather than stacked; anything already approved or rejected
+    // is a record of a decision and is left alone.
+    await supabase.from("brain_suggestions").delete().eq("organization_id", access.organizationId).eq("inbox_item_id", itemId).eq("decision", "pending");
     await supabase.from("brain_suggestions").insert({
       organization_id: access.organizationId,
-      inbox_item_id: item.id,
+      inbox_item_id: itemId,
       source: draft.source,
       suggested_stage_id: draft.stageId,
       suggested_node_id: draft.nodeId,
@@ -69,10 +153,9 @@ export async function enqueueAssets(access: AcademyAdminAccess, assetIds: string
       confidence: draft.confidence,
       reason: draft.reason
     });
-    queued += 1;
   }
 
-  return { ok: true, data: { queued, skipped } };
+  return { ok: true, data: { analyzed: candidates.length } };
 }
 
 /**
