@@ -6,6 +6,35 @@
 
 ---
 
+**2026-08-07 — 🔧 Đã merge + deploy: rà soát tổng thể Admin Panel — sửa 3 lỗi hồi quy + 6 nâng cấp cho việc cấu hình giai đoạn — ⚠️ CẦN CHẠY MIGRATION 0043.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → chạy `_RUN-0043-ONLY.sql` (sau 0040/0041/0042 đã chạy).
+
+**🔴 3 lỗi do chính tôi gây ra trong 2 lượt tích hợp trước, nay đã sửa** — nói rõ vì đây là lỗi tôi tạo ra chứ không phải của module nguồn:
+1. **Không đặt được tài liệu tiên quyết.** Khi chọn luật mở khóa "Sau khi học xong tài liệu khác", ô chọn tài liệu **rỗng hoàn toàn** — tôi quên đưa danh sách tài liệu vào khi viết lại giao diện 3 cột. Nghĩa là luật `after_resource` và `progress_gte` **không dùng được** kể từ lượt trước. Nay đã có đủ danh sách.
+2. **Mất ô nhập % tiến độ.** Luật "Khi đạt % tiến độ tài liệu khác" không có chỗ nhập ngưỡng %. Nay đã khôi phục (mặc định 80%).
+3. **Mất nút ẩn/hiện và lưu trữ giai đoạn.** Khi làm lại trang danh sách giai đoạn, tôi bỏ mất 2 nút này — chỉ còn cách publish, không có cách tạm ẩn hay lưu trữ một giai đoạn. Nay đã khôi phục cả hai.
+
+**🔴 1 lỗi cấu trúc nghiêm trọng hơn, cũng đã sửa: lưu trữ chương trình làm biến mất toàn bộ nội dung bên trong.** Lưu trữ một chương trình chỉ đánh dấu đúng chương trình đó, còn học phần/nhóm con vẫn "đang hoạt động" nhưng **không còn chỗ nào hiển thị** (cây chỉ vẽ con bên trong cha, mà cha đã bị ẩn) — dữ liệu vẫn nằm trong database nhưng không ai nhìn thấy để khôi phục. Tài liệu bên trong cũng vậy. Nay: lưu trữ một nhánh sẽ lưu trữ cả cây con, và **thả toàn bộ tài liệu bên trong về mục "Chưa phân loại"** để còn tìm lại được.
+
+**6 nâng cấp cho đúng chỗ bạn cần — cấu hình 6 giai đoạn và thêm giai đoạn mới:**
+- **Sắp xếp lại thứ tự giai đoạn** (mũi tên lên/xuống trên từng thẻ). Trước đây giai đoạn mới luôn bị đẩy xuống cuối và **không có cách nào đưa lên giữa** — chặn thẳng nhu cầu "tương lai thêm giai đoạn 7, 8, 9". Thứ tự này chính là thứ tự học viên thấy trên lộ trình. Giai đoạn tạo mới giờ mặc định ở trạng thái **nháp**, không hiện ngay cho học viên khi chưa soạn xong.
+- **Khu vực học viên (Learn/Create/Business/H2O Coaching) đặt được ở cấp chương trình**, tài liệu bên trong **tự kế thừa**. Trước đây phải đặt tay cho từng tài liệu — một chương trình 20 tài liệu là 20 lần lặp lại cùng một câu trả lời, và nhìn vào cây bên trái không biết nhánh đó thuộc khu vực nào. (Migration 0043.)
+- **Đổi tên và sắp xếp chương trình/học phần/nhóm** ngay trong cây (bút chì để sửa tên, mũi tên để đổi thứ tự). Trước chỉ tạo được và lưu trữ, **không sửa được tên** — gõ sai một chữ là phải xóa làm lại.
+- **Mục "Chưa phân loại"** trong cây, kèm số lượng. Tài liệu chưa xếp vào chương trình nào trước đây lẫn trong danh sách chung, không có cách lọc riêng. Ở chế độ xem "Toàn bộ giai đoạn", mỗi tài liệu giờ hiện rõ đường dẫn `Chương trình › Học phần › Nhóm`. Inspector có thêm ô **"Thuộc"** để chuyển tài liệu sang chương trình/học phần khác.
+- **Đổi nhãn "Module" → "Học phần"** trong Stage Workspace. Trước đây "Module" có 2 nghĩa khác nhau trong cùng khu Admin (học phần trong giai đoạn vs module trong Khóa học video — hai bảng hoàn toàn khác nhau), rất dễ nhầm khi giao việc.
+- **Trang Tổng quan đào tạo giờ có nói về giai đoạn.** Trước đây trang chủ Academy chỉ báo số khóa học video, **không hề nhắc tới 6 giai đoạn** — trong khi đó mới là việc admin làm hằng ngày. Nay 2 ô số đầu tiên là "Giai đoạn đã publish" và "Tài liệu trong lộ trình", nút chính dẫn thẳng vào Giai đoạn & lộ trình.
+
+**2 cải thiện độ chính xác của số liệu:**
+- **Stage Health giờ kiểm tra tài liệu có thật sự còn tồn tại không** (trước chỉ đếm "có tài liệu hay không"). Tài liệu trỏ tới nội dung đã bị xóa nay bị báo lỗi và **chặn publish**. Mã cũ dạng slug hoặc liên kết ngoài được ghi là "không kiểm chứng được" thay vì báo lỗi oan.
+- **Bỏ trừ điểm oan cho "Giao diện học viên".** Vì tính năng này chưa nối vào sidebar thật, không giai đoạn nào có thể đạt 100% ở mục đó — tính vào điểm sẽ khiến **mọi giai đoạn vĩnh viễn tối đa 80/100** và trông như đang có lỗi. Nay mục này hiển thị riêng, không tính vào điểm, và có ghi chú giải thích ngay dưới bảng.
+- **Thứ tự tài liệu (`position`) nay tính trong phạm vi học phần** thay vì toàn giai đoạn. Trước đây tài liệu thả vào một học phần trống bắt đầu từ số 40-mấy, sắp đúng chỉ là ăn may; và tài liệu gắn từ Kho nội dung luôn nhận số 0.
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, không phát sinh mới) · **143/143 test** · test:sql qua · build thành công.
+
+⚠️ **Chưa kiểm chứng trên production**: chưa chạy migration 0043. ⚠️ **Chưa làm** (giữ nguyên như 2 lượt trước): sidebar học viên thật vẫn chưa đọc cấu hình Giao diện học viên · không có "Preview as Student" · tab Bài tập/Analytics vẫn là màn hình giải thích · đồng bộ Kho nội dung vẫn là bấm tay.
+
+---
+
 **2026-08-07 — 🩺 Đã merge + deploy: Stage Workspace V3 — 3-pane, Stage Health, Preflight, Publish — ⚠️ CẦN CHẠY MIGRATION 0042 SAU 0041.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → chạy theo đúng thứ tự `_RUN-0040-ONLY.sql` → `_RUN-0041-ONLY.sql` → `_RUN-0042-ONLY.sql` (nếu 2 cái đầu đã chạy rồi thì chỉ cần chạy 0042).

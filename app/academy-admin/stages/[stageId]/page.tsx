@@ -2,7 +2,7 @@
 import { useEffect, useState, use as usePromise } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, Pencil, Check, X } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import { DISPLAY_LOCATIONS, REQUIREMENT_TYPES, STAGE_RESOURCE_ACCESS, STAGE_RESOURCE_TYPES, UNLOCK_MODES, type StageResourceAccess, type StageResourceType } from "@/lib/career-stages/types";
@@ -14,22 +14,26 @@ type Resource = {
   requirementType: string; displayLocations: string[]; nodeId: string | null; surface: string | null; isFeatured: boolean;
 };
 type Stage = { id: string; slug: string; position: number; indexLabel: string; title: string; description: string; durationLabel: string; skills: string[]; status: string; resources: Resource[]; publishedAt: string | null };
-type Node = { id: string; parentId: string | null; nodeType: "program" | "module" | "group"; title: string; description: string; position: number; status: string };
+type Node = { id: string; parentId: string | null; nodeType: "program" | "module" | "group"; title: string; description: string; position: number; status: string; surface: string | null; effectiveSurface: string | null };
 type CatalogItem = { id: string; contentType: string; title: string; summary: string; tags: string[] };
 type NavItemDraft = { key: string; label: string; icon?: string; route?: string; visible: boolean; locked: boolean; requiredStage?: number | null };
 type UiConfig = { id: string; version: number; status: string; config: { topLevel: NavItemDraft[]; notes?: string }; publishedAt: string | null };
-type Health = { score: number; structure: number; contentCoverage: number; resourceIntegrity: number; accessRules: number; studentExperience: number; issues: { id: string; severity: "info" | "warning" | "error"; title: string }[] };
+type Health = { score: number; structure: number; contentCoverage: number; resourceIntegrity: number; accessRules: number; studentExperience: number; unverifiedResources: number; issues: { id: string; severity: "info" | "warning" | "error"; title: string }[] };
 type Preflight = { ok: boolean; checks: { key: string; label: string; status: "pass" | "warn" | "fail"; detail?: string }[] };
 
 const field = { padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 12 } as const;
 const TABS: Array<{ key: string; label: string }> = [
   { key: "overview", label: "Tổng quan" },
-  { key: "structure", label: "Cấu trúc & Nội dung" },
+  { key: "structure", label: "Cấu trúc & nội dung" },
   { key: "assignments", label: "Bài tập" },
   { key: "experience", label: "Giao diện học viên" },
   { key: "analytics", label: "Analytics" }
 ];
 const SURFACE_LABEL: Record<string, string> = { learn: "Learn", create: "Create", business: "Business", coaching: "H2O Coaching" };
+// "Học phần" rather than "Module": Academy Courses already uses "Module" for academy_course_modules,
+// a different table and a different concept. Two things called Module in one admin panel is how a
+// brief gets misread.
+const NODE_TYPE_LABEL: Record<string, string> = { program: "Chương trình", module: "Học phần", group: "Nhóm tài liệu" };
 const TYPE_LABEL: Record<string, string> = {
   book: "Sách / giáo trình", course: "Khóa học", publication: "Ấn phẩm", template: "Mẫu thiết kế",
   knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Liên kết ngoài", asset: "Tài sản trong kho"
@@ -41,7 +45,7 @@ const UNLOCK_LABEL: Record<string, string> = {
 };
 const REQUIREMENT_LABEL: Record<string, string> = { required: "Bắt buộc", optional: "Tùy chọn", bonus: "Mở rộng" };
 const LOCATION_LABEL: Record<string, string> = { library: "Thư viện", journey: "Hành trình", smart_home: "Smart Home" };
-const HEALTH_LABEL: Record<string, string> = { structure: "Cấu trúc", contentCoverage: "Độ phủ nội dung", resourceIntegrity: "Toàn vẹn tài nguyên", accessRules: "Quy tắc mở khóa", studentExperience: "Giao diện học viên" };
+const HEALTH_LABEL: Record<string, string> = { structure: "Cấu trúc", contentCoverage: "Độ phủ nội dung", resourceIntegrity: "Toàn vẹn tài nguyên", accessRules: "Quy tắc mở khóa" };
 
 export default function StageWorkspacePage({ params }: { params: Promise<{ stageId: string }> }) {
   const { stageId } = usePromise(params);
@@ -105,9 +109,10 @@ export default function StageWorkspacePage({ params }: { params: Promise<{ stage
 
     <header style={{ borderRadius: 24, background: "#0f172a", color: "#fff", padding: 24, marginBottom: 18, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 14 }}>
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#67e8f9", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#67e8f9", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           Stage Workspace · Giai đoạn {stage.indexLabel || stage.position + 1}
-          <span style={{ padding: "2px 10px", borderRadius: 999, fontSize: 10, background: stage.status === "active" ? "#065f46" : "#78350f" }}>{stage.status === "active" ? "Đã publish" : stage.status === "hidden" ? "Draft" : stage.status}</span>
+          <span style={{ padding: "2px 10px", borderRadius: 999, fontSize: 10, background: stage.status === "active" ? "#065f46" : "#78350f" }}>{stage.status === "active" ? "Đã publish" : stage.status === "hidden" ? "Nháp / đang ẩn" : stage.status}</span>
+          {health && <span style={{ padding: "2px 10px", borderRadius: 999, fontSize: 10, background: "#1e293b" }}>Health {health.score}/100</span>}
         </div>
         <h1 style={{ margin: "8px 0 0", fontSize: 30 }}>{stage.title}</h1>
         <p style={{ margin: "8px 0 0", color: "#cbd5e1", maxWidth: 640 }}>{stage.description || "Quản trị cấu trúc và trải nghiệm học viên của giai đoạn này."}</p>
@@ -128,9 +133,9 @@ export default function StageWorkspacePage({ params }: { params: Promise<{ stage
     </div>
 
     {active === "overview" && <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
         <Metric label="Chương trình" value={programs.length} />
-        <Metric label="Module" value={modules.length} />
+        <Metric label="Học phần" value={modules.length} />
         <Metric label="Nhóm tài liệu" value={groups.length} />
         <Metric label="Tài liệu" value={stage.resources.length} />
       </div>
@@ -140,7 +145,8 @@ export default function StageWorkspacePage({ params }: { params: Promise<{ stage
 
     {active === "structure" && <StructureContentTab stage={stage} nodes={nodes} busy={busy}
       onCreateNode={(payload) => call(`/api/academy-admin/stages/${stageId}/nodes`, { method: "POST", body: JSON.stringify(payload) }, "Đã thêm.")}
-      onArchiveNode={(nodeId) => call(`/api/academy-admin/stage-nodes/${nodeId}`, { method: "DELETE" }, "Đã lưu trữ.")}
+      onPatchNode={(nodeId, payload, msg) => call(`/api/academy-admin/stage-nodes/${nodeId}`, { method: "PATCH", body: JSON.stringify(payload) }, msg)}
+      onArchiveNode={(nodeId) => call(`/api/academy-admin/stage-nodes/${nodeId}`, { method: "DELETE" }, "Đã lưu trữ — tài liệu bên trong chuyển về mục Chưa phân loại.")}
       onPatchResource={(resourceId, payload, msg) => call(`/api/academy-admin/stage-resources/${resourceId}`, { method: "PATCH", body: JSON.stringify(payload) }, msg)}
       onDetachResource={(resourceId) => call(`/api/academy-admin/stage-resources/${resourceId}`, { method: "DELETE" }, "Đã gỡ tài liệu khỏi giai đoạn.")}
       onAttachCatalog={(payload) => call(`/api/academy-admin/stages/${stageId}/catalog-resources`, { method: "POST", body: JSON.stringify(payload) }, "Đã gắn tài liệu vào giai đoạn.")}
@@ -175,14 +181,14 @@ function InfoPanel({ title, text }: { title: string; text: string }) {
 
 function HealthPanel({ health }: { health: Health }) {
   const bars: Array<[string, number]> = [
-    ["structure", health.structure], ["contentCoverage", health.contentCoverage], ["resourceIntegrity", health.resourceIntegrity],
-    ["accessRules", health.accessRules], ["studentExperience", health.studentExperience]
+    ["structure", health.structure], ["contentCoverage", health.contentCoverage],
+    ["resourceIntegrity", health.resourceIntegrity], ["accessRules", health.accessRules]
   ];
   return <div className={styles.card} style={{ padding: 18 }}>
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
       <div>
         <h2 style={{ margin: 0, fontSize: 15 }}>Stage Health</h2>
-        <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>Độ hoàn thiện trước khi publish — tính từ dữ liệu thật, không lưu riêng.</p>
+        <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>Tính từ dữ liệu thật lúc mở trang, không lưu điểm riêng nên không bao giờ lệch.</p>
       </div>
       <div style={{ fontSize: 26, fontWeight: 700 }}>{health.score}<span style={{ fontSize: 13, color: "#94a3b8" }}>/100</span></div>
     </div>
@@ -192,6 +198,9 @@ function HealthPanel({ health }: { health: Health }) {
         <div style={{ height: 6, borderRadius: 999, background: "#eef1f4" }}><div style={{ height: 6, borderRadius: 999, width: `${value}%`, background: "linear-gradient(90deg,#22d3ee,#8b5cf6)" }} /></div>
       </div>)}
     </div>
+    <p style={{ margin: "12px 0 0", fontSize: 11, color: "#94a3b8" }}>
+      Giao diện học viên ({health.studentExperience}%) không tính vào điểm — tính năng chưa nối vào sidebar thật nên không giai đoạn nào đạt được 100% ở mục đó.
+    </p>
     {health.issues.length > 0 && <div style={{ marginTop: 14, display: "grid", gap: 6 }}>
       {health.issues.map((issue) => <div key={issue.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 10, background: issue.severity === "error" ? "#fee2e2" : issue.severity === "warning" ? "#fef3c7" : "#e0f2fe", fontSize: 12 }}>
         <strong style={{ textTransform: "uppercase", fontSize: 10 }}>{issue.severity}</strong>{issue.title}
@@ -238,24 +247,46 @@ function StageMetaForm({ stage, busy, onSave }: { stage: Stage; busy: boolean; o
   </div>;
 }
 
-/** 3-pane layout: Structure Explorer (nodes) -> Content Canvas (resources of selected node) -> Resource Inspector (edit selected resource). */
-function StructureContentTab({ stage, nodes, busy, onCreateNode, onArchiveNode, onPatchResource, onDetachResource, onAttachCatalog, onAttachManual }: {
+/** 3-pane layout: Structure Explorer (nodes) -> Content Canvas (resources of selected node) -> Resource Inspector. */
+function StructureContentTab({ stage, nodes, busy, onCreateNode, onPatchNode, onArchiveNode, onPatchResource, onDetachResource, onAttachCatalog, onAttachManual }: {
   stage: Stage; nodes: Node[]; busy: boolean;
   onCreateNode: (payload: Record<string, unknown>) => Promise<boolean>;
+  onPatchNode: (nodeId: string, payload: Record<string, unknown>, message: string) => Promise<boolean>;
   onArchiveNode: (nodeId: string) => Promise<boolean>;
   onPatchResource: (resourceId: string, payload: Record<string, unknown>, message: string) => Promise<boolean>;
   onDetachResource: (resourceId: string) => Promise<boolean>;
   onAttachCatalog: (payload: Record<string, unknown>) => Promise<boolean>;
   onAttachManual: (payload: Record<string, unknown>) => Promise<boolean>;
 }) {
+  // null = whole stage, "__unassigned" = resources with no node. Both are real views an admin needs:
+  // the first to see everything, the second to find what still has to be filed.
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
-  const visibleResources = selectedNodeId ? stage.resources.filter((resource) => resource.nodeId === selectedNodeId) : stage.resources;
+  const unassignedCount = stage.resources.filter((resource) => !resource.nodeId).length;
+  const visibleResources = selectedNodeId === null
+    ? stage.resources
+    : selectedNodeId === "__unassigned"
+      ? stage.resources.filter((resource) => !resource.nodeId)
+      : stage.resources.filter((resource) => resource.nodeId === selectedNodeId);
   const selectedResource = stage.resources.find((resource) => resource.id === selectedResourceId) ?? null;
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const attachNodeId = selectedNodeId && selectedNodeId !== "__unassigned" ? selectedNodeId : null;
+
+  const nodePath = (nodeId: string | null): string => {
+    if (!nodeId) return "Chưa phân loại";
+    const parts: string[] = [];
+    const seen = new Set<string>();
+    let cursor = nodes.find((node) => node.id === nodeId);
+    while (cursor && !seen.has(cursor.id)) {
+      parts.unshift(cursor.title);
+      seen.add(cursor.id);
+      cursor = cursor.parentId ? nodes.find((node) => node.id === cursor!.parentId) : undefined;
+    }
+    return parts.length ? parts.join(" › ") : "Chưa phân loại";
+  };
 
   async function reorder(resource: Resource, direction: -1 | 1) {
     const siblings = visibleResources.slice().sort((a, b) => a.position - b.position);
@@ -266,15 +297,21 @@ function StructureContentTab({ stage, nodes, busy, onCreateNode, onArchiveNode, 
     await onPatchResource(swapWith.id, { position: resource.position }, "Đã đổi thứ tự.");
   }
 
-  return <div style={{ display: "grid", gridTemplateColumns: "260px minmax(0,1fr) 320px", gap: 14, alignItems: "start" }}>
-    <StructureExplorer nodes={nodes} selectedNodeId={selectedNodeId} busy={busy} onSelect={setSelectedNodeId} onCreate={onCreateNode} onArchive={onArchiveNode} />
+  return <div style={{ display: "grid", gridTemplateColumns: "280px minmax(0,1fr) 330px", gap: 14, alignItems: "start" }}>
+    <StructureExplorer nodes={nodes} selectedNodeId={selectedNodeId} unassignedCount={unassignedCount} busy={busy}
+      onSelect={setSelectedNodeId} onCreate={onCreateNode} onPatch={onPatchNode} onArchive={onArchiveNode} />
 
     <div className={styles.card} style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: 16, borderBottom: "1px solid #eef1f4", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#a21caf", textTransform: "uppercase" }}>Content Canvas</div>
-          <h2 style={{ margin: "4px 0 0", fontSize: 17 }}>{selectedNode?.title ?? "Toàn bộ giai đoạn"}</h2>
-          <div style={{ fontSize: 11, color: "#6b7a89", marginTop: 2 }}>{visibleResources.length} tài nguyên</div>
+          <h2 style={{ margin: "4px 0 0", fontSize: 17 }}>
+            {selectedNodeId === null ? "Toàn bộ giai đoạn" : selectedNodeId === "__unassigned" ? "Chưa phân loại" : selectedNode?.title ?? "—"}
+          </h2>
+          <div style={{ fontSize: 11, color: "#6b7a89", marginTop: 2 }}>
+            {visibleResources.length} tài nguyên
+            {selectedNode?.effectiveSurface && <> · hiển thị ở <strong>{SURFACE_LABEL[selectedNode.effectiveSurface]}</strong>{!selectedNode.surface && " (kế thừa)"}</>}
+          </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className={styles.button} onClick={() => setManualOpen((value) => !value)}>Gắn thủ công</button>
@@ -283,7 +320,7 @@ function StructureContentTab({ stage, nodes, busy, onCreateNode, onArchiveNode, 
       </div>
 
       {manualOpen && <div style={{ padding: 16, borderBottom: "1px solid #eef1f4" }}>
-        <AttachResourceForm busy={busy} onSubmit={async (payload) => { const ok = await onAttachManual({ ...payload, nodeId: selectedNodeId || undefined }); if (ok) setManualOpen(false); return ok; }} />
+        <AttachResourceForm busy={busy} onSubmit={async (payload) => { const ok = await onAttachManual({ ...payload, nodeId: attachNodeId || undefined }); if (ok) setManualOpen(false); return ok; }} />
       </div>}
 
       <div style={{ padding: 14, display: "grid", gap: 8 }}>
@@ -305,16 +342,21 @@ function StructureContentTab({ stage, nodes, busy, onCreateNode, onArchiveNode, 
               {resource.status === "hidden" && <Chip tone="amber">Ẩn</Chip>}
             </div>
             <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{resource.title || resource.resourceId}</div>
+            {/* Showing the path only in the all-stage view: inside a node it would repeat the heading
+                on every row, but in the flat list it is the only way to tell where something lives. */}
+            {selectedNodeId === null && <div style={{ fontSize: 11, color: resource.nodeId ? "#94a3b8" : "#b45309", marginTop: 2 }}>{nodePath(resource.nodeId)}</div>}
           </div>
           <span style={{ fontSize: 11, color: "#94a3b8" }}>#{index + 1}</span>
         </div>)}
       </div>
     </div>
 
-    <ResourceInspector resource={selectedResource} busy={busy} onPatch={onPatchResource} onDetach={async (id) => { if (confirm("Gỡ tài liệu này khỏi giai đoạn? Nội dung gốc không bị xóa.")) { await onDetachResource(id); setSelectedResourceId(null); } }} />
+    <ResourceInspector resource={selectedResource} siblings={stage.resources.filter((item) => item.id !== selectedResourceId)} nodes={nodes} busy={busy}
+      onPatch={onPatchResource}
+      onDetach={async (id) => { if (confirm("Gỡ tài liệu này khỏi giai đoạn? Nội dung gốc không bị xóa.")) { await onDetachResource(id); setSelectedResourceId(null); } }} />
 
-    {pickerOpen && <ResourcePickerModal onClose={() => setPickerOpen(false)} nodeId={selectedNodeId}
-      onAttach={async (contentItemId) => { await onAttachCatalog({ contentItemId, nodeId: selectedNodeId || undefined }); }} />}
+    {pickerOpen && <ResourcePickerModal onClose={() => setPickerOpen(false)} nodeId={attachNodeId}
+      onAttach={async (contentItemId) => { await onAttachCatalog({ contentItemId, nodeId: attachNodeId || undefined }); }} />}
   </div>;
 }
 
@@ -327,52 +369,73 @@ function Chip({ children, tone = "cyan" }: { children: React.ReactNode; tone?: "
   return <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: c.bg, color: c.fg }}>{children}</span>;
 }
 
-function StructureExplorer({ nodes, selectedNodeId, busy, onSelect, onCreate, onArchive }: {
-  nodes: Node[]; selectedNodeId: string | null; busy: boolean;
+function StructureExplorer({ nodes, selectedNodeId, unassignedCount, busy, onSelect, onCreate, onPatch, onArchive }: {
+  nodes: Node[]; selectedNodeId: string | null; unassignedCount: number; busy: boolean;
   onSelect: (nodeId: string | null) => void;
   onCreate: (payload: Record<string, unknown>) => Promise<boolean>;
+  onPatch: (nodeId: string, payload: Record<string, unknown>, message: string) => Promise<boolean>;
   onArchive: (nodeId: string) => Promise<boolean>;
 }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [nodeType, setNodeType] = useState<"program" | "module" | "group">("program");
   const [parentId, setParentId] = useState("");
-  const programs = nodes.filter((node) => node.nodeType === "program");
+  const [surface, setSurface] = useState("");
+  const programs = nodes.filter((node) => node.nodeType === "program").sort((a, b) => a.position - b.position);
   const parentOptions = nodeType === "module" ? programs : nodeType === "group" ? nodes.filter((node) => node.nodeType === "module") : [];
+
+  function childrenOf(parent: Node) {
+    return nodes.filter((node) => node.parentId === parent.id).sort((a, b) => a.position - b.position);
+  }
+
+  async function move(node: Node, siblings: Node[], direction: -1 | 1) {
+    const index = siblings.findIndex((item) => item.id === node.id);
+    const swapWith = siblings[index + direction];
+    if (!swapWith) return;
+    await onPatch(node.id, { position: swapWith.position }, "Đã đổi thứ tự.");
+    await onPatch(swapWith.id, { position: node.position }, "Đã đổi thứ tự.");
+  }
 
   return <aside className={styles.card} style={{ padding: 0, overflow: "hidden" }}>
     <div style={{ padding: 14, borderBottom: "1px solid #eef1f4" }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: "#a21caf", textTransform: "uppercase" }}>Structure</div>
-      <div style={{ fontSize: 12, color: "#6b7a89" }}>Program → Module → Group</div>
+      <div style={{ fontSize: 12, color: "#6b7a89" }}>Chương trình → Học phần → Nhóm</div>
     </div>
-    <div style={{ padding: 8, maxHeight: 520, overflowY: "auto" }}>
+    <div style={{ padding: 8, maxHeight: 560, overflowY: "auto" }}>
       <button onClick={() => onSelect(null)} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginBottom: 4, background: selectedNodeId === null ? "#0f172a" : "transparent", color: selectedNodeId === null ? "#fff" : "#334155" }}>Toàn bộ giai đoạn</button>
+      {unassignedCount > 0 && <button onClick={() => onSelect("__unassigned")} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, marginBottom: 6, background: selectedNodeId === "__unassigned" ? "#0f172a" : "#fffbeb", color: selectedNodeId === "__unassigned" ? "#fff" : "#b45309" }}>
+        <span>Chưa phân loại</span><span>{unassignedCount}</span>
+      </button>}
       {programs.map((program) => <div key={program.id}>
-        <NodeRow node={program} depth={0} selected={selectedNodeId === program.id} onSelect={onSelect} onArchive={onArchive} busy={busy} />
-        {nodes.filter((node) => node.parentId === program.id).map((moduleNode) => <div key={moduleNode.id}>
-          <NodeRow node={moduleNode} depth={1} selected={selectedNodeId === moduleNode.id} onSelect={onSelect} onArchive={onArchive} busy={busy} />
-          {nodes.filter((node) => node.parentId === moduleNode.id).map((group) => <NodeRow key={group.id} node={group} depth={2} selected={selectedNodeId === group.id} onSelect={onSelect} onArchive={onArchive} busy={busy} />)}
+        <NodeRow node={program} depth={0} siblings={programs} selected={selectedNodeId === program.id} busy={busy} onSelect={onSelect} onPatch={onPatch} onArchive={onArchive} onMove={move} />
+        {childrenOf(program).map((moduleNode) => <div key={moduleNode.id}>
+          <NodeRow node={moduleNode} depth={1} siblings={childrenOf(program)} selected={selectedNodeId === moduleNode.id} busy={busy} onSelect={onSelect} onPatch={onPatch} onArchive={onArchive} onMove={move} />
+          {childrenOf(moduleNode).map((group) => <NodeRow key={group.id} node={group} depth={2} siblings={childrenOf(moduleNode)} selected={selectedNodeId === group.id} busy={busy} onSelect={onSelect} onPatch={onPatch} onArchive={onArchive} onMove={move} />)}
         </div>)}
       </div>)}
       {programs.length === 0 && <p style={{ fontSize: 12, color: "#6b7a89", padding: 10 }}>Chưa có chương trình nào.</p>}
     </div>
     <div style={{ padding: 10, borderTop: "1px solid #eef1f4" }}>
-      {!adding && <button className={styles.button} style={{ width: "100%" }} onClick={() => setAdding(true)}><Plus size={14} />Program / Module / Group</button>}
+      {!adding && <button className={styles.button} style={{ width: "100%" }} onClick={() => setAdding(true)}><Plus size={14} />Chương trình / học phần / nhóm</button>}
       {adding && <div style={{ display: "grid", gap: 6 }}>
         <select value={nodeType} style={field} onChange={(event) => { setNodeType(event.target.value as "program" | "module" | "group"); setParentId(""); }}>
           <option value="program">Chương trình</option>
-          <option value="module">Module</option>
+          <option value="module">Học phần</option>
           <option value="group">Nhóm tài liệu</option>
         </select>
         {nodeType !== "program" && <select value={parentId} style={field} onChange={(event) => setParentId(event.target.value)}>
-          <option value="">— Chọn {nodeType === "module" ? "chương trình" : "module"} —</option>
+          <option value="">— Chọn {nodeType === "module" ? "chương trình" : "học phần"} —</option>
           {parentOptions.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}
         </select>}
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Tên" style={field} />
+        <select value={surface} style={field} onChange={(event) => setSurface(event.target.value)}>
+          <option value="">Khu vực: kế thừa từ cấp trên</option>
+          {Object.entries(SURFACE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
         <div style={{ display: "flex", gap: 6 }}>
           <button className={styles.button} onClick={() => setAdding(false)}>Hủy</button>
           <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy || !title.trim() || (nodeType !== "program" && !parentId)} onClick={async () => {
-            if (await onCreate({ nodeType, title, parentId: nodeType === "program" ? undefined : parentId })) { setTitle(""); setParentId(""); setAdding(false); }
+            if (await onCreate({ nodeType, title, parentId: nodeType === "program" ? undefined : parentId, surface: surface || undefined })) { setTitle(""); setParentId(""); setSurface(""); setAdding(false); }
           }}>Thêm</button>
         </div>
       </div>}
@@ -380,17 +443,37 @@ function StructureExplorer({ nodes, selectedNodeId, busy, onSelect, onCreate, on
   </aside>;
 }
 
-function NodeRow({ node, depth, selected, busy, onSelect, onArchive }: { node: Node; depth: number; selected: boolean; busy: boolean; onSelect: (id: string) => void; onArchive: (id: string) => Promise<boolean> }) {
-  return <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: depth * 14 }}>
-    <button onClick={() => onSelect(node.id)} style={{ flex: 1, textAlign: "left", padding: "7px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, marginBottom: 2, background: selected ? "#0f172a" : "transparent", color: selected ? "#fff" : "#334155" }}>
-      {node.title}
+function NodeRow({ node, depth, siblings, selected, busy, onSelect, onPatch, onArchive, onMove }: {
+  node: Node; depth: number; siblings: Node[]; selected: boolean; busy: boolean;
+  onSelect: (id: string) => void;
+  onPatch: (nodeId: string, payload: Record<string, unknown>, message: string) => Promise<boolean>;
+  onArchive: (id: string) => Promise<boolean>;
+  onMove: (node: Node, siblings: Node[], direction: -1 | 1) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(node.title);
+
+  if (editing) return <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: depth * 14, marginBottom: 2 }}>
+    <input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} style={{ ...field, flex: 1, padding: 6 }} autoFocus
+      onKeyDown={async (event) => { if (event.key === "Enter" && draftTitle.trim()) { await onPatch(node.id, { title: draftTitle }, "Đã đổi tên."); setEditing(false); } if (event.key === "Escape") { setDraftTitle(node.title); setEditing(false); } }} />
+    <button disabled={busy || !draftTitle.trim()} onClick={async () => { await onPatch(node.id, { title: draftTitle }, "Đã đổi tên."); setEditing(false); }} style={{ border: "none", background: "none", cursor: "pointer", color: "#177a54" }}><Check size={13} /></button>
+    <button onClick={() => { setDraftTitle(node.title); setEditing(false); }} style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8" }}><X size={13} /></button>
+  </div>;
+
+  return <div style={{ display: "flex", alignItems: "center", gap: 2, paddingLeft: depth * 14, marginBottom: 2 }}>
+    <button onClick={() => onSelect(node.id)} style={{ flex: 1, minWidth: 0, textAlign: "left", padding: "7px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, background: selected ? "#0f172a" : "transparent", color: selected ? "#fff" : "#334155" }}>
+      <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.title}</span>
+      {node.surface && <span style={{ fontSize: 9, opacity: 0.75 }}>{SURFACE_LABEL[node.surface]}</span>}
     </button>
-    <button disabled={busy} onClick={() => { if (confirm(`Lưu trữ "${node.title}"?`)) onArchive(node.id); }} style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8" }}><Trash2 size={11} /></button>
+    <button title="Lên" disabled={busy} onClick={() => onMove(node, siblings, -1)} style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8", padding: 2 }}><ChevronUp size={11} /></button>
+    <button title="Xuống" disabled={busy} onClick={() => onMove(node, siblings, 1)} style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8", padding: 2 }}><ChevronDown size={11} /></button>
+    <button title="Đổi tên" onClick={() => setEditing(true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8", padding: 2 }}><Pencil size={11} /></button>
+    <button title="Lưu trữ" disabled={busy} onClick={() => { if (confirm(`Lưu trữ ${NODE_TYPE_LABEL[node.nodeType].toLowerCase()} “${node.title}”? Mọi mục con cũng được lưu trữ, tài liệu bên trong chuyển về "Chưa phân loại".`)) onArchive(node.id); }} style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8", padding: 2 }}><Trash2 size={11} /></button>
   </div>;
 }
 
-function ResourceInspector({ resource, busy, onPatch, onDetach }: {
-  resource: Resource | null; busy: boolean;
+function ResourceInspector({ resource, siblings, nodes, busy, onPatch, onDetach }: {
+  resource: Resource | null; siblings: Resource[]; nodes: Node[]; busy: boolean;
   onPatch: (resourceId: string, payload: Record<string, unknown>, message: string) => Promise<boolean>;
   onDetach: (resourceId: string) => void;
 }) {
@@ -402,6 +485,9 @@ function ResourceInspector({ resource, busy, onPatch, onDetach }: {
   const active = resource;
   const needsPrerequisite = active.unlockMode === "after_resource" || active.unlockMode === "progress_gte";
   const locations = active.displayLocations ?? [];
+  const ownerNode = nodes.find((node) => node.id === active.nodeId) ?? null;
+  const inheritedSurface = ownerNode?.effectiveSurface ?? null;
+
   function toggleLocation(value: string) {
     const next = locations.includes(value) ? locations.filter((item) => item !== value) : [...locations, value];
     onPatch(active.id, { displayLocations: next }, "Đã đổi nơi hiển thị.");
@@ -411,38 +497,64 @@ function ResourceInspector({ resource, busy, onPatch, onDetach }: {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <strong style={{ fontSize: 13 }}>Inspector</strong>
-        <Chip>{TYPE_LABEL[resource.resourceType] ?? resource.resourceType}</Chip>
+        <Chip>{TYPE_LABEL[active.resourceType] ?? active.resourceType}</Chip>
       </div>
-      <div style={{ marginTop: 8, fontWeight: 700, fontSize: 14 }}>{resource.title || resource.resourceId}</div>
-      <div style={{ fontSize: 11, color: "#94a3b8" }}><code>{resource.resourceId}</code></div>
+      <div style={{ marginTop: 8, fontWeight: 700, fontSize: 14 }}>{active.title || active.resourceId}</div>
+      <div style={{ fontSize: 11, color: "#94a3b8" }}><code>{active.resourceId}</code></div>
     </div>
 
+    <Field label="Thuộc">
+      <select value={active.nodeId ?? ""} disabled={busy} style={field} onChange={(event) => onPatch(active.id, { nodeId: event.target.value || null }, "Đã chuyển tài liệu.")}>
+        <option value="">— Chưa phân loại —</option>
+        {nodes.filter((node) => node.nodeType === "program").sort((a, b) => a.position - b.position).flatMap((program) => [
+          <option key={program.id} value={program.id}>{program.title}</option>,
+          ...nodes.filter((node) => node.parentId === program.id).sort((a, b) => a.position - b.position).flatMap((moduleNode) => [
+            <option key={moduleNode.id} value={moduleNode.id}>— {moduleNode.title}</option>,
+            ...nodes.filter((node) => node.parentId === moduleNode.id).sort((a, b) => a.position - b.position).map((group) => <option key={group.id} value={group.id}>—— {group.title}</option>)
+          ])
+        ])}
+      </select>
+    </Field>
+
     <Field label="Vai trò">
-      <select value={resource.requirementType} disabled={busy} style={field} onChange={(event) => onPatch(resource.id, { requirementType: event.target.value }, "Đã đổi mức độ bắt buộc.")}>
+      <select value={active.requirementType} disabled={busy} style={field} onChange={(event) => onPatch(active.id, { requirementType: event.target.value }, "Đã đổi mức độ bắt buộc.")}>
         {REQUIREMENT_TYPES.map((value) => <option key={value} value={value}>{REQUIREMENT_LABEL[value]}</option>)}
       </select>
     </Field>
 
     <Field label="Quyền xem">
-      <select value={resource.access} disabled={busy} style={field} onChange={(event) => onPatch(resource.id, { access: event.target.value }, "Đã đổi quyền xem.")}>
+      <select value={active.access} disabled={busy} style={field} onChange={(event) => onPatch(active.id, { access: event.target.value }, "Đã đổi quyền xem.")}>
         {STAGE_RESOURCE_ACCESS.map((value) => <option key={value} value={value}>{ACCESS_LABEL[value]}</option>)}
       </select>
     </Field>
 
     <Field label="Luật mở khóa">
-      <select value={resource.unlockMode} disabled={busy || resource.access === "free_preview"} style={field} onChange={(event) => onPatch(resource.id, { unlockMode: event.target.value }, "Đã đổi luật mở khóa.")}>
+      <select value={active.unlockMode} disabled={busy || active.access === "free_preview"} style={field} onChange={(event) => onPatch(active.id, { unlockMode: event.target.value }, "Đã đổi luật mở khóa.")}>
         {UNLOCK_MODES.map((value) => <option key={value} value={value}>{UNLOCK_LABEL[value]}</option>)}
       </select>
-      {needsPrerequisite && <select value={resource.prerequisiteBindingId ?? ""} disabled={busy} style={{ ...field, marginTop: 6 }} onChange={(event) => onPatch(resource.id, { prerequisiteBindingId: event.target.value }, "Đã đặt tài liệu tiên quyết.")}>
-        <option value="">— Chọn tài liệu phải học trước —</option>
-      </select>}
-      {resource.unlockMode === "date" && <input type="datetime-local" defaultValue={resource.unlockAt ? resource.unlockAt.slice(0, 16) : ""} disabled={busy} style={{ ...field, marginTop: 6 }}
-        onBlur={(event) => onPatch(resource.id, { unlockAt: event.target.value ? new Date(event.target.value).toISOString() : null }, "Đã đặt mốc thời gian mở.")} />}
+      {active.access === "free_preview" && <small style={{ display: "block", marginTop: 4, color: "#6b7a89", fontSize: 11 }}>Tài liệu miễn phí luôn mở — luật này không áp dụng.</small>}
+
+      {needsPrerequisite && <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
+        <select value={active.prerequisiteBindingId ?? ""} disabled={busy} style={field} onChange={(event) => onPatch(active.id, { prerequisiteBindingId: event.target.value }, "Đã đặt tài liệu tiên quyết.")}>
+          <option value="">— Chọn tài liệu phải học trước —</option>
+          {siblings.map((sibling) => <option key={sibling.id} value={sibling.id}>{sibling.title || sibling.resourceId}</option>)}
+        </select>
+        {siblings.length === 0 && <small style={{ color: "#b22949", fontSize: 11 }}>Giai đoạn này chưa có tài liệu nào khác để làm điều kiện.</small>}
+        {active.unlockMode === "progress_gte" && <label style={{ display: "grid", gap: 4, fontSize: 11 }}>Mở khi đạt (%)
+          <input type="number" min={0} max={100} defaultValue={active.requiredProgress ?? 80} disabled={busy} style={field}
+            onBlur={(event) => onPatch(active.id, { requiredProgress: Number(event.target.value) }, "Đã đặt ngưỡng tiến độ.")} />
+        </label>}
+      </div>}
+
+      {active.unlockMode === "date" && <input type="datetime-local" defaultValue={active.unlockAt ? active.unlockAt.slice(0, 16) : ""} disabled={busy} style={{ ...field, marginTop: 6 }}
+        onBlur={(event) => onPatch(active.id, { unlockAt: event.target.value ? new Date(event.target.value).toISOString() : null }, "Đã đặt mốc thời gian mở.")} />}
+
+      {active.unlockMode === "manual" && <small style={{ display: "block", marginTop: 4, color: "#6b7a89", fontSize: 11 }}>Chỉ mở khi cấp quyền riêng ở mục Phân phối &amp; cấp quyền.</small>}
     </Field>
 
-    <Field label="Nav section (surface)">
-      <select value={resource.surface ?? ""} disabled={busy} style={field} onChange={(event) => onPatch(resource.id, { surface: event.target.value || null }, "Đã đổi nav section.")}>
-        <option value="">— Chưa gán —</option>
+    <Field label="Khu vực học viên">
+      <select value={active.surface ?? ""} disabled={busy} style={field} onChange={(event) => onPatch(active.id, { surface: event.target.value || null }, "Đã đổi khu vực.")}>
+        <option value="">{inheritedSurface ? `Kế thừa: ${SURFACE_LABEL[inheritedSurface]}` : "— Chưa gán —"}</option>
         {Object.entries(SURFACE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
     </Field>
@@ -457,14 +569,14 @@ function ResourceInspector({ resource, busy, onPatch, onDetach }: {
 
     <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid #eef1f4", borderRadius: 10, padding: 10 }}>
       <strong style={{ fontSize: 12 }}>Nổi bật</strong>
-      <input type="checkbox" checked={resource.isFeatured} disabled={busy} onChange={(event) => onPatch(resource.id, { isFeatured: event.target.checked }, "Đã đổi trạng thái nổi bật.")} />
+      <input type="checkbox" checked={active.isFeatured} disabled={busy} onChange={(event) => onPatch(active.id, { isFeatured: event.target.checked }, "Đã đổi trạng thái nổi bật.")} />
     </label>
     <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid #eef1f4", borderRadius: 10, padding: 10 }}>
       <strong style={{ fontSize: 12 }}>Hiển thị cho học viên</strong>
-      <input type="checkbox" checked={resource.status !== "hidden"} disabled={busy} onChange={(event) => onPatch(resource.id, { status: event.target.checked ? "active" : "hidden" }, "Đã đổi trạng thái hiển thị.")} />
+      <input type="checkbox" checked={active.status !== "hidden"} disabled={busy} onChange={(event) => onPatch(active.id, { status: event.target.checked ? "active" : "hidden" }, "Đã đổi trạng thái hiển thị.")} />
     </label>
 
-    <button className={styles.button} disabled={busy} onClick={() => onDetach(resource.id)}><Trash2 size={12} />Gỡ khỏi giai đoạn</button>
+    <button className={styles.button} disabled={busy} onClick={() => onDetach(active.id)}><Trash2 size={12} />Gỡ khỏi giai đoạn</button>
   </aside>;
 }
 

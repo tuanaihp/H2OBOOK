@@ -1,13 +1,14 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { AcademyStageNode, AcademyStageUiConfig, ContentCatalogItem, ContentType, NodeStatus, StageNodeType, StudentNavDraft } from "./types";
+import type { AcademyStageNode, AcademyStageUiConfig, ContentCatalogItem, ContentType, NodeStatus, StageNodeType, StageSurface, StudentNavDraft } from "./types";
 
 type NodeRow = {
   id: string; organization_id: string; stage_id: string; parent_id: string | null;
   node_type: StageNodeType; title: string; description: string | null; position: number; status: NodeStatus;
+  surface: string | null;
 };
 
-function mapNode(row: NodeRow): AcademyStageNode {
+function mapNode(row: NodeRow): Omit<AcademyStageNode, "effectiveSurface"> {
   return {
     id: String(row.id),
     organizationId: String(row.organization_id),
@@ -17,8 +18,28 @@ function mapNode(row: NodeRow): AcademyStageNode {
     title: String(row.title),
     description: String(row.description ?? ""),
     position: Number(row.position ?? 0),
-    status: row.status
+    status: row.status,
+    surface: (row.surface as StageSurface | null) ?? null
   };
+}
+
+/**
+ * Fills in effectiveSurface by walking up to the nearest ancestor that declares one. The tree is at
+ * most three deep (program -> module -> group, enforced by a trigger in migration 0041), so the walk
+ * is bounded; the visited set still guards against a cycle that bad data could introduce.
+ */
+function withInheritedSurface(nodes: Omit<AcademyStageNode, "effectiveSurface">[]): AcademyStageNode[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return nodes.map((node) => {
+    const seen = new Set<string>();
+    let cursor: Omit<AcademyStageNode, "effectiveSurface"> | undefined = node;
+    while (cursor && !seen.has(cursor.id)) {
+      if (cursor.surface) return { ...node, effectiveSurface: cursor.surface };
+      seen.add(cursor.id);
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+    }
+    return { ...node, effectiveSurface: null };
+  });
 }
 
 /** Program/module/group rows for one stage, active+hidden (archived excluded), ordered for tree rendering. */
@@ -27,12 +48,12 @@ export async function loadStageNodes(organizationId: string, stageId: string): P
   if (!admin) return [];
   const { data } = await admin
     .from("academy_stage_nodes")
-    .select("id,organization_id,stage_id,parent_id,node_type,title,description,position,status")
+    .select("id,organization_id,stage_id,parent_id,node_type,title,description,position,status,surface")
     .eq("organization_id", organizationId)
     .eq("stage_id", stageId)
     .neq("status", "archived")
     .order("position", { ascending: true });
-  return ((data ?? []) as NodeRow[]).map(mapNode);
+  return withInheritedSurface(((data ?? []) as NodeRow[]).map(mapNode));
 }
 
 /** Program count + resource count per stage, for the stage switcher/overview cards. */
