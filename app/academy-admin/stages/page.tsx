@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
@@ -45,6 +45,24 @@ export default function CareerStagesAdminPage() {
     return true;
   }
 
+  /**
+   * Reordering swaps two neighbours' `position` values. Two writes rather than one because position
+   * is what both the public learning-paths page and the student journey sort by — leaving a gap or a
+   * duplicate would change the order those pages render, not just this list.
+   */
+  async function moveStage(stage: Stage, direction: -1 | 1) {
+    const ordered = stages.slice().sort((a, b) => a.position - b.position);
+    const index = ordered.findIndex((item) => item.id === stage.id);
+    const swapWith = ordered[index + direction];
+    if (!swapWith) return;
+    setBusy(true); setMessage(null);
+    await fetch(`/api/academy-admin/stages/${stage.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ position: swapWith.position }) });
+    await fetch(`/api/academy-admin/stages/${swapWith.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ position: stage.position }) });
+    setBusy(false); setMessage("Đã đổi thứ tự giai đoạn.");
+    await load();
+  }
+
+  const ordered = stages.slice().sort((a, b) => a.position - b.position);
   const totalResources = stages.reduce((sum, stage) => sum + stage.resources.length, 0);
   const totalWarnings = Object.values(health).reduce((sum, item) => sum + item.issues.filter((issue) => issue.severity !== "info").length, 0);
 
@@ -53,7 +71,7 @@ export default function CareerStagesAdminPage() {
       <div>
         <span className={styles.eyebrow}>BẢN ĐỒ GIAI ĐOẠN NGHỀ</span>
         <h1>Giai đoạn &amp; lộ trình</h1>
-        <p>Mỗi giai đoạn là một workspace quản trị riêng — cấu trúc, nội dung, mở khóa và giao diện học viên. Bấm vào một giai đoạn để vào workspace của nó.</p>
+        <p>Mỗi giai đoạn là một workspace quản trị riêng — cấu trúc, nội dung, mở khóa và giao diện học viên. Thứ tự ở đây chính là thứ tự học viên thấy trên lộ trình.</p>
       </div>
       <Link href="/academy-admin/content" className={styles.button}>Kho nội dung Academy</Link>
     </header>
@@ -63,6 +81,7 @@ export default function CareerStagesAdminPage() {
 
     {!loading && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 18 }}>
       <SummaryCard label="Giai đoạn" value={stages.length} />
+      <SummaryCard label="Đang publish" value={stages.filter((stage) => stage.status === "active").length} />
       <SummaryCard label="Tài liệu" value={totalResources} />
       <SummaryCard label="Cảnh báo" value={totalWarnings} />
     </div>}
@@ -75,28 +94,34 @@ export default function CareerStagesAdminPage() {
     </section>}
 
     <section className={styles.card} style={{ marginBottom: 18 }}>
-      <div className={styles.cardHead}><div><h2>Thêm giai đoạn</h2></div></div>
+      <div className={styles.cardHead}><div><h2>Thêm giai đoạn</h2><p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>Giai đoạn mới được thêm vào cuối và ở trạng thái nháp — dùng mũi tên để đưa về đúng vị trí.</p></div></div>
       <div style={{ padding: 18, display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
         <label style={{ display: "grid", gap: 6, fontSize: 11 }}>Tên giai đoạn
           <input value={newStageTitle} onChange={(event) => setNewStageTitle(event.target.value)} placeholder="Ví dụ: Chuyên gia đào tạo" style={field} />
         </label>
         <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy || !newStageTitle.trim()} onClick={async () => {
-          if (await call("/api/academy-admin/stages", { method: "POST", body: JSON.stringify({ title: newStageTitle }) }, "Đã thêm giai đoạn.")) setNewStageTitle("");
+          if (await call("/api/academy-admin/stages", { method: "POST", body: JSON.stringify({ title: newStageTitle, status: "hidden" }) }, "Đã thêm giai đoạn (đang ở trạng thái nháp).")) setNewStageTitle("");
         }}><Plus size={14} />Thêm</button>
       </div>
     </section>
 
-    <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-      {stages.map((stage) => {
+    <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+      {ordered.map((stage, index) => {
         const stageHealth = health[stage.id];
         const warnings = stageHealth?.issues.filter((issue) => issue.severity !== "info").length ?? 0;
-        return <Link key={stage.id} href={`/academy-admin/stages/${stage.id}`} className={styles.card} style={{ padding: 0, opacity: stage.status === "hidden" ? 0.85 : 1, textDecoration: "none", color: "inherit", display: "block", overflow: "hidden" }}>
+        return <div key={stage.id} className={styles.card} style={{ padding: 0, opacity: stage.status === "hidden" ? 0.85 : 1, overflow: "hidden" }}>
           <div style={{ background: "#0f172a", color: "#fff", padding: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#67e8f9", textTransform: "uppercase", letterSpacing: "0.1em" }}>Giai đoạn {stage.indexLabel || stage.position + 1}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: stage.status === "active" ? "#065f46" : "#78350f" }}>{stage.status === "active" ? "Đã publish" : "Draft"}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#67e8f9", textTransform: "uppercase", letterSpacing: "0.1em" }}>Giai đoạn {stage.indexLabel || index + 1}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: stage.status === "active" ? "#065f46" : "#78350f" }}>{stage.status === "active" ? "Đã publish" : "Nháp"}</span>
+                <button title="Đưa lên trước" disabled={busy || index === 0} onClick={() => moveStage(stage, -1)} style={{ border: "none", background: "none", cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#475569" : "#cbd5e1", padding: 2 }}><ChevronUp size={13} /></button>
+                <button title="Đưa xuống sau" disabled={busy || index === ordered.length - 1} onClick={() => moveStage(stage, 1)} style={{ border: "none", background: "none", cursor: index === ordered.length - 1 ? "default" : "pointer", color: index === ordered.length - 1 ? "#475569" : "#cbd5e1", padding: 2 }}><ChevronDown size={13} /></button>
+              </div>
             </div>
-            <h2 style={{ margin: "8px 0 0", fontSize: 18 }}>{stage.title}</h2>
+            <Link href={`/academy-admin/stages/${stage.id}`} style={{ color: "#fff", textDecoration: "none" }}>
+              <h2 style={{ margin: "8px 0 0", fontSize: 18 }}>{stage.title}</h2>
+            </Link>
           </div>
           <div style={{ padding: 16 }}>
             <p style={{ margin: 0, fontSize: 12, color: "#6b7a89", minHeight: 32 }}>{stage.description || "Chưa có mô tả giai đoạn."}</p>
@@ -108,12 +133,21 @@ export default function CareerStagesAdminPage() {
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>Stage Health</span><strong>{stageHealth.score}/100</strong></div>
               <div style={{ height: 6, borderRadius: 999, background: "#eef1f4" }}><div style={{ height: 6, borderRadius: 999, width: `${stageHealth.score}%`, background: "linear-gradient(90deg,#22d3ee,#8b5cf6)" }} /></div>
             </div>}
-            <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: warnings ? "#b45309" : "#177a54" }}>{warnings ? `⚠ ${warnings} cảnh báo` : "✓ Sẵn sàng"}</span>
-              <span style={{ fontWeight: 600, fontSize: 12 }}>Mở workspace →</span>
+            <div style={{ marginTop: 10, fontSize: 11, color: warnings ? "#b45309" : "#177a54" }}>{warnings ? `⚠ ${warnings} cảnh báo` : "✓ Sẵn sàng"}</div>
+
+            <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid #eef1f4", paddingTop: 12 }}>
+              <Link href={`/academy-admin/stages/${stage.id}`} className={`${styles.button} ${styles.buttonPrimary}`} style={{ flex: 1, justifyContent: "center" }}>Mở workspace</Link>
+              <button className={styles.button} disabled={busy} title={stage.status === "active" ? "Tạm ẩn khỏi học viên" : "Cho hiển thị lại"}
+                onClick={() => call(`/api/academy-admin/stages/${stage.id}`, { method: "PATCH", body: JSON.stringify({ status: stage.status === "active" ? "hidden" : "active" }) }, stage.status === "active" ? "Đã tạm ẩn giai đoạn." : "Đã cho hiển thị lại giai đoạn.")}>
+                {stage.status === "active" ? <EyeOff size={13} /> : <Eye size={13} />}
+              </button>
+              <button className={styles.button} disabled={busy} title="Lưu trữ giai đoạn"
+                onClick={() => { if (confirm(`Lưu trữ giai đoạn “${stage.title}” và toàn bộ tài liệu gắn kèm? Giai đoạn sẽ biến mất khỏi danh sách này.`)) call(`/api/academy-admin/stages/${stage.id}`, { method: "DELETE" }, "Đã lưu trữ giai đoạn."); }}>
+                <Trash2 size={13} />
+              </button>
             </div>
           </div>
-        </Link>;
+        </div>;
       })}
     </section>
   </SimpleOperationsShell>;

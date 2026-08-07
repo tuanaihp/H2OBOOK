@@ -121,7 +121,7 @@ export async function attachResource(access: AcademyAdminAccess, stageId: string
     title_override: input.title?.trim() || null,
     summary: input.summary?.trim() || null,
     href: input.href?.trim() || null,
-    position: input.position ?? (await nextResourcePosition(access, stageId)),
+    position: input.position ?? (await nextResourcePosition(access, stageId, input.nodeId ?? null)),
     access: input.access ?? "stage_locked",
     status: input.status ?? "active",
     unlock_mode: input.unlockMode ?? "immediate",
@@ -208,8 +208,15 @@ async function nextStagePosition(access: AcademyAdminAccess): Promise<number> {
   return stages.reduce((max, stage) => Math.max(max, stage.position), -1) + 1;
 }
 
-async function nextResourcePosition(access: AcademyAdminAccess, stageId: string): Promise<number> {
+/**
+ * Position is ordering *within a node*, not within the whole stage — that is the only list a reader
+ * ever sees, and the reorder controls only ever swap two siblings. Computing "last across the whole
+ * stage" instead meant a resource dropped into an empty module started at position 40-something and
+ * sorted correctly only by accident.
+ */
+export async function nextResourcePosition(access: AcademyAdminAccess, stageId: string, nodeId: string | null): Promise<number> {
   const stages = await loadCareerStages(access.organizationId, { includeHidden: true });
   const stage = stages.find((candidate) => candidate.id === stageId);
-  return (stage?.resources ?? []).reduce((max, resource) => Math.max(max, resource.position), -1) + 1;
+  const siblings = (stage?.resources ?? []).filter((resource) => (resource.nodeId ?? null) === nodeId);
+  return siblings.reduce((max, resource) => Math.max(max, resource.position), -1) + 1;
 }

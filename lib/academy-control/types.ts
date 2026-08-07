@@ -27,6 +27,11 @@ export interface AcademyStageNode {
   description: string;
   position: number;
   status: NodeStatus;
+  // Migration 0043. The surface this branch belongs to, or null to inherit from its parent.
+  surface: StageSurface | null;
+  // Resolved by walking up to the nearest ancestor with a surface set — what the branch actually
+  // renders under, as opposed to what it declares. Equal to `surface` when that is set.
+  effectiveSurface: StageSurface | null;
 }
 
 export interface AcademyStageNodeInput {
@@ -36,6 +41,7 @@ export interface AcademyStageNodeInput {
   title: string;
   description?: string;
   position?: number;
+  surface?: StageSurface | null;
 }
 
 export interface ContentCatalogItem {

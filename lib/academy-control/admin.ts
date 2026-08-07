@@ -1,8 +1,9 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
+import { nextResourcePosition } from "@/lib/career-stages/admin";
 import { loadStageNodes } from "./service";
-import type { AcademyStageNodeInput, AttachCatalogResourceInput, StudentNavDraft } from "./types";
+import type { AcademyStageNodeInput, AttachCatalogResourceInput, StageSurface, StudentNavDraft } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -23,6 +24,7 @@ export async function createNode(access: AcademyAdminAccess, input: AcademyStage
     title,
     description: input.description ?? null,
     position: input.position ?? (await nextNodePosition(access, input.stageId, input.parentId ?? null)),
+    surface: input.surface ?? null,
     status: "active"
   }).select("id").single();
   // The depth trigger (h2obook_validate_stage_node_depth) is the real guard against a module
@@ -31,7 +33,7 @@ export async function createNode(access: AcademyAdminAccess, input: AcademyStage
   return { ok: true, data: { id: String(data.id) } };
 }
 
-export async function updateNode(access: AcademyAdminAccess, nodeId: string, input: { title?: string; description?: string; position?: number; status?: "active" | "hidden" | "archived" }): Promise<Result<null>> {
+export async function updateNode(access: AcademyAdminAccess, nodeId: string, input: { title?: string; description?: string; position?: number; status?: "active" | "hidden" | "archived"; surface?: StageSurface | null }): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -42,18 +44,45 @@ export async function updateNode(access: AcademyAdminAccess, nodeId: string, inp
   if (input.description !== undefined) patch.description = input.description;
   if (input.position !== undefined) patch.position = input.position;
   if (input.status !== undefined) patch.status = input.status;
+  if (input.surface !== undefined) patch.surface = input.surface;
   const { error } = await supabase.from("academy_stage_nodes").update(patch).eq("id", nodeId).eq("organization_id", access.organizationId);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
 }
 
-/** Archive rather than delete — a node with resources attached must not silently orphan them. */
-export async function archiveNode(access: AcademyAdminAccess, nodeId: string): Promise<Result<null>> {
+/**
+ * Archives a node together with everything under it, and releases the resources that pointed at any
+ * of them back to "unassigned" (node_id = null).
+ *
+ * Both halves matter. Archiving a program alone left its modules active but unreachable: the tree
+ * renders modules inside their parent program, and the archived parent is filtered out, so the whole
+ * subtree silently disappeared while still counting as live data. Likewise a resource whose node was
+ * archived kept pointing at it and vanished from every per-node view — present in the database,
+ * invisible in the UI. Releasing them means they resurface under "Chưa phân loại", which is
+ * recoverable; leaving them pointed at an archived node is not.
+ */
+export async function archiveNode(access: AcademyAdminAccess, nodeId: string): Promise<Result<{ archived: number; released: number }>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
-  const { error } = await supabase.from("academy_stage_nodes").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", nodeId).eq("organization_id", access.organizationId);
+
+  const { data: target } = await supabase.from("academy_stage_nodes").select("id,stage_id").eq("id", nodeId).eq("organization_id", access.organizationId).single();
+  if (!target) return { ok: false, error: "STAGE_NODE_NOT_FOUND" };
+
+  const siblings = await loadStageNodes(access.organizationId, String(target.stage_id));
+  const ids = new Set<string>([nodeId]);
+  // Three passes cover program -> module -> group; a fourth level cannot exist (trigger in 0041).
+  for (let depth = 0; depth < 3; depth += 1) {
+    for (const node of siblings) {
+      if (node.parentId && ids.has(node.parentId)) ids.add(node.id);
+    }
+  }
+  const idList = [...ids];
+
+  const { error } = await supabase.from("academy_stage_nodes").update({ status: "archived", updated_at: new Date().toISOString() }).in("id", idList).eq("organization_id", access.organizationId);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, data: null };
+
+  const { data: released } = await supabase.from("career_stage_resources").update({ node_id: null, updated_at: new Date().toISOString() }).in("node_id", idList).eq("organization_id", access.organizationId).select("id");
+  return { ok: true, data: { archived: idList.length, released: (released ?? []).length } };
 }
 
 /**
@@ -92,7 +121,7 @@ export async function attachCatalogResource(access: AcademyAdminAccess, input: A
     resource_id: item.source_id,
     surface: input.surface ?? null,
     is_featured: input.isFeatured ?? false,
-    position: input.position ?? 0,
+    position: input.position ?? (await nextResourcePosition(access, input.stageId, input.nodeId ?? null)),
     access: "stage_locked",
     status: "active",
     unlock_mode: "immediate",

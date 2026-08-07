@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
 import { createNode } from "@/lib/academy-control/admin";
 import { loadStageNodes } from "@/lib/academy-control/service";
-import { isStageNodeType } from "@/lib/academy-control/types";
+import { isStageNodeType, isStageSurface } from "@/lib/academy-control/types";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { access, response } = await resolveAcademyAdminAccess(request);
@@ -25,7 +25,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     title: body.title,
     parentId: typeof body.parentId === "string" ? body.parentId : undefined,
     description: typeof body.description === "string" ? body.description : undefined,
-    position: typeof body.position === "number" ? body.position : undefined
+    position: typeof body.position === "number" ? body.position : undefined,
+    surface: isStageSurface(body.surface) ? body.surface : undefined
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json(result.data, { status: 201 });
