@@ -35,33 +35,25 @@ export default function BrainCuratorPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // Three requests, not one per review card. The stage list, every stage's tree and the AI status
+  // all arrive together; previously each card independently fetched the tree for the stage its
+  // suggestion named, so ten cards could fire ten overlapping requests for the same stage.
   async function load() {
     setLoading(true);
-    const [inboxRes, stagesRes, rulesRes, aiRes] = await Promise.all([
+    const [inboxRes, stagesRes, rulesRes] = await Promise.all([
       fetch("/api/academy-admin/brain/inbox", { cache: "no-store" }),
-      fetch("/api/academy-admin/stages", { cache: "no-store" }),
-      fetch("/api/academy-admin/brain/rules", { cache: "no-store" }),
-      fetch("/api/academy-admin/brain/status", { cache: "no-store" })
+      fetch("/api/academy-admin/stages?nodes=1", { cache: "no-store" }),
+      fetch("/api/academy-admin/brain/rules", { cache: "no-store" })
     ]);
     const inboxJson = await inboxRes.json().catch(() => null);
     const stagesJson = await stagesRes.json().catch(() => null);
     const rulesJson = await rulesRes.json().catch(() => null);
-    const aiJson = await aiRes.json().catch(() => null);
-    if (inboxRes.ok) setItems(inboxJson?.items ?? []);
-    if (stagesRes.ok) setStages(stagesJson?.stages ?? []);
+    if (inboxRes.ok) { setItems(inboxJson?.items ?? []); setAi(inboxJson?.ai ?? null); }
+    if (stagesRes.ok) { setStages(stagesJson?.stages ?? []); setNodesByStage(stagesJson?.nodes ?? {}); }
     if (rulesRes.ok) setRules(rulesJson?.items ?? []);
-    if (aiRes.ok) setAi(aiJson ?? null);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-
-  /** Nodes are fetched per stage on demand — a suggestion usually names one stage, not all of them. */
-  async function ensureNodes(stageId: string) {
-    if (!stageId || nodesByStage[stageId]) return;
-    const res = await fetch(`/api/academy-admin/stages/${stageId}/nodes`, { cache: "no-store" });
-    const json = await res.json().catch(() => null);
-    if (res.ok) setNodesByStage((current) => ({ ...current, [stageId]: json?.items ?? [] }));
-  }
 
   async function call(url: string, init: RequestInit, okMessage: string) {
     setBusy(true); setMessage(null);
@@ -110,7 +102,6 @@ export default function BrainCuratorPage() {
         Hàng đợi trống. Bấm &quot;Đưa tài sản vào hàng đợi&quot; để bắt đầu.
       </div>}
       {pending.map((item) => <ReviewCard key={item.id} item={item} stages={stages} nodesByStage={nodesByStage} busy={busy}
-        onEnsureNodes={ensureNodes}
         onReanalyze={() => call("/api/academy-admin/brain/analyze", { method: "POST", body: JSON.stringify({ itemIds: [item.id] }) }, "Đã phân tích lại.")}
         onApprove={(payload) => call(`/api/academy-admin/brain/suggestions/${item.suggestion?.id}/approve`, { method: "POST", body: JSON.stringify(payload) }, "Đã duyệt và gắn vào lộ trình.")}
         onReject={() => call(`/api/academy-admin/brain/suggestions/${item.suggestion?.id}/reject`, { method: "POST", body: "{}" }, "Đã từ chối.")}
@@ -137,9 +128,8 @@ export default function BrainCuratorPage() {
   </SimpleOperationsShell>;
 }
 
-function ReviewCard({ item, stages, nodesByStage, busy, onEnsureNodes, onReanalyze, onApprove, onReject, onRemove }: {
+function ReviewCard({ item, stages, nodesByStage, busy, onReanalyze, onApprove, onReject, onRemove }: {
   item: InboxItem; stages: Stage[]; nodesByStage: Record<string, Node[]>; busy: boolean;
-  onEnsureNodes: (stageId: string) => Promise<void>;
   onReanalyze: () => Promise<boolean>;
   onApprove: (payload: Record<string, unknown>) => Promise<boolean>;
   onReject: () => Promise<boolean>;
@@ -148,8 +138,6 @@ function ReviewCard({ item, stages, nodesByStage, busy, onEnsureNodes, onReanaly
   const [stageId, setStageId] = useState(item.suggestion?.stageId ?? "");
   const [nodeId, setNodeId] = useState(item.suggestion?.nodeId ?? "");
   const [surface, setSurface] = useState(item.suggestion?.surface ?? "");
-  useEffect(() => { if (stageId) onEnsureNodes(stageId); }, [stageId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const nodes = nodesByStage[stageId] ?? [];
   const suggestion = item.suggestion;
   const confidencePercent = suggestion ? Math.round(suggestion.confidence * 100) : 0;

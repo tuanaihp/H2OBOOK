@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
+import { describeAi } from "@/lib/brain/ai";
 import { enqueueAssets } from "@/lib/brain/admin";
 import { loadBrainInbox } from "@/lib/brain/service";
 
+// AI status rides along with the queue rather than getting its own request: it is three fields read
+// from the environment, and a separate round trip for it cost the same auth handshake as a real
+// query. The standalone /brain/status endpoint stays for callers that only need the status.
 export async function GET(request: Request) {
   const { access, response } = await resolveAcademyAdminAccess(request);
   if (response) return response;
   const items = await loadBrainInbox(access!.organizationId);
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, ai: describeAi() });
 }
 
 export async function POST(request: Request) {

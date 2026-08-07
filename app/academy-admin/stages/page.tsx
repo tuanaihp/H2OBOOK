@@ -18,19 +18,16 @@ export default function CareerStagesAdminPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [newStageTitle, setNewStageTitle] = useState("");
 
+  // One request for the list and every stage's health together. Fetching health per stage meant a
+  // separate serverless invocation per card, and each one paid the full auth round trip again
+  // before it could read anything.
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/academy-admin/stages", { cache: "no-store" });
+    const res = await fetch("/api/academy-admin/stages?health=1", { cache: "no-store" });
     const json = await res.json().catch(() => null);
-    const list: Stage[] = res.ok ? (json?.stages ?? []) : [];
-    if (res.ok) setStages(list); else setMessage(json?.error ?? "Không tải được danh sách giai đoạn.");
+    if (res.ok) { setStages(json?.stages ?? []); setHealth(json?.health ?? {}); }
+    else setMessage(json?.error ?? "Không tải được danh sách giai đoạn.");
     setLoading(false);
-    const entries = await Promise.all(list.map(async (stage) => {
-      const healthRes = await fetch(`/api/academy-admin/stages/${stage.id}/health`, { cache: "no-store" });
-      const healthJson = healthRes.ok ? await healthRes.json().catch(() => null) : null;
-      return [stage.id, healthJson] as const;
-    }));
-    setHealth(Object.fromEntries(entries.filter(([, value]) => value)));
   }
   useEffect(() => { load(); }, []);
 
