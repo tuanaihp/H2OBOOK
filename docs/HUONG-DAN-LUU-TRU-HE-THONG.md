@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-07 — 🩺 Đã merge + deploy: Stage Workspace V3 — 3-pane, Stage Health, Preflight, Publish — ⚠️ CẦN CHẠY MIGRATION 0042 SAU 0041.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → chạy theo đúng thứ tự `_RUN-0040-ONLY.sql` → `_RUN-0041-ONLY.sql` → `_RUN-0042-ONLY.sql` (nếu 2 cái đầu đã chạy rồi thì chỉ cần chạy 0042).
+
+- **Bối cảnh**: module nguồn `v5/23-h2obook-stage-workspace-v3` là toàn bộ giao diện + mock data (139 dòng code, không có backend thật) đề xuất nâng "Chương trình/module" + "Tài nguyên" từ dạng bảng phẳng thành layout 3 cột (Structure Explorer → Content Canvas → Inspector), thêm Resource Picker tìm kiếm (bỏ nhập UUID tay), Stage Health, Preflight, publish workflow.
+- **Audit trước khi ghép**: gần như toàn bộ 6 cột module nguồn đề xuất thêm vào `career_stage_resources` (`resource_role`, `access_mode`, `unlock_resource_id`, `sort_order`, `featured`, `visible`) **đã có tên khác trên đúng bảng đó** từ các migration trước (`requirement_type`, `access`, `prerequisite_binding_id`, `position`, `is_featured`, `status`). Không thêm cột nào trong số này — dùng lại toàn bộ. Migration 0042 **chỉ thêm 2 cột thật sự mới**: `career_stages.published_at` và `archived_at`.
+- **Giao diện 3 cột mới thay cho 2 tab cũ** ("Chương trình/module" + "Tài nguyên" gộp thành 1 tab "Cấu trúc & Nội dung"): Structure Explorer bên trái (cây Program→Module→Group, bấm để lọc), Content Canvas ở giữa (danh sách tài liệu của node đang chọn, có nút sắp xếp lên/xuống bằng `position`), Inspector bên phải (sửa vai trò/quyền xem/luật mở khóa/nav section/hiển thị ngay khi chọn 1 tài liệu — không cần lưu riêng).
+- **Resource Picker**: modal tìm theo tên trong Kho nội dung Academy (`content_items`, đã xây hôm qua), gắn thẳng vào node đang chọn — không còn phải gõ UUID/resourceId tay cho sách/ấn phẩm/template/knowledge space/asset (khóa học video vẫn nhập tay qua nút "Gắn thủ công", vì `academy_courses` không nằm trong catalog theo đúng quyết định đã chốt).
+- **Stage Health** (mục Tổng quan) và **Preflight** (nút ở đầu trang, chặn Publish nếu có mục "fail") — **tính thật từ dữ liệu thật** lúc đọc (`lib/academy-control/health.ts`), không lưu điểm số riêng nên không bao giờ lệch với dữ liệu: cấu trúc (chương trình có module chưa), độ phủ nội dung (module/nhóm có tài liệu chưa), toàn vẹn tài nguyên, quy tắc mở khóa (luật `after_resource`/`progress_gte`/`date` có đủ điều kiện không), giao diện học viên (đã xuất bản `academy_stage_ui_config` chưa).
+- **Publish** — bấm Preflight → nếu không có mục "fail" thì Publish được, set `career_stages.status='active'` + `published_at` (chỉ set lần đầu, publish lại không đổi mốc gốc). Kiểm tra lại phía server (không chỉ disable nút ở client) để tránh bỏ qua preflight bằng cách gọi thẳng API.
+- **Stage Portfolio Board** (`/academy-admin/stages`) hiển thị Stage Health + số cảnh báo trên từng thẻ giai đoạn.
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, không phát sinh mới) · **143/143 test** (không có test mới cho `health.ts` — hàm gọi thẳng Supabase, không tách được thành hàm thuần để unit test dễ dàng; nói rõ để không hiểu nhầm) · test:sql qua · build thành công.
+
+⚠️ **Chưa kiểm chứng trên production**: chưa chạy migration 0042. ⚠️ **Chưa làm**: không có "Preview as Student" (xem trước dạng học viên), không có mô phỏng thiết bị iPhone/iPad, "Bài tập"/"Analytics" vẫn là màn hình giải thích chưa nối dữ liệu thật — y hệt các mục đã nêu "chưa làm" ở lượt tích hợp Academy Control Center V2 hôm qua, chưa thay đổi.
+
+---
+
 **2026-08-07 — 🏛️ Đã merge + deploy: Academy Control Center V2 (Stage Workspace, Kho nội dung, Student Experience Builder nền tảng) — ⚠️ CẦN CHẠY MIGRATION 0041 SAU MIGRATION 0040.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → chạy `_RUN-0040-ONLY.sql` trước (nếu chưa chạy) → sau đó chạy `_RUN-0041-ONLY.sql`. Migration 0041 tự bỏ qua bước copy dữ liệu cũ nếu 0040 chưa từng chạy, nhưng thứ tự đúng vẫn là 0040 rồi mới 0041.

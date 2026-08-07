@@ -6,7 +6,7 @@ import type { CareerStage, CareerStageProgram, CareerStageResource, RequirementT
 type StageRow = {
   id: string; slug: string; position: number; index_label: string | null; title: string;
   subtitle: string | null; description: string | null; duration_label: string | null;
-  skills: string[] | null; status: string;
+  skills: string[] | null; status: string; published_at: string | null; archived_at: string | null;
 };
 type ResourceRow = {
   id: string; stage_id: string; resource_type: string; resource_id: string; title_override: string | null;
@@ -71,7 +71,9 @@ function mapStage(row: StageRow, resources: ResourceRow[], programs: ProgramRow[
     skills: Array.isArray(row.skills) ? row.skills.map(String) : [],
     status: row.status as StageStatus,
     resources: resources.filter((resource) => String(resource.stage_id) === String(row.id)).map(mapResource).sort((a, b) => a.position - b.position),
-    programs: programs.filter((program) => String(program.stage_id) === String(row.id)).map(mapProgram).sort((a, b) => a.position - b.position)
+    programs: programs.filter((program) => String(program.stage_id) === String(row.id)).map(mapProgram).sort((a, b) => a.position - b.position),
+    publishedAt: row.published_at ? String(row.published_at) : null,
+    archivedAt: row.archived_at ? String(row.archived_at) : null
   };
 }
 
@@ -85,7 +87,7 @@ export async function loadCareerStages(organizationId: string, options?: { inclu
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
   const [{ data: stageRows }, { data: resourceRows }, { data: programRows }] = await Promise.all([
-    admin.from("career_stages").select("id,slug,position,index_label,title,subtitle,description,duration_label,skills,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
+    admin.from("career_stages").select("id,slug,position,index_label,title,subtitle,description,duration_label,skills,status,published_at,archived_at").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
     admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations,program_id,node_id,surface,is_featured").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
     admin.from("career_stage_programs").select("id,stage_id,parent_id,slug,title,description,position,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
   ]);
