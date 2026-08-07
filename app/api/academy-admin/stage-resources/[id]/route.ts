@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
 import { detachResource, updateResource } from "@/lib/career-stages/admin";
-import { isRequirementType, isStageResourceAccess, isStageStatus, isUnlockMode, toDisplayLocations } from "@/lib/career-stages/types";
+import { isRequirementType, isStageResourceAccess, isStageStatus, isStageSurfaceTag, isUnlockMode, toDisplayLocations } from "@/lib/career-stages/types";
 
 // Resource rows are addressed by their own id rather than nested under the stage, so the edit and
 // detach calls do not have to care which stage a row currently sits in.
@@ -31,7 +31,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     requirementType: isRequirementType(body.requirementType) ? body.requirementType : undefined,
     displayLocations: toDisplayLocations(body.displayLocations),
     // "" clears the grouping (moves the resource back to ungrouped); undefined leaves it untouched.
-    programId: typeof body.programId === "string" ? body.programId || null : body.programId === null ? null : undefined
+    programId: typeof body.programId === "string" ? body.programId || null : body.programId === null ? null : undefined,
+    nodeId: typeof body.nodeId === "string" ? body.nodeId || null : body.nodeId === null ? null : undefined,
+    surface: isStageSurfaceTag(body.surface) ? body.surface : body.surface === null ? null : undefined,
+    isFeatured: typeof body.isFeatured === "boolean" ? body.isFeatured : undefined
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ ok: true });

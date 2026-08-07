@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { learningPaths } from "@/lib/public-site/content";
-import type { CareerStage, CareerStageProgram, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, UnlockMode } from "./types";
+import type { CareerStage, CareerStageProgram, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, StageSurfaceTag, UnlockMode } from "./types";
 
 type StageRow = {
   id: string; slug: string; position: number; index_label: string | null; title: string;
@@ -13,7 +13,7 @@ type ResourceRow = {
   summary: string | null; href: string | null; position: number; access: string; status: string;
   unlock_mode: string | null; prerequisite_binding_id: string | null; required_progress: number | null;
   unlock_at: string | null; requirement_type: string | null; display_locations: string[] | null;
-  program_id: string | null;
+  program_id: string | null; node_id: string | null; surface: string | null; is_featured: boolean | null;
 };
 type ProgramRow = {
   id: string; stage_id: string; parent_id: string | null; slug: string; title: string;
@@ -51,7 +51,10 @@ function mapResource(row: ResourceRow): CareerStageResource {
     unlockAt: row.unlock_at ? String(row.unlock_at) : null,
     requirementType: (row.requirement_type ?? "required") as RequirementType,
     displayLocations: Array.isArray(row.display_locations) ? row.display_locations.map(String) : ["library", "journey"],
-    programId: row.program_id ? String(row.program_id) : null
+    programId: row.program_id ? String(row.program_id) : null,
+    nodeId: row.node_id ? String(row.node_id) : null,
+    surface: (row.surface as StageSurfaceTag | null) ?? null,
+    isFeatured: Boolean(row.is_featured)
   };
 }
 
@@ -83,7 +86,7 @@ export async function loadCareerStages(organizationId: string, options?: { inclu
   if (!admin) return [];
   const [{ data: stageRows }, { data: resourceRows }, { data: programRows }] = await Promise.all([
     admin.from("career_stages").select("id,slug,position,index_label,title,subtitle,description,duration_label,skills,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
-    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations,program_id").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
+    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations,program_id,node_id,surface,is_featured").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
     admin.from("career_stage_programs").select("id,stage_id,parent_id,slug,title,description,position,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
   ]);
   const stages = (stageRows ?? []) as StageRow[];

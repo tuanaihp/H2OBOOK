@@ -37,9 +37,20 @@ export interface CareerStageResource {
   requirementType: RequirementType;
   displayLocations: string[];
   // Migration 0040. Optional grouping — null means the resource sits directly under the stage,
-  // exactly as every resource did before this column existed.
+  // exactly as every resource did before this column existed. Superseded by nodeId (migration 0041)
+  // going forward; kept read-only here because migration 0040 does not drop the column or its data.
   programId: string | null;
+  // Migration 0041 (Academy Control Center V2). nodeId points into academy_stage_nodes
+  // (program/module/group) rather than career_stage_programs. surface is which student-facing nav
+  // section (Learn/Create/Business/Coaching) the resource belongs to — orthogonal to displayLocations,
+  // which is where within a page it renders.
+  nodeId: string | null;
+  surface: StageSurfaceTag | null;
+  isFeatured: boolean;
 }
+
+export const STAGE_SURFACES = ["learn", "create", "business", "coaching"] as const;
+export type StageSurfaceTag = (typeof STAGE_SURFACES)[number];
 
 /**
  * A named group of resources within a stage — "Module 1: Nền tảng" rather than one long flat list.
@@ -109,6 +120,9 @@ export interface CareerStageResourceInput {
   requirementType?: RequirementType;
   displayLocations?: string[];
   programId?: string | null;
+  nodeId?: string | null;
+  surface?: StageSurfaceTag | null;
+  isFeatured?: boolean;
 }
 
 export const DISPLAY_LOCATIONS = ["library", "journey", "smart_home"] as const;
@@ -134,6 +148,10 @@ export function isStageResourceType(value: unknown): value is StageResourceType 
 
 export function isStageResourceAccess(value: unknown): value is StageResourceAccess {
   return typeof value === "string" && (STAGE_RESOURCE_ACCESS as readonly string[]).includes(value);
+}
+
+export function isStageSurfaceTag(value: unknown): value is StageSurfaceTag {
+  return typeof value === "string" && (STAGE_SURFACES as readonly string[]).includes(value);
 }
 
 export function isStageStatus(value: unknown): value is StageStatus {
