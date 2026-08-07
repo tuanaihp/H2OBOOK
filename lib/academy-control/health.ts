@@ -5,6 +5,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 // no separate "health" table that can drift from the data it describes. Every dimension below is
 // derived from academy_stage_nodes/career_stage_resources/academy_stage_ui_config, the same tables
 // the rest of Academy Control Center reads and writes.
+//
+// Everything is built around the batch entry point. The stage list needs health for every stage at
+// once, and the first version answered that with one request and one full set of queries per stage —
+// six stages meant six serverless invocations, each re-authenticating and re-querying. Loading once
+// for the whole organisation and slicing in memory turns that back into a single round trip.
 
 export interface StageHealthIssue { id: string; severity: "info" | "warning" | "error"; title: string }
 export interface StageHealth {
@@ -13,7 +18,7 @@ export interface StageHealth {
   contentCoverage: number;
   resourceIntegrity: number;
   accessRules: number;
-  /** Reported for information only — deliberately excluded from `score`, see computeStageHealth. */
+  /** Reported for information only — deliberately excluded from `score`, see scoreStage. */
   studentExperience: number;
   unverifiedResources: number;
   issues: StageHealthIssue[];
@@ -36,63 +41,65 @@ const SOURCE_TABLE: Record<string, string> = {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type ResourceRow = { id: string; node_id: string | null; resource_type: string; resource_id: string; unlock_mode: string | null; prerequisite_binding_id: string | null; unlock_at: string | null };
+type NodeRow = { id: string; stage_id: string; parent_id: string | null; node_type: string };
+type ResourceRow = { id: string; stage_id: string; node_id: string | null; resource_type: string; resource_id: string; unlock_mode: string | null; prerequisite_binding_id: string | null; unlock_at: string | null };
+
+interface IntegrityIndex {
+  /** Resource row ids whose referenced source row no longer exists. */
+  missing: Set<string>;
+  /** Resource row ids that cannot be checked at all (external links, or legacy slug-style ids). */
+  unverified: Set<string>;
+}
 
 /**
- * Counts how many of a stage's resources still point at a row that exists.
+ * Works out which resources still point at a row that exists, for every stage at once.
  *
  * career_stage_resources.resource_id is `text`, not a foreign key — it holds a uuid for anything
  * attached through the catalog, but older rows may hold a slug. Only uuid-shaped values are checked;
  * a slug is reported as "unverified" rather than broken, because it may be perfectly valid and
  * calling it an error would be a false alarm. Querying with a non-uuid in the list would also make
  * Postgres fail the whole `in (...)` cast, taking the entire health check down with it.
+ *
+ * One query per source table for the whole organisation, not per stage: six stages sharing a
+ * hundred books ask about those books once.
  */
-async function checkResourceIntegrity(organizationId: string, resources: ResourceRow[]): Promise<{ checked: number; missing: number; unverified: number }> {
+async function buildIntegrityIndex(organizationId: string, resources: ResourceRow[]): Promise<IntegrityIndex> {
+  const index: IntegrityIndex = { missing: new Set(), unverified: new Set() };
   const admin = createSupabaseAdminClient();
-  if (!admin) return { checked: 0, missing: 0, unverified: resources.length };
+  if (!admin) {
+    for (const resource of resources) index.unverified.add(resource.id);
+    return index;
+  }
 
-  const byTable = new Map<string, string[]>();
-  let unverified = 0;
+  const byTable = new Map<string, ResourceRow[]>();
   for (const resource of resources) {
     const table = SOURCE_TABLE[resource.resource_type];
     if (!table || !UUID_PATTERN.test(resource.resource_id)) {
-      unverified += 1;
+      index.unverified.add(resource.id);
       continue;
     }
-    const list = byTable.get(table) ?? [];
-    list.push(resource.resource_id);
-    byTable.set(table, list);
+    byTable.set(table, [...(byTable.get(table) ?? []), resource]);
   }
 
-  let checked = 0;
-  let missing = 0;
-  for (const [table, ids] of byTable) {
-    const unique = [...new Set(ids)];
-    const { data, error } = await admin.from(table).select("id").eq("organization_id", organizationId).in("id", unique);
+  await Promise.all([...byTable].map(async ([table, rows]) => {
+    const ids = [...new Set(rows.map((row) => row.resource_id))];
+    const { data, error } = await admin.from(table).select("id").eq("organization_id", organizationId).in("id", ids);
     if (error) {
       // A table this deployment does not have is not a data problem with the stage.
-      unverified += ids.length;
-      continue;
+      for (const row of rows) index.unverified.add(row.id);
+      return;
     }
     const found = new Set((data ?? []).map((row: { id: string }) => String(row.id)));
-    checked += ids.length;
-    missing += ids.filter((id) => !found.has(id)).length;
-  }
-  return { checked, missing, unverified };
+    for (const row of rows) {
+      if (!found.has(row.resource_id)) index.missing.add(row.id);
+    }
+  }));
+
+  return index;
 }
 
-export async function computeStageHealth(organizationId: string, stageId: string): Promise<StageHealth> {
-  const admin = createSupabaseAdminClient();
-  if (!admin) return emptyHealth;
-
-  const [{ data: nodeRows }, { data: resourceRows }, { data: uiConfigRows }] = await Promise.all([
-    admin.from("academy_stage_nodes").select("id,parent_id,node_type").eq("organization_id", organizationId).eq("stage_id", stageId).neq("status", "archived"),
-    admin.from("career_stage_resources").select("id,node_id,resource_type,resource_id,unlock_mode,prerequisite_binding_id,unlock_at").eq("organization_id", organizationId).eq("stage_id", stageId).neq("status", "archived"),
-    admin.from("academy_stage_ui_config").select("status").eq("organization_id", organizationId).eq("stage_id", stageId)
-  ]);
-
-  const nodes = (nodeRows ?? []) as { id: string; parent_id: string | null; node_type: string }[];
-  const resources = (resourceRows ?? []) as ResourceRow[];
+/** Scores one stage from data already in memory. No queries — the caller has loaded everything. */
+function scoreStage(nodes: NodeRow[], resources: ResourceRow[], configStatuses: string[], integrity: IntegrityIndex): StageHealth {
   const programs = nodes.filter((node) => node.node_type === "program");
   const modules = nodes.filter((node) => node.node_type === "module");
   const groups = nodes.filter((node) => node.node_type === "group");
@@ -126,16 +133,18 @@ export async function computeStageHealth(organizationId: string, stageId: string
     issues.push({ id: "unassigned", severity: "info", title: `${unassigned} tài liệu chưa xếp vào chương trình/học phần nào` });
   }
 
-  const integrity = await checkResourceIntegrity(organizationId, resources);
+  const missing = resources.filter((resource) => integrity.missing.has(resource.id)).length;
+  const unverified = resources.filter((resource) => integrity.unverified.has(resource.id)).length;
+  const checked = resources.length - unverified;
   let resourceIntegrity: number;
-  if (integrity.checked > 0) {
-    resourceIntegrity = Math.round(((integrity.checked - integrity.missing) / integrity.checked) * 100);
-    if (integrity.missing > 0) issues.push({ id: "missing-source", severity: "error", title: `${integrity.missing} tài liệu trỏ tới nội dung đã bị xóa` });
+  if (checked > 0) {
+    resourceIntegrity = Math.round(((checked - missing) / checked) * 100);
+    if (missing > 0) issues.push({ id: "missing-source", severity: "error", title: `${missing} tài liệu trỏ tới nội dung đã bị xóa` });
   } else {
     resourceIntegrity = resources.length > 0 ? 100 : 0;
   }
-  if (integrity.unverified > 0) {
-    issues.push({ id: "unverified-source", severity: "info", title: `${integrity.unverified} tài liệu không kiểm chứng được (liên kết ngoài hoặc mã cũ dạng slug)` });
+  if (unverified > 0) {
+    issues.push({ id: "unverified-source", severity: "info", title: `${unverified} tài liệu không kiểm chứng được (liên kết ngoài hoặc mã cũ dạng slug)` });
   }
 
   let accessRules = 100;
@@ -149,7 +158,6 @@ export async function computeStageHealth(organizationId: string, stageId: string
     if (invalid.length > 0) issues.push({ id: "unlock-missing", severity: "error", title: `${invalid.length} tài nguyên có luật mở khóa thiếu điều kiện` });
   }
 
-  const configStatuses = (uiConfigRows ?? []).map((row: { status: string }) => row.status);
   const hasPublished = configStatuses.includes("published");
   const hasDraft = configStatuses.includes("draft");
   const studentExperience = hasPublished ? 100 : hasDraft ? 50 : 0;
@@ -159,7 +167,60 @@ export async function computeStageHealth(organizationId: string, stageId: string
   // wired to the live sidebar yet, so no stage can legitimately reach 100 there — including it would
   // cap every stage at 80/100 and make the number read as "something is wrong" when nothing is.
   const score = Math.round((structure + contentCoverage + resourceIntegrity + accessRules) / 4);
-  return { score, structure, contentCoverage, resourceIntegrity, accessRules, studentExperience, unverifiedResources: integrity.unverified, issues };
+  return { score, structure, contentCoverage, resourceIntegrity, accessRules, studentExperience, unverifiedResources: unverified, issues };
+}
+
+/**
+ * Health for every stage in the organisation, in a fixed number of queries regardless of how many
+ * stages there are. Restricting by stage in SQL would not help: the stage list wants all of them.
+ */
+export async function computeStageHealthBatch(organizationId: string): Promise<Map<string, StageHealth>> {
+  const result = new Map<string, StageHealth>();
+  const admin = createSupabaseAdminClient();
+  if (!admin) return result;
+
+  const [{ data: stageRows }, { data: nodeRows }, { data: resourceRows }, { data: uiConfigRows }] = await Promise.all([
+    admin.from("career_stages").select("id").eq("organization_id", organizationId).neq("status", "archived"),
+    admin.from("academy_stage_nodes").select("id,stage_id,parent_id,node_type").eq("organization_id", organizationId).neq("status", "archived"),
+    admin.from("career_stage_resources").select("id,stage_id,node_id,resource_type,resource_id,unlock_mode,prerequisite_binding_id,unlock_at").eq("organization_id", organizationId).neq("status", "archived"),
+    admin.from("academy_stage_ui_config").select("stage_id,status").eq("organization_id", organizationId)
+  ]);
+
+  const stageIds = ((stageRows ?? []) as { id: string }[]).map((row) => String(row.id));
+  const nodes = (nodeRows ?? []) as NodeRow[];
+  const resources = (resourceRows ?? []) as ResourceRow[];
+  const configs = (uiConfigRows ?? []) as { stage_id: string; status: string }[];
+  const integrity = await buildIntegrityIndex(organizationId, resources);
+
+  for (const stageId of stageIds) {
+    result.set(stageId, scoreStage(
+      nodes.filter((node) => String(node.stage_id) === stageId),
+      resources.filter((resource) => String(resource.stage_id) === stageId),
+      configs.filter((config) => String(config.stage_id) === stageId).map((config) => config.status),
+      integrity
+    ));
+  }
+  return result;
+}
+
+export async function computeStageHealth(organizationId: string, stageId: string): Promise<StageHealth> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return emptyHealth;
+
+  const [{ data: nodeRows }, { data: resourceRows }, { data: uiConfigRows }] = await Promise.all([
+    admin.from("academy_stage_nodes").select("id,stage_id,parent_id,node_type").eq("organization_id", organizationId).eq("stage_id", stageId).neq("status", "archived"),
+    admin.from("career_stage_resources").select("id,stage_id,node_id,resource_type,resource_id,unlock_mode,prerequisite_binding_id,unlock_at").eq("organization_id", organizationId).eq("stage_id", stageId).neq("status", "archived"),
+    admin.from("academy_stage_ui_config").select("stage_id,status").eq("organization_id", organizationId).eq("stage_id", stageId)
+  ]);
+
+  const resources = (resourceRows ?? []) as ResourceRow[];
+  const integrity = await buildIntegrityIndex(organizationId, resources);
+  return scoreStage(
+    (nodeRows ?? []) as NodeRow[],
+    resources,
+    ((uiConfigRows ?? []) as { status: string }[]).map((config) => config.status),
+    integrity
+  );
 }
 
 /** Preflight re-derives the same signals as Stage Health and turns them into a pass/warn/fail gate for Publish. */

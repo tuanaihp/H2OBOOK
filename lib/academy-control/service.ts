@@ -42,6 +42,34 @@ function withInheritedSurface(nodes: Omit<AcademyStageNode, "effectiveSurface">[
   });
 }
 
+/**
+ * Every stage's tree in one query, grouped by stage. Callers that need trees for several stages at
+ * once — the Brain review queue, where each card names a different stage — would otherwise issue one
+ * request per stage and pay the auth round trip each time.
+ */
+export async function loadAllStageNodes(organizationId: string): Promise<Record<string, AcademyStageNode[]>> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return {};
+  const { data } = await admin
+    .from("academy_stage_nodes")
+    .select("id,organization_id,stage_id,parent_id,node_type,title,description,position,status,surface")
+    .eq("organization_id", organizationId)
+    .neq("status", "archived")
+    .order("position", { ascending: true });
+
+  const grouped: Record<string, AcademyStageNode[]> = {};
+  // Surface inheritance walks up the parent chain, so it has to be resolved within each stage's own
+  // tree rather than across the whole organisation.
+  const byStage = new Map<string, NodeRow[]>();
+  for (const row of (data ?? []) as NodeRow[]) {
+    byStage.set(String(row.stage_id), [...(byStage.get(String(row.stage_id)) ?? []), row]);
+  }
+  for (const [stageId, rows] of byStage) {
+    grouped[stageId] = withInheritedSurface(rows.map(mapNode));
+  }
+  return grouped;
+}
+
 /** Program/module/group rows for one stage, active+hidden (archived excluded), ordered for tree rendering. */
 export async function loadStageNodes(organizationId: string, stageId: string): Promise<AcademyStageNode[]> {
   const admin = createSupabaseAdminClient();
