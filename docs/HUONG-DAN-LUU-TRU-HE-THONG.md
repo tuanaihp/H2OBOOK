@@ -6,6 +6,34 @@
 
 ---
 
+**2026-08-07 — 🏛️ Đã merge + deploy: Academy Control Center V2 (Stage Workspace, Kho nội dung, Student Experience Builder nền tảng) — ⚠️ CẦN CHẠY MIGRATION 0041 SAU MIGRATION 0040.**
+
+**Việc bạn cần làm:** Supabase → SQL Editor → chạy `_RUN-0040-ONLY.sql` trước (nếu chưa chạy) → sau đó chạy `_RUN-0041-ONLY.sql`. Migration 0041 tự bỏ qua bước copy dữ liệu cũ nếu 0040 chưa từng chạy, nhưng thứ tự đúng vẫn là 0040 rồi mới 0041.
+
+- **Bối cảnh**: bạn đưa ra một sơ đồ Academy Control Center 6 nhánh khá lớn (Tổng quan, Giai đoạn & Lộ trình theo Stage Workspace riêng, Kho nội dung Academy, Student Experience Builder, Phân quyền & Distribution, Tiến độ & đánh giá) và 3 quyết định phạm vi — bạn chọn cả 3 ở mức đầy đủ nhất: **xây CMS sidebar thật**, **content_items là bảng trung tâm thật có di trú dữ liệu**, **thêm cấp phân cấp thứ 3 (group)**. Toàn bộ phân tích ở `docs/academy-control-center-v2-architecture-plan.md`.
+- Sau đó bạn đưa thêm 2 gói mã nguồn: `v5/21-H2OBOOK_ACADEMY_CONTROL_CENTER_V1` (chỉ để audit — **chưa từng tích hợp**, xem Phụ lục A của tài liệu trên) và `v5/22-H2OBOOK_ACADEMY_CONTROL_CENTER_FINAL_V3` (bản có code thật, được viết bám theo đúng tài liệu phân tích ở trên — **đây là gói được tích hợp thật vào lượt này**).
+- **`career_stage_programs` (migration 0040, deploy sáng cùng ngày, chưa có dữ liệu admin nào) được thay bằng `academy_stage_nodes`** — một bảng tự tham chiếu duy nhất cho cả Program/Module/Group thay vì 2 bảng tách rời, đúng cấp phân cấp bạn cần. Dữ liệu cũ (nếu có) được migration 0041 tự copy sang; bảng và cột cũ (`career_stage_programs`, `career_stage_resources.program_id`) **không bị xóa**, chỉ ngừng được ứng dụng ghi/đọc.
+- **`content_items`** — bảng danh mục nội dung thật, được nạp sẵn (backfill) từ `books`, `publications`, `templates`, `knowledge_spaces`, `assets` ngay trong migration. **Không gồm `academy_courses`** — khóa học video là domain riêng, có luồng bán hàng/tiến độ riêng, gắn vào giai đoạn vẫn theo cách cũ (nhập tay resourceId). Có nút "Đồng bộ lại danh mục" ở màn hình Kho nội dung Academy và trong từng Stage Workspace để nạp các mục tạo sau này (không có đồng bộ tự động theo thời gian thực — xem phần "Chưa làm" bên dưới).
+- **`career_stage_resources` có thêm 3 cột thật sự mới**: `node_id` (trỏ vào chương trình/module/nhóm), `surface` (learn/create/business/coaching — mục nav nào), `is_featured`. **Không thêm** `visibility_state`/`unlock_rule` như gói nguồn đề xuất — engine mở khóa thật (`access`/`unlock_mode`/`prerequisite_binding_id`/`required_progress`/`unlock_at`, `lib/content-access/resolver.ts`) đã giải quyết đúng việc đó từ trước; thêm cột song song là đúng lỗi đã bị audit ở module 20 gốc.
+- **Đổi nhãn `/academy-admin/programs`** từ "Chương trình đào tạo" → **"Khóa học video"** — route và bảng `academy_courses` giữ nguyên, chỉ tránh nhầm với "Chương trình/module" bên trong một giai đoạn.
+- **Màn hình mới**:
+  - `/academy-admin/stages` — danh sách giai đoạn dạng thẻ, bấm vào để mở Stage Workspace riêng.
+  - `/academy-admin/stages/[stageId]` — workspace 8 tab: Tổng quan, Chương trình/module, Nội dung, Tài nguyên, Bài tập, Mở khóa, Giao diện học viên, Analytics. Tổng quan/Chương trình-module/Nội dung/Tài nguyên/Giao diện học viên có chức năng thật; Bài tập/Mở khóa/Analytics là màn hình giải thích rõ hiện trạng, không có số liệu giả (xem "Chưa làm").
+  - `/academy-admin/content` — Kho nội dung Academy độc lập: tìm kiếm, lọc theo loại, đồng bộ lại danh mục.
+- **Student Experience Builder — chỉ mới xây phần soạn thảo, CHƯA nối vào sidebar học viên thật.** Admin có thể tạo bản nháp (danh sách mục nav: key/tên/icon/route/hiện-ẩn/khóa), lưu nhiều phiên bản, xuất bản. Bảng `academy_stage_ui_config` lưu đúng những gì admin soạn. **`lib/student/compact-navigation.ts` (sidebar thật học viên đang thấy) không bị đụng tới trong lượt này** — chưa có cờ tính năng, chưa có resolver đọc cấu hình đã publish. Đây là bước nền tảng, không phải tính năng hoàn chỉnh.
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền, không phát sinh mới) · **143/143 test** (không có test mới — logic phân cấp Program/Module/Group được chặn bằng trigger ở database, giống cách migration 0040 đã làm, không phải logic ứng dụng cần unit test) · test:sql qua · build thành công.
+
+⚠️ **Chưa kiểm chứng trên production**: chưa chạy migration 0041 (và cần xác nhận 0040 đã chạy trước đó — nếu bạn chưa từng báo lại kết quả chạy 0040, hãy kiểm tra lại trước).
+
+⚠️ **Chưa làm — nói rõ để không hiểu nhầm là đã xong**:
+- **Sidebar học viên thật chưa đọc `academy_stage_ui_config`.** Admin soạn/xuất bản được, nhưng học viên vẫn thấy menu HOME/LEARN/CREATE/BUSINESS cố định như cũ. Nối vào thật là một đợt riêng, cần cờ tính năng và kiểm chứng kỹ trước khi bật — không gộp vào lượt này vì đây là thay đổi ảnh hưởng trực tiếp tới trải nghiệm học viên đang chạy.
+- **Không có xem trước theo thiết bị (iPhone/iPad/Desktop)** như gói nguồn mô tả, không có "Preflight" tự động kiểm tra cấu hình lỗi trước khi publish, không có lớp gợi ý AI cho "H2O Coaching". Đây là phần UI nâng cao chưa xây trong lượt này.
+- **Đồng bộ danh mục nội dung là thủ công** (nút "Đồng bộ lại danh mục"), không có trigger tự động khi tạo sách/asset/template mới. Tạo xong một cuốn sách mới thì phải bấm đồng bộ mới thấy trong Kho nội dung Academy.
+- **Tab Bài tập / Analytics** chỉ là màn hình giải thích, chưa nối vào hệ bài tập hay bảng tiến độ thật.
+- **Tab Mở khóa** không có UI riêng — luật mở khóa vẫn sửa trực tiếp trên từng dòng ở tab Tài nguyên như trước giờ, cố ý không dựng thêm màn hình trùng việc.
+
+---
+
 **2026-08-06 — 🧩 Đã merge + deploy: nhóm tài liệu theo chương trình/module (phần được duyệt của module 20) — ⚠️ CẦN CHẠY MIGRATION 0040.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → dán `supabase/_RUN-0040-ONLY.sql` → Run.
