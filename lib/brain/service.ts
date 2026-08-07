@@ -1,12 +1,15 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { StageSurface } from "@/lib/academy-control/types";
+import type { AiTaxonomy } from "./ai-parse";
 import { toRuleAction, toRuleConditions, type BrainCandidate, type BrainInboxItem, type BrainMemorySignal, type BrainRule, type SuggestionSource } from "./types";
 
 type AssetRow = {
-  id: string; original_name: string | null; title: string | null;
+  id: string; original_name: string | null; title: string | null; description: string | null;
   mime_type: string | null; asset_subtype: string | null; folder_id: string | null;
 };
+
+const ASSET_COLUMNS = "id,original_name,title,description,mime_type,asset_subtype,folder_id";
 
 function mapCandidate(row: AssetRow): BrainCandidate {
   return {
@@ -15,7 +18,57 @@ function mapCandidate(row: AssetRow): BrainCandidate {
     originalName: String(row.original_name ?? ""),
     mimeType: String(row.mime_type ?? ""),
     assetSubtype: row.asset_subtype ? String(row.asset_subtype) : null,
-    folderId: row.folder_id ? String(row.folder_id) : null
+    folderId: row.folder_id ? String(row.folder_id) : null,
+    description: row.description ? String(row.description) : null
+  };
+}
+
+/**
+ * Adds folder name and tags to candidates. Only used when describing assets to an AI provider —
+ * rules deliberately match on folder *id* rather than name, so renaming a folder cannot silently
+ * change which rules fire.
+ */
+export async function enrichCandidates(organizationId: string, candidates: BrainCandidate[]): Promise<BrainCandidate[]> {
+  const admin = createSupabaseAdminClient();
+  if (!admin || !candidates.length) return candidates;
+
+  const folderIds = [...new Set(candidates.map((candidate) => candidate.folderId).filter((id): id is string => Boolean(id)))];
+  const assetIds = candidates.map((candidate) => candidate.assetId);
+
+  const [{ data: folderRows }, { data: linkRows }] = await Promise.all([
+    folderIds.length ? admin.from("asset_folders").select("id,name").eq("organization_id", organizationId).in("id", folderIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    admin.from("asset_tag_links").select("asset_id,asset_tags(name)").eq("organization_id", organizationId).in("asset_id", assetIds)
+  ]);
+
+  const folderNames = new Map(((folderRows ?? []) as { id: string; name: string }[]).map((row) => [String(row.id), String(row.name)]));
+  const tagsByAsset = new Map<string, string[]>();
+  for (const row of (linkRows ?? []) as { asset_id: string; asset_tags: { name: string } | { name: string }[] | null }[]) {
+    const related = Array.isArray(row.asset_tags) ? row.asset_tags : row.asset_tags ? [row.asset_tags] : [];
+    const names = related.map((tag) => String(tag.name));
+    if (!names.length) continue;
+    tagsByAsset.set(String(row.asset_id), [...(tagsByAsset.get(String(row.asset_id)) ?? []), ...names]);
+  }
+
+  return candidates.map((candidate) => ({
+    ...candidate,
+    folderName: candidate.folderId ? folderNames.get(candidate.folderId) ?? null : null,
+    tags: tagsByAsset.get(candidate.assetId) ?? []
+  }));
+}
+
+/** The stage/node list an AI provider is allowed to choose from — ids included so it cannot invent one. */
+export async function loadBrainTaxonomy(organizationId: string): Promise<AiTaxonomy> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return { stages: [], nodes: [] };
+  const [{ data: stageRows }, { data: nodeRows }] = await Promise.all([
+    admin.from("career_stages").select("id,title,position").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
+    admin.from("academy_stage_nodes").select("id,stage_id,title,node_type").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
+  ]);
+  return {
+    stages: ((stageRows ?? []) as { id: string; title: string }[]).map((row) => ({ id: String(row.id), title: String(row.title) })),
+    nodes: ((nodeRows ?? []) as { id: string; stage_id: string; title: string; node_type: string }[]).map((row) => ({
+      id: String(row.id), stageId: String(row.stage_id), title: String(row.title), nodeType: String(row.node_type)
+    }))
   };
 }
 
@@ -73,7 +126,7 @@ export async function loadBrainInbox(organizationId: string): Promise<BrainInbox
   const assetIds = items.map((item) => item.source_asset_id).filter((id): id is string => Boolean(id));
   const [{ data: assetRows }, { data: suggestionRows }] = await Promise.all([
     assetIds.length
-      ? admin.from("assets").select("id,original_name,title,mime_type,asset_subtype,folder_id").in("id", assetIds)
+      ? admin.from("assets").select(ASSET_COLUMNS).in("id", assetIds)
       : Promise.resolve({ data: [] as AssetRow[] }),
     admin.from("brain_suggestions")
       .select("id,inbox_item_id,source,suggested_stage_id,suggested_node_id,surface,confidence,reason,decision,created_at")
@@ -126,7 +179,7 @@ export async function loadBrainCandidates(organizationId: string, options: { q?:
 
   let query = admin
     .from("assets")
-    .select("id,original_name,title,mime_type,asset_subtype,folder_id")
+    .select(ASSET_COLUMNS)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })

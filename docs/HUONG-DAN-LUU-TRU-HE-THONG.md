@@ -6,6 +6,30 @@
 
 ---
 
+**2026-08-07 — ✨ Đã merge + deploy: nối AI Gemini vào H2O Brain — ⚠️ KHÔNG CẦN MIGRATION, chỉ cần thêm 1 biến môi trường.**
+
+**Việc bạn cần làm để bật AI:**
+1. Lấy khóa tại **https://aistudio.google.com/apikey**
+2. Vercel → project `h2obook-app` → **Settings → Environment Variables** → thêm `GEMINI_API_KEY` = khóa của bạn (chọn Production). Nếu muốn đổi model, thêm `GEMINI_MODEL` (mặc định `gemini-2.5-flash`).
+3. Redeploy (hoặc báo tôi deploy lại). Vào H2O Brain, dòng trạng thái dưới tiêu đề sẽ đổi từ *"AI chưa cấu hình"* thành *"AI đang bật · gemini · gemini-2.5-flash"*.
+
+**Không cần migration** — cột `source` của bảng đề xuất đã chừa sẵn giá trị `'ai'` từ lượt trước.
+
+- **Thứ tự ưu tiên: luật → tiền lệ → AI.** AI **chỉ được gọi cho tài liệu mà luật và tiền lệ không xử lý được**. Đây là điểm quan trọng nhất về chi phí: thả 30 file mà 25 file đã khớp luật thì chỉ 5 file được gửi lên Gemini. Đưa vào hàng đợi thứ đã có luật xử lý thì **tốn 0 đồng**.
+- **Khóa API nằm trong biến môi trường, không nằm trong database** — giống hệt cách repo đang lưu `EMAIL_API_KEY`, `PAYMENT_WEBHOOK_SECRET`. Trình duyệt không bao giờ nhận khóa; API trạng thái chỉ trả về "bật/tắt + tên model".
+- **Gọi theo lô, tối đa 25 tài liệu/lần gọi**, các lô chạy tuần tự để không bắn một loạt request song song vào giới hạn tốc độ.
+- **AI hỏng thì hàng đợi vẫn chạy.** Hết hạn khóa, mất mạng, quá giới hạn tốc độ, model trả về rác — tất cả đều bị nuốt lặng lẽ, tài liệu vẫn vào hàng đợi với đề xuất từ luật/tiền lệ. AI **không bao giờ là điều kiện bắt buộc**, đúng nguyên tắc số 1 của dự án ("Never make an AI provider a required dependency").
+- **🔒 Chống AI bịa đặt — phần tôi làm kỹ nhất:** mọi `stageId`/`nodeId` model trả về đều được **đối chiếu với danh sách thật**; id không tồn tại thì **bỏ hẳn**, không sửa thành id gần giống. Đặc biệt: nếu model chọn đúng giai đoạn nhưng chọn học phần **thuộc giai đoạn khác**, học phần đó bị loại — vì lỗi này trông "hợp lệ" trong API nhưng xếp tài liệu sai nhánh trong cây. Model cũng được dặn rõ "không đủ căn cứ thì để trống, đoán bừa gây hại hơn bỏ trống".
+- **Nút "Phân tích lại"** trên từng mục — chạy lại luật/tiền lệ/AI cho riêng mục đó. Dùng sau khi vừa viết luật mới, hoặc khi lần đầu chưa ra kết quả. Đây là cách bạn chủ động kiểm soát chi phí.
+- **AI được cho biết những gì:** tên file, tiêu đề, mô tả, **tên thư mục**, **các thẻ**, loại MIME, phân loại con. Prompt nói thẳng với model rằng nó **không đọc được nội dung bên trong file** và không được suy đoán về nội dung — vì `assets` không lưu văn bản trích xuất (đã nêu trong audit module 24).
+- Kiểm chứng: typecheck sạch · lint 0 lỗi (51 cảnh báo nền) · **179/179 test — thêm 13 test mới cho riêng phần kiểm chứng phản hồi AI** (id bịa, học phần sai giai đoạn, confidence ngoài khoảng, JSON hỏng, model từ chối trả lời) · test:sql qua · build thành công.
+
+⚠️ **Chưa kiểm chứng bằng khóa thật**: tôi **chưa có khóa Gemini nên chưa gọi thử API thật một lần nào**. Phần logic parse/kiểm chứng đã có 13 test phủ, nhưng đường mạng thật (định dạng request, tên model, mã lỗi) chỉ được xác nhận khi bạn cắm khóa vào. Nếu model `gemini-2.5-flash` không đúng tên ở tài khoản của bạn, đổi biến `GEMINI_MODEL` là xong, không cần sửa code.
+
+⚠️ **Giới hạn còn nguyên**: AI vẫn chỉ nhìn thấy **metadata**, chưa đọc nội dung file. Muốn AI đọc thật cần thêm bước trích xuất văn bản vào `assets` — việc riêng, chưa làm.
+
+---
+
 **2026-08-07 — 🧠 Đã merge + deploy: H2O Brain — hàng đợi duyệt giữa Kho tài sản và Lộ trình (KHÔNG dùng AI) — ⚠️ CẦN CHẠY MIGRATION 0044.**
 
 **Việc bạn cần làm:** Supabase → SQL Editor → chạy `_RUN-0044-ONLY.sql`.
