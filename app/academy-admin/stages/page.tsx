@@ -33,13 +33,22 @@ export default function CareerStagesAdminPage() {
 
   async function call(url: string, init: RequestInit, okMessage: string) {
     setBusy(true); setMessage(null);
-    const res = await fetch(url, { headers: { "content-type": "application/json" }, ...init });
-    const json = await res.json().catch(() => null);
-    setBusy(false);
-    if (!res.ok) { setMessage(json?.error ?? "Thao tác thất bại."); return false; }
-    setMessage(okMessage);
-    await load();
-    return true;
+    try {
+      const res = await fetch(url, { headers: { "content-type": "application/json" }, ...init });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) { setMessage(json?.error ?? "Thao tác thất bại."); return false; }
+      setMessage(okMessage);
+      await load();
+      return true;
+    } catch {
+      // A dropped connection or a serverless timeout throws here rather than resolving with a
+      // non-ok response — without this catch, `busy` never went back to false and every button on
+      // the page stayed disabled until the page was reloaded, which reads as "the site is stuck".
+      setMessage("Mất kết nối hoặc thao tác quá lâu — thử lại. Nếu vừa bấm nạp giáo trình, dữ liệu đã tạo vẫn được giữ, bấm lại không nhân bản.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
   }
 
   /**
@@ -104,10 +113,15 @@ export default function CareerStagesAdminPage() {
       <div style={{ padding: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button className={styles.button} disabled={busy} onClick={async () => {
           setBusy(true); setMessage(null);
-          const res = await fetch("/api/academy-admin/curriculum/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
-          const json = await res.json().catch(() => null);
-          setBusy(false);
-          setMessage(json ? `Chạy thử: sẽ tạo ${json.stages?.created ?? 0} giai đoạn · ${json.nodes?.created ?? 0} mục cấu trúc · ${json.documents?.created ?? 0} tài liệu · ${json.placements?.created ?? 0} lượt gắn.` : "Không chạy thử được.");
+          try {
+            const res = await fetch("/api/academy-admin/curriculum/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
+            const json = await res.json().catch(() => null);
+            setMessage(json ? `Chạy thử: sẽ tạo ${json.stages?.created ?? 0} giai đoạn · ${json.nodes?.created ?? 0} mục cấu trúc · ${json.documents?.created ?? 0} tài liệu · ${json.placements?.created ?? 0} lượt gắn.` : "Không chạy thử được.");
+          } catch {
+            setMessage("Mất kết nối — thử lại.");
+          } finally {
+            setBusy(false);
+          }
         }}>Chạy thử (không ghi)</button>
         <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy} onClick={async () => {
           if (!confirm("Nạp giáo trình 6 giai đoạn vào workspace này? Mục đã có sẽ được giữ nguyên, không ghi đè.")) return;
@@ -135,7 +149,11 @@ export default function CareerStagesAdminPage() {
         return <div key={stage.id} className={styles.card} style={{ padding: 0, opacity: stage.status === "hidden" ? 0.85 : 1, overflow: "hidden" }}>
           <div style={{ background: "#0f172a", color: "#fff", padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#67e8f9", textTransform: "uppercase", letterSpacing: "0.1em" }}>Giai đoạn {stage.indexLabel || index + 1}</span>
+              {/* Position in `ordered`, not stage.indexLabel: that field is free text an admin can
+                  type anything into (or a seed can set independently per curriculum), so two stages
+                  from different sources showing the same "01" is exactly what happened here — the
+                  number a student's ordering actually follows is this array position, always unique. */}
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#67e8f9", textTransform: "uppercase", letterSpacing: "0.1em" }}>Giai đoạn {index + 1}{stage.indexLabel && stage.indexLabel !== String(index + 1).padStart(2, "0") ? ` (nhãn: ${stage.indexLabel})` : ""}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: stage.status === "active" ? "#065f46" : "#78350f" }}>{stage.status === "active" ? "Đã publish" : "Nháp"}</span>
                 <button title="Đưa lên trước" disabled={busy || index === 0} onClick={() => moveStage(stage, -1)} style={{ border: "none", background: "none", cursor: index === 0 ? "default" : "pointer", color: index === 0 ? "#475569" : "#cbd5e1", padding: 2 }}><ChevronUp size={13} /></button>

@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
 import { seedSixStageCurriculum } from "@/lib/curriculum/seed";
 
+// The seed engine batches its writes (see lib/curriculum/seed.ts for why — the unbatched version was
+// close to 800 sequential round trips and this route has no way to tell the browser it is still
+// working), so this should finish in a handful of seconds. The explicit ceiling is a safety margin,
+// not a requirement for normal operation.
+export const maxDuration = 60;
+
 // Loads the six-stage curriculum into the organisation resolved from the session — never from a
 // body parameter, so this cannot be pointed at someone else's workspace.
 //
