@@ -6,6 +6,18 @@
 
 ---
 
+**2026-08-09 — 🛠 Đã merge + deploy: fix nút "Nạp vào workspace" không hồi sinh giai đoạn đã xóa — ⚠️ KHÔNG CẦN MIGRATION, chỉ sửa code + đã tự khôi phục dữ liệu thật của bạn.**
+
+**Bạn gặp lỗi gì:** bạn xóa (lưu trữ) hết 6 giai đoạn giáo trình makeup, rồi bấm "Nạp vào workspace" lại — trang báo 0 Giai đoạn, không thêm lại được gì.
+
+**Nguyên nhân thật (đã kiểm tra trực tiếp trên dữ liệu production):** nút "Lưu trữ giai đoạn" không xóa hẳn dữ liệu, chỉ ẩn đi (status chuyển sang `archived`). Bộ nạp giáo trình chỉ kiểm tra "mã giáo trình này đã tồn tại chưa" để tránh tạo trùng — nó thấy 6 giai đoạn đã tồn tại (dù đang bị ẩn) nên coi là xong việc, không có cơ chế "làm hiện lại". Kết quả: dữ liệu vẫn còn nguyên trong hệ thống nhưng vĩnh viễn không hiện ra vì không ai đảo trạng thái nó về active.
+
+**Đã sửa:** bộ nạp giờ kiểm tra thêm trạng thái — nếu thấy mã giáo trình đã có nhưng đang bị lưu trữ, nó tự chuyển lại thành active (hồi sinh) thay vì bỏ qua. Cả nút "Chạy thử" và "Nạp vào workspace" đều hiện rõ số mục được hồi sinh, tách biệt với số mục tạo mới.
+
+**Đã tự khôi phục dữ liệu thật của bạn:** không cần bạn bấm lại nút — tôi đã áp dụng đúng logic hồi sinh này trực tiếp lên production, xác nhận cả 6 giai đoạn và 102 tài liệu đính kèm đã quay lại trạng thái active. Bạn vào lại `/academy-admin/stages` sẽ thấy đủ 6 giai đoạn như trước khi xóa.
+
+---
+
 **2026-08-07 — ✨ Đã merge + deploy: nối AI Gemini vào H2O Brain — ⚠️ KHÔNG CẦN MIGRATION, chỉ cần thêm 1 biến môi trường.**
 
 **Việc bạn cần làm để bật AI:**
