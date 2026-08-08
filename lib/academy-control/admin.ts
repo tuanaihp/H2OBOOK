@@ -96,7 +96,7 @@ export async function attachCatalogResource(access: AcademyAdminAccess, input: A
 
   const { data: item, error: itemError } = await supabase
     .from("content_items")
-    .select("id,content_type,source_id")
+    .select("id,content_type,source_id,title,summary")
     .eq("organization_id", access.organizationId)
     .eq("id", input.contentItemId)
     .single();
@@ -119,6 +119,11 @@ export async function attachCatalogResource(access: AcademyAdminAccess, input: A
     node_id: input.nodeId ?? null,
     resource_type: item.content_type,
     resource_id: item.source_id,
+    // Copied from the catalog item so the card shows a real title immediately — without this the
+    // stage list and Content Canvas have nothing to render but the raw resource_id UUID, since
+    // career_stage_resources never joins back to its source table for display.
+    title_override: item.title ?? null,
+    summary: item.summary ?? null,
     surface: input.surface ?? null,
     is_featured: input.isFeatured ?? false,
     position: input.position ?? (await nextResourcePosition(access, input.stageId, input.nodeId ?? null)),
