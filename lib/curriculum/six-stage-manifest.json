@@ -1,0 +1,2078 @@
+{
+  "schemaVersion": "1.0",
+  "curriculumKey": "thuyh2o-makeup-six-stage-v1",
+  "title": "ThuyH2O Makeup — 6 Giai đoạn phát triển nghề & kinh doanh",
+  "seedModeDefault": "draft",
+  "stages": [
+    {
+      "seedKey": "h2o-stage-01-foundation",
+      "position": 1,
+      "title": "Nền tảng nghề Makeup",
+      "shortTitle": "Foundation",
+      "duration": "0–2 tháng hoặc theo năng lực",
+      "description": "Xây nền kỹ thuật, tác phong, tư duy nghề và hồ sơ cá nhân.",
+      "outcomes": [
+        "Hiểu nghề và hướng phát triển",
+        "Nắm vệ sinh, da, nền, màu sắc, tóc cơ bản",
+        "Có hồ sơ nghề và Career Map",
+        "Có bảng chi phí nghề ban đầu"
+      ],
+      "programs": [
+        {
+          "key": "s1-p1",
+          "title": "Makeup Foundation",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s1-m1",
+              "title": "Tác phong & vệ sinh",
+              "groups": [
+                {
+                  "key": "s1-g1",
+                  "title": "An toàn nghề",
+                  "resources": [
+                    {
+                      "key": "s1-r01",
+                      "title": "Tiêu chuẩn vệ sinh và an toàn trong Makeup",
+                      "resourceType": "article",
+                      "summary": "Vệ sinh cọ, mỹ phẩm, tay, dụng cụ và quy trình làm việc an toàn.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [
+                        "makeup",
+                        "hygiene"
+                      ],
+                      "bodyMarkdown": "# Tiêu chuẩn vệ sinh và an toàn trong Makeup\n\n## Mục tiêu\nVệ sinh cọ, mỹ phẩm, tay, dụng cụ và quy trình làm việc an toàn.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r02",
+                      "title": "Checklist túi đồ nghề Foundation",
+                      "resourceType": "checklist",
+                      "summary": "Danh sách dụng cụ tối thiểu và cách kiểm tra trước buổi học/lịch khách.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [
+                        "tools"
+                      ],
+                      "bodyMarkdown": "# Checklist túi đồ nghề Foundation\n\n## Mục tiêu\nDanh sách dụng cụ tối thiểu và cách kiểm tra trước buổi học/lịch khách.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s1-m2",
+              "title": "Chuẩn bị da & nền cơ bản",
+              "groups": [
+                {
+                  "key": "s1-g2",
+                  "title": "Skin Prep & Base",
+                  "resources": [
+                    {
+                      "key": "s1-r03",
+                      "title": "Quy trình chuẩn bị da trước Makeup",
+                      "resourceType": "article",
+                      "summary": "Quan sát da, skincare trước makeup và chọn sản phẩm nền phù hợp.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [
+                        "skin"
+                      ],
+                      "bodyMarkdown": "# Quy trình chuẩn bị da trước Makeup\n\n## Mục tiêu\nQuan sát da, skincare trước makeup và chọn sản phẩm nền phù hợp.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r04",
+                      "title": "Checklist 8 bước chuẩn bị da",
+                      "resourceType": "checklist",
+                      "summary": "Checklist thực hành skin prep không bỏ sót bước.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Checklist 8 bước chuẩn bị da\n\n## Mục tiêu\nChecklist thực hành skin prep không bỏ sót bước.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r05",
+                      "title": "Nguyên lý lớp nền mỏng, sạch và bền",
+                      "resourceType": "article",
+                      "summary": "Lượng sản phẩm, thao tác tán, che phủ và hoàn thiện lớp nền.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Nguyên lý lớp nền mỏng, sạch và bền\n\n## Mục tiêu\nLượng sản phẩm, thao tác tán, che phủ và hoàn thiện lớp nền.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r06",
+                      "title": "Rubric chấm lớp nền Foundation",
+                      "resourceType": "rubric",
+                      "summary": "Tự chấm độ sạch, mỏng, đều, che phủ và cổ mặt.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Rubric chấm lớp nền Foundation\n\n## Mục tiêu\nTự chấm độ sạch, mỏng, đều, che phủ và cổ mặt.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s1-m3",
+              "title": "Màu sắc cơ bản",
+              "groups": [
+                {
+                  "key": "s1-g3",
+                  "title": "Color",
+                  "resources": [
+                    {
+                      "key": "s1-r07",
+                      "title": "Màu sắc cơ bản trong Makeup",
+                      "resourceType": "article",
+                      "summary": "Undertone, độ sáng, độ bão hòa và phối mắt–má–môi.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Màu sắc cơ bản trong Makeup\n\n## Mục tiêu\nUndertone, độ sáng, độ bão hòa và phối mắt–má–môi.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s1-p2",
+          "title": "Hair Foundation",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s1-hm1",
+              "title": "Tóc nền tảng",
+              "groups": [
+                {
+                  "key": "s1-hg1",
+                  "title": "Dụng cụ & form",
+                  "resources": [
+                    {
+                      "key": "s1-r08",
+                      "title": "Dụng cụ tóc và bảo vệ tóc",
+                      "resourceType": "article",
+                      "summary": "Dụng cụ, nhiệt độ, sản phẩm hỗ trợ và nguyên tắc bảo vệ tóc.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Dụng cụ tóc và bảo vệ tóc\n\n## Mục tiêu\nDụng cụ, nhiệt độ, sản phẩm hỗ trợ và nguyên tắc bảo vệ tóc.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r09",
+                      "title": "Thực hành sóng & tạo độ phồng cơ bản",
+                      "resourceType": "practice",
+                      "summary": "Kiểm soát sóng, hướng tóc và độ phồng.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Thực hành sóng & tạo độ phồng cơ bản\n\n## Mục tiêu\nKiểm soát sóng, hướng tóc và độ phồng.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s1-p3",
+          "title": "Business Foundation",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s1-bm1",
+              "title": "Tư duy nghề",
+              "groups": [
+                {
+                  "key": "s1-bg1",
+                  "title": "Career",
+                  "resources": [
+                    {
+                      "key": "s1-r10",
+                      "title": "6 hiểu biết nền tảng khi bắt đầu nghề Makeup",
+                      "resourceType": "article",
+                      "summary": "Hiểu thị trường, khách hàng, đối thủ, bản thân, sản phẩm và chi phí.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 6 hiểu biết nền tảng khi bắt đầu nghề Makeup\n\n## Mục tiêu\nHiểu thị trường, khách hàng, đối thủ, bản thân, sản phẩm và chi phí.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r11",
+                      "title": "Makeup Career Map",
+                      "resourceType": "worksheet",
+                      "summary": "Xác định hướng nghề 3–12 tháng: cô dâu, tiệc, studio, freelancer, sự kiện, đào tạo.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Makeup Career Map\n\n## Mục tiêu\nXác định hướng nghề 3–12 tháng: cô dâu, tiệc, studio, freelancer, sự kiện, đào tạo.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r12",
+                      "title": "H2O Starter Cost Calculator — hướng dẫn",
+                      "resourceType": "template",
+                      "summary": "Theo dõi đồ nghề, mỹ phẩm, mẫu, di chuyển, học phí và marketing.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O Starter Cost Calculator — hướng dẫn\n\n## Mục tiêu\nTheo dõi đồ nghề, mỹ phẩm, mẫu, di chuyển, học phí và marketing.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s1-bm2",
+              "title": "Hồ sơ nghề",
+              "groups": [
+                {
+                  "key": "s1-bg2",
+                  "title": "Profile",
+                  "resources": [
+                    {
+                      "key": "s1-r13",
+                      "title": "Checklist thiết lập hồ sơ nghề Makeup",
+                      "resourceType": "checklist",
+                      "summary": "Avatar, cover, bio, liên hệ, album tác phẩm, Facebook/Zalo.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Checklist thiết lập hồ sơ nghề Makeup\n\n## Mục tiêu\nAvatar, cover, bio, liên hệ, album tác phẩm, Facebook/Zalo.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s1-r14",
+                      "title": "30 ý tưởng content cho học viên mới",
+                      "resourceType": "template",
+                      "summary": "Content từ hành trình học thật: bài học, hậu trường, tiến bộ, before/after.",
+                      "surface": "create",
+                      "role": "recommended",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 30 ý tưởng content cho học viên mới\n\n## Mục tiêu\nContent từ hành trình học thật: bài học, hậu trường, tiến bộ, before/after.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s1-p4",
+          "title": "H2O Coaching — Foundation Check",
+          "surface": "coaching",
+          "modules": [
+            {
+              "key": "s1-cm1",
+              "title": "Stage Check-up",
+              "groups": [
+                {
+                  "key": "s1-cg1",
+                  "title": "Check",
+                  "resources": [
+                    {
+                      "key": "s1-r15",
+                      "title": "Business & Skill Check-up Giai đoạn 1",
+                      "resourceType": "assessment",
+                      "summary": "Đánh giá kỹ thuật, tác phong, hồ sơ nghề và sẵn sàng lên Stage 2.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Business & Skill Check-up Giai đoạn 1\n\n## Mục tiêu\nĐánh giá kỹ thuật, tác phong, hồ sơ nghề và sẵn sàng lên Stage 2.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assignments": [
+        {
+          "key": "s1-a1",
+          "title": "Hoàn thiện hồ sơ nghề cơ bản",
+          "type": "portfolio",
+          "required": true
+        },
+        {
+          "key": "s1-a2",
+          "title": "Nộp 3 bài nền cơ bản có Before/After",
+          "type": "practice",
+          "required": true
+        },
+        {
+          "key": "s1-a3",
+          "title": "Hoàn thành Career Map + bảng chi phí",
+          "type": "worksheet",
+          "required": true
+        }
+      ],
+      "gate": {
+        "requiredAssignments": [
+          "s1-a1",
+          "s1-a2",
+          "s1-a3"
+        ],
+        "minimumProgress": 80
+      }
+    },
+    {
+      "seedKey": "h2o-stage-02-core-skill-portfolio",
+      "position": 2,
+      "title": "Kỹ thuật ứng dụng & Portfolio",
+      "shortTitle": "Core Skill",
+      "duration": "1–4 tháng hoặc theo năng lực",
+      "description": "Nâng kỹ thuật ứng dụng, tóc, chỉnh ảnh và xây Portfolio.",
+      "outcomes": [
+        "Làm được layout ứng dụng",
+        "Có 5–10 tác phẩm Portfolio",
+        "Biết Before/After và retouch cơ bản",
+        "Có feedback và content từ bài thực hành"
+      ],
+      "programs": [
+        {
+          "key": "s2-p1",
+          "title": "Applied Makeup",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s2-m1",
+              "title": "Nền theo tình trạng da",
+              "groups": [
+                {
+                  "key": "s2-g1",
+                  "title": "Skin Cases",
+                  "resources": [
+                    {
+                      "key": "s2-r01",
+                      "title": "Xử lý nền theo từng tình trạng da",
+                      "resourceType": "article",
+                      "summary": "Da dầu, khô, mất nước, khuyết điểm và cách điều chỉnh prep + nền.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Xử lý nền theo từng tình trạng da\n\n## Mục tiêu\nDa dầu, khô, mất nước, khuyết điểm và cách điều chỉnh prep + nền.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s2-r02",
+                      "title": "Case Study: nền cô dâu da dầu",
+                      "resourceType": "case_study",
+                      "summary": "Phân tích prep, sản phẩm, thao tác và kiểm soát độ bền.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Case Study: nền cô dâu da dầu\n\n## Mục tiêu\nPhân tích prep, sản phẩm, thao tác và kiểm soát độ bền.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s2-m2",
+              "title": "Mắt, mày, má, môi",
+              "groups": [
+                {
+                  "key": "s2-g2",
+                  "title": "Bố cục",
+                  "resources": [
+                    {
+                      "key": "s2-r03",
+                      "title": "Thiết kế mắt ứng dụng theo dáng mắt",
+                      "resourceType": "article",
+                      "summary": "Cân chỉnh dáng mắt và chọn độ đậm phù hợp khách.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Thiết kế mắt ứng dụng theo dáng mắt\n\n## Mục tiêu\nCân chỉnh dáng mắt và chọn độ đậm phù hợp khách.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s2-r04",
+                      "title": "Chân mày và môi cân đối khuôn mặt",
+                      "resourceType": "article",
+                      "summary": "Dáng, màu, độ đậm và cân đối tổng thể.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Chân mày và môi cân đối khuôn mặt\n\n## Mục tiêu\nDáng, màu, độ đậm và cân đối tổng thể.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s2-p2",
+          "title": "Applied Hair",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s2-hm1",
+              "title": "Sóng & bới ứng dụng",
+              "groups": [
+                {
+                  "key": "s2-hg1",
+                  "title": "Hair",
+                  "resources": [
+                    {
+                      "key": "s2-r05",
+                      "title": "Sóng bay ứng dụng và kiểm soát form",
+                      "resourceType": "practice",
+                      "summary": "Hướng sóng, độ phồng, độ bền và hoàn thiện form.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Sóng bay ứng dụng và kiểm soát form\n\n## Mục tiêu\nHướng sóng, độ phồng, độ bền và hoàn thiện form.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s2-r06",
+                      "title": "Bới thấp và xử lý mái rơi",
+                      "resourceType": "practice",
+                      "summary": "Bới thấp ứng dụng, cân đầu và xử lý mái.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Bới thấp và xử lý mái rơi\n\n## Mục tiêu\nBới thấp ứng dụng, cân đầu và xử lý mái.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s2-p3",
+          "title": "Portfolio Builder",
+          "surface": "create",
+          "modules": [
+            {
+              "key": "s2-crm1",
+              "title": "Biến bài học thành tài sản",
+              "groups": [
+                {
+                  "key": "s2-crg1",
+                  "title": "Before/After",
+                  "resources": [
+                    {
+                      "key": "s2-r07",
+                      "title": "Quy trình chụp Before/After Makeup",
+                      "resourceType": "checklist",
+                      "summary": "Ánh sáng, góc, khoảng cách, nền, tóc và tiêu chuẩn ảnh Portfolio.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Quy trình chụp Before/After Makeup\n\n## Mục tiêu\nÁnh sáng, góc, khoảng cách, nền, tóc và tiêu chuẩn ảnh Portfolio.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s2-r08",
+                      "title": "Case Study Template cho bài Makeup",
+                      "resourceType": "template",
+                      "summary": "Vấn đề, giải pháp, sản phẩm, thao tác, kết quả và bài học.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Case Study Template cho bài Makeup\n\n## Mục tiêu\nVấn đề, giải pháp, sản phẩm, thao tác, kết quả và bài học.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s2-r09",
+                      "title": "Portfolio Scorecard",
+                      "resourceType": "rubric",
+                      "summary": "Chấm kỹ thuật, hình ảnh, phong cách và độ phù hợp khách.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Portfolio Scorecard\n\n## Mục tiêu\nChấm kỹ thuật, hình ảnh, phong cách và độ phù hợp khách.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s2-crm2",
+              "title": "Photoshop cơ bản",
+              "groups": [
+                {
+                  "key": "s2-crg2",
+                  "title": "Retouch",
+                  "resources": [
+                    {
+                      "key": "s2-r10",
+                      "title": "Workflow xử lý da, trang phục và màu sắc cơ bản",
+                      "resourceType": "article",
+                      "summary": "Da mượt giữ texture, xử lý trang phục và cân tone.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Workflow xử lý da, trang phục và màu sắc cơ bản\n\n## Mục tiêu\nDa mượt giữ texture, xử lý trang phục và cân tone.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s2-p4",
+          "title": "Proof & Content Foundation",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s2-bm1",
+              "title": "Social Proof",
+              "groups": [
+                {
+                  "key": "s2-bg1",
+                  "title": "Feedback",
+                  "resources": [
+                    {
+                      "key": "s2-r11",
+                      "title": "Quy trình xin và lưu Feedback",
+                      "resourceType": "checklist",
+                      "summary": "Xin cảm nhận, quyền dùng hình và lưu feedback thành tài sản thương hiệu.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Quy trình xin và lưu Feedback\n\n## Mục tiêu\nXin cảm nhận, quyền dùng hình và lưu feedback thành tài sản thương hiệu.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s2-r12",
+                      "title": "4 nhóm content từ bài thực hành",
+                      "resourceType": "article",
+                      "summary": "Kết quả, quá trình, kiến thức và câu chuyện.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 4 nhóm content từ bài thực hành\n\n## Mục tiêu\nKết quả, quá trình, kiến thức và câu chuyện.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s2-p5",
+          "title": "H2O Coaching — Portfolio Readiness",
+          "surface": "coaching",
+          "modules": [
+            {
+              "key": "s2-cm1",
+              "title": "Portfolio Review",
+              "groups": [
+                {
+                  "key": "s2-cg1",
+                  "title": "Check",
+                  "resources": [
+                    {
+                      "key": "s2-r13",
+                      "title": "Portfolio Readiness Check",
+                      "resourceType": "assessment",
+                      "summary": "Đánh giá tác phẩm, feedback, hình ảnh và khả năng nhận khách.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Portfolio Readiness Check\n\n## Mục tiêu\nĐánh giá tác phẩm, feedback, hình ảnh và khả năng nhận khách.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assignments": [
+        {
+          "key": "s2-a1",
+          "title": "Portfolio 5 tác phẩm đạt chuẩn",
+          "type": "portfolio",
+          "required": true
+        },
+        {
+          "key": "s2-a2",
+          "title": "3 Case Before/After có phân tích",
+          "type": "case_study",
+          "required": true
+        },
+        {
+          "key": "s2-a3",
+          "title": "Thu thập tối thiểu 3 feedback mẫu",
+          "type": "evidence",
+          "required": true
+        }
+      ],
+      "gate": {
+        "requiredAssignments": [
+          "s2-a1",
+          "s2-a2",
+          "s2-a3"
+        ],
+        "minimumProgress": 80
+      }
+    },
+    {
+      "seedKey": "h2o-stage-03-real-client-booking",
+      "position": 3,
+      "title": "Thực chiến khách hàng & Booking",
+      "shortTitle": "Real Client",
+      "duration": "3–8 tháng hoặc theo năng lực",
+      "description": "Từ học viên sang người có thể nhận khách, tư vấn, báo giá và booking.",
+      "outcomes": [
+        "Có customer journey hoàn chỉnh",
+        "Có bảng giá và service menu",
+        "Biết lịch cưới/show/teamwork",
+        "Dùng CRM Lite và theo dõi nguồn khách"
+      ],
+      "programs": [
+        {
+          "key": "s3-p1",
+          "title": "Real Client Workflow",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s3-m1",
+              "title": "Customer Journey",
+              "groups": [
+                {
+                  "key": "s3-g1",
+                  "title": "Service",
+                  "resources": [
+                    {
+                      "key": "s3-r01",
+                      "title": "Quy trình phục vụ khách Makeup từ A–Z",
+                      "resourceType": "sop",
+                      "summary": "Nhu cầu → tư vấn → lịch → chuẩn bị → thực hiện → thanh toán → feedback.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Quy trình phục vụ khách Makeup từ A–Z\n\n## Mục tiêu\nNhu cầu → tư vấn → lịch → chuẩn bị → thực hiện → thanh toán → feedback.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s3-r02",
+                      "title": "Checklist trước lịch Makeup",
+                      "resourceType": "checklist",
+                      "summary": "Địa điểm, thời gian, dụng cụ, sản phẩm, phụ kiện, tóc, dự phòng.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Checklist trước lịch Makeup\n\n## Mục tiêu\nĐịa điểm, thời gian, dụng cụ, sản phẩm, phụ kiện, tóc, dự phòng.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s3-m2",
+              "title": "Cưới/tiệc thực chiến",
+              "groups": [
+                {
+                  "key": "s3-g2",
+                  "title": "Wedding",
+                  "resources": [
+                    {
+                      "key": "s3-r03",
+                      "title": "Timeline Makeup cô dâu ngày cưới",
+                      "resourceType": "sop",
+                      "summary": "Tổ chức thời gian, thứ tự việc và phối hợp tóc/trang phục.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Timeline Makeup cô dâu ngày cưới\n\n## Mục tiêu\nTổ chức thời gian, thứ tự việc và phối hợp tóc/trang phục.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s3-r04",
+                      "title": "Makeup mẹ cô dâu / bà sui / khách tiệc",
+                      "resourceType": "article",
+                      "summary": "Khác biệt về nền, màu, độ đậm, tóc và giao tiếp.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Makeup mẹ cô dâu / bà sui / khách tiệc\n\n## Mục tiêu\nKhác biệt về nền, màu, độ đậm, tóc và giao tiếp.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s3-m3",
+              "title": "Makeup Show & teamwork",
+              "groups": [
+                {
+                  "key": "s3-g3",
+                  "title": "Professional",
+                  "resources": [
+                    {
+                      "key": "s3-r05",
+                      "title": "Quy trình tham gia Makeup Show",
+                      "resourceType": "sop",
+                      "summary": "Chuẩn bị, chia nhóm, timeline, xử lý tình huống và quality.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Quy trình tham gia Makeup Show\n\n## Mục tiêu\nChuẩn bị, chia nhóm, timeline, xử lý tình huống và quality.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s3-p2",
+          "title": "Sales & Booking Foundation",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s3-sm1",
+              "title": "Service & Pricing",
+              "groups": [
+                {
+                  "key": "s3-sg1",
+                  "title": "Pricing",
+                  "resources": [
+                    {
+                      "key": "s3-r06",
+                      "title": "Thiết kế gói dịch vụ Makeup",
+                      "resourceType": "worksheet",
+                      "summary": "Gói cơ bản/tiêu chuẩn/cao cấp dựa trên giá trị.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Thiết kế gói dịch vụ Makeup\n\n## Mục tiêu\nGói cơ bản/tiêu chuẩn/cao cấp dựa trên giá trị.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s3-r07",
+                      "title": "H2O Price Builder",
+                      "resourceType": "template",
+                      "summary": "Chi phí + thời gian + tay nghề + thị trường + biên lợi nhuận.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O Price Builder\n\n## Mục tiêu\nChi phí + thời gian + tay nghề + thị trường + biên lợi nhuận.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s3-sm2",
+              "title": "Tư vấn & chốt lịch",
+              "groups": [
+                {
+                  "key": "s3-sg2",
+                  "title": "Sales",
+                  "resources": [
+                    {
+                      "key": "s3-r08",
+                      "title": "Kịch bản tư vấn khách hỏi giá Makeup",
+                      "resourceType": "script",
+                      "summary": "Khung hỏi nhu cầu, giải thích giá trị và dẫn tới đặt lịch.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Kịch bản tư vấn khách hỏi giá Makeup\n\n## Mục tiêu\nKhung hỏi nhu cầu, giải thích giá trị và dẫn tới đặt lịch.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s3-r09",
+                      "title": "8 tình huống chốt lịch thường gặp",
+                      "resourceType": "case_study",
+                      "summary": "So giá, xin giảm, chưa quyết, đổi lịch, cưới xa, cần sớm, follow-up.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 8 tình huống chốt lịch thường gặp\n\n## Mục tiêu\nSo giá, xin giảm, chưa quyết, đổi lịch, cưới xa, cần sớm, follow-up.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s3-sm3",
+              "title": "CRM Lite",
+              "groups": [
+                {
+                  "key": "s3-sg3",
+                  "title": "CRM",
+                  "resources": [
+                    {
+                      "key": "s3-r10",
+                      "title": "H2O Makeup CRM Lite — hướng dẫn",
+                      "resourceType": "tool_guide",
+                      "summary": "Tên, SĐT, ngày cưới, nguồn khách, trạng thái, giá, cọc, follow-up.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O Makeup CRM Lite — hướng dẫn\n\n## Mục tiêu\nTên, SĐT, ngày cưới, nguồn khách, trạng thái, giá, cọc, follow-up.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s3-r11",
+                      "title": "Bảng theo dõi nguồn khách",
+                      "resourceType": "template",
+                      "summary": "Facebook, TikTok, giới thiệu, Google, studio, photographer, khách cũ.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Bảng theo dõi nguồn khách\n\n## Mục tiêu\nFacebook, TikTok, giới thiệu, Google, studio, photographer, khách cũ.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s3-p3",
+          "title": "Client Case Builder",
+          "surface": "create",
+          "modules": [
+            {
+              "key": "s3-crm1",
+              "title": "Case thật",
+              "groups": [
+                {
+                  "key": "s3-crg1",
+                  "title": "Client Story",
+                  "resources": [
+                    {
+                      "key": "s3-r12",
+                      "title": "Client Case Story Template",
+                      "resourceType": "template",
+                      "summary": "Nhu cầu, khó khăn, layout, kết quả và feedback khách.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Client Case Story Template\n\n## Mục tiêu\nNhu cầu, khó khăn, layout, kết quả và feedback khách.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s3-p4",
+          "title": "H2O Coaching — First Client",
+          "surface": "coaching",
+          "modules": [
+            {
+              "key": "s3-cm1",
+              "title": "Readiness",
+              "groups": [
+                {
+                  "key": "s3-cg1",
+                  "title": "Check",
+                  "resources": [
+                    {
+                      "key": "s3-r13",
+                      "title": "First Client Readiness Check",
+                      "resourceType": "assessment",
+                      "summary": "Bảng giá, tư vấn, booking, tác phong và xử lý khách thật.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# First Client Readiness Check\n\n## Mục tiêu\nBảng giá, tư vấn, booking, tác phong và xử lý khách thật.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assignments": [
+        {
+          "key": "s3-a1",
+          "title": "Hoàn thiện bảng giá + Service Menu",
+          "type": "business",
+          "required": true
+        },
+        {
+          "key": "s3-a2",
+          "title": "Sales Script + 3 objection simulations",
+          "type": "simulation",
+          "required": true
+        },
+        {
+          "key": "s3-a3",
+          "title": "Thiết lập CRM Lite",
+          "type": "crm",
+          "required": true
+        },
+        {
+          "key": "s3-a4",
+          "title": "Nộp 1 Client Case hoàn chỉnh",
+          "type": "case_study",
+          "required": true
+        }
+      ],
+      "gate": {
+        "requiredAssignments": [
+          "s3-a1",
+          "s3-a2",
+          "s3-a3",
+          "s3-a4"
+        ],
+        "minimumProgress": 80
+      }
+    },
+    {
+      "seedKey": "h2o-stage-04-brand-marketing",
+      "position": 4,
+      "title": "Thương hiệu cá nhân & Marketing tạo khách",
+      "shortTitle": "Brand Growth",
+      "duration": "6–12 tháng hoặc theo năng lực",
+      "description": "Định vị, Brand Kit, Content 90 ngày và đo marketing tạo khách.",
+      "outcomes": [
+        "Có định vị và Brand Kit",
+        "Có Content Plan 30–90 ngày",
+        "Biết đo view → lead → booking",
+        "Biết nghiên cứu trend và concept"
+      ],
+      "programs": [
+        {
+          "key": "s4-p1",
+          "title": "Advanced Style & Trend",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s4-m1",
+              "title": "Trend Research",
+              "groups": [
+                {
+                  "key": "s4-g1",
+                  "title": "Research",
+                  "resources": [
+                    {
+                      "key": "s4-r01",
+                      "title": "Quy trình nghiên cứu Trend Makeup",
+                      "resourceType": "sop",
+                      "summary": "Thu thập tham chiếu, phân tích makeup/tóc/màu và tính ứng dụng.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Quy trình nghiên cứu Trend Makeup\n\n## Mục tiêu\nThu thập tham chiếu, phân tích makeup/tóc/màu và tính ứng dụng.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r02",
+                      "title": "Concept Makeup Research Board",
+                      "resourceType": "template",
+                      "summary": "Ánh sáng, tone, tóc, phụ kiện, màu sắc và demo.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Concept Makeup Research Board\n\n## Mục tiêu\nÁnh sáng, tone, tóc, phụ kiện, màu sắc và demo.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s4-p2",
+          "title": "Personal Brand System",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s4-bm1",
+              "title": "Positioning",
+              "groups": [
+                {
+                  "key": "s4-bg1",
+                  "title": "Brand",
+                  "resources": [
+                    {
+                      "key": "s4-r03",
+                      "title": "Bài tập định vị thương hiệu Makeup Artist",
+                      "resourceType": "worksheet",
+                      "summary": "Khách hàng, thế mạnh, phong cách, bằng chứng và lý do được nhớ.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Bài tập định vị thương hiệu Makeup Artist\n\n## Mục tiêu\nKhách hàng, thế mạnh, phong cách, bằng chứng và lý do được nhớ.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r04",
+                      "title": "H2O Makeup Brand Kit Checklist",
+                      "resourceType": "checklist",
+                      "summary": "Tên, màu, font, style ảnh, avatar, cover, watermark, template, bảng giá.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O Makeup Brand Kit Checklist\n\n## Mục tiêu\nTên, màu, font, style ảnh, avatar, cover, watermark, template, bảng giá.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s4-bm2",
+              "title": "Content Engine 90 ngày",
+              "groups": [
+                {
+                  "key": "s4-bg2",
+                  "title": "Content",
+                  "resources": [
+                    {
+                      "key": "s4-r05",
+                      "title": "6 trụ cột Content tạo khách",
+                      "resourceType": "article",
+                      "summary": "Kết quả, giá trị, niềm tin, cá nhân, chuyển đổi, cộng đồng.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 6 trụ cột Content tạo khách\n\n## Mục tiêu\nKết quả, giá trị, niềm tin, cá nhân, chuyển đổi, cộng đồng.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r06",
+                      "title": "H2O 90-Day Content Planner",
+                      "resourceType": "template",
+                      "summary": "Ý tưởng, script, quay, chỉnh, ngày đăng, CTA, view, inbox, booking.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O 90-Day Content Planner\n\n## Mục tiêu\nÝ tưởng, script, quay, chỉnh, ngày đăng, CTA, view, inbox, booking.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r07",
+                      "title": "CTA & chuyển đổi từ Content sang Booking",
+                      "resourceType": "article",
+                      "summary": "Profile Visit → Inbox → Lead → Booking → Revenue.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# CTA & chuyển đổi từ Content sang Booking\n\n## Mục tiêu\nProfile Visit → Inbox → Lead → Booking → Revenue.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s4-bm3",
+              "title": "Organic Marketing",
+              "groups": [
+                {
+                  "key": "s4-bg3",
+                  "title": "Channels",
+                  "resources": [
+                    {
+                      "key": "s4-r08",
+                      "title": "Marketing không mất tiền trước",
+                      "resourceType": "article",
+                      "summary": "Facebook, Fanpage, Reels, TikTok, Google Business, referral, partnership.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Marketing không mất tiền trước\n\n## Mục tiêu\nFacebook, Fanpage, Reels, TikTok, Google Business, referral, partnership.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r09",
+                      "title": "Marketing Source Tracker",
+                      "resourceType": "template",
+                      "summary": "Nguồn lead, inbox, booking, conversion và doanh thu theo kênh.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Marketing Source Tracker\n\n## Mục tiêu\nNguồn lead, inbox, booking, conversion và doanh thu theo kênh.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s4-p3",
+          "title": "Signature Portfolio & Concept",
+          "surface": "create",
+          "modules": [
+            {
+              "key": "s4-crm1",
+              "title": "Signature Work",
+              "groups": [
+                {
+                  "key": "s4-crg1",
+                  "title": "Portfolio",
+                  "resources": [
+                    {
+                      "key": "s4-r10",
+                      "title": "Signature Portfolio Builder",
+                      "resourceType": "worksheet",
+                      "summary": "Chọn 6–12 tác phẩm đại diện phong cách và chất lượng.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Signature Portfolio Builder\n\n## Mục tiêu\nChọn 6–12 tác phẩm đại diện phong cách và chất lượng.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r11",
+                      "title": "Concept Demo Approval Sheet",
+                      "resourceType": "template",
+                      "summary": "Chốt makeup, tóc, trang phục, màu sắc, phụ kiện trước sản xuất.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Concept Demo Approval Sheet\n\n## Mục tiêu\nChốt makeup, tóc, trang phục, màu sắc, phụ kiện trước sản xuất.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s4-p4",
+          "title": "H2O Coaching — Brand Growth",
+          "surface": "coaching",
+          "modules": [
+            {
+              "key": "s4-cm1",
+              "title": "Growth Audit",
+              "groups": [
+                {
+                  "key": "s4-cg1",
+                  "title": "Check",
+                  "resources": [
+                    {
+                      "key": "s4-r12",
+                      "title": "Brand & Marketing Audit",
+                      "resourceType": "assessment",
+                      "summary": "Định vị, hình ảnh, content, CTA, nguồn lead và khoảng trống.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Brand & Marketing Audit\n\n## Mục tiêu\nĐịnh vị, hình ảnh, content, CTA, nguồn lead và khoảng trống.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s4-r13",
+                      "title": "Kế hoạch tăng trưởng 30 ngày",
+                      "resourceType": "template",
+                      "summary": "3 ưu tiên, KPI và hành động trong 30 ngày.",
+                      "surface": "coaching",
+                      "role": "recommended",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Kế hoạch tăng trưởng 30 ngày\n\n## Mục tiêu\n3 ưu tiên, KPI và hành động trong 30 ngày.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assignments": [
+        {
+          "key": "s4-a1",
+          "title": "Hoàn thiện Brand Kit",
+          "type": "brand",
+          "required": true
+        },
+        {
+          "key": "s4-a2",
+          "title": "Content Plan tối thiểu 30 ngày",
+          "type": "content_plan",
+          "required": true
+        },
+        {
+          "key": "s4-a3",
+          "title": "Báo cáo nguồn lead/content 2 tuần",
+          "type": "analytics",
+          "required": true
+        },
+        {
+          "key": "s4-a4",
+          "title": "Signature Portfolio",
+          "type": "portfolio",
+          "required": true
+        }
+      ],
+      "gate": {
+        "requiredAssignments": [
+          "s4-a1",
+          "s4-a2",
+          "s4-a3",
+          "s4-a4"
+        ],
+        "minimumProgress": 80
+      }
+    },
+    {
+      "seedKey": "h2o-stage-05-sales-crm-ops",
+      "position": 5,
+      "title": "Sales, CRM & Vận hành chuyên nghiệp",
+      "shortTitle": "Pro Business",
+      "duration": "12–24 tháng hoặc theo năng lực",
+      "description": "Vận hành bằng Sales Funnel, CRM, SOP, tài chính và dữ liệu.",
+      "outcomes": [
+        "Có Sales Funnel và CRM Pro",
+        "Có SOP và Customer Care",
+        "Theo dõi doanh thu/lợi nhuận/conversion",
+        "Bắt đầu chuẩn hóa đội nhóm"
+      ],
+      "programs": [
+        {
+          "key": "s5-p1",
+          "title": "Wedding Sales Playbook",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s5-sm1",
+              "title": "Sales Funnel",
+              "groups": [
+                {
+                  "key": "s5-sg1",
+                  "title": "Funnel",
+                  "resources": [
+                    {
+                      "key": "s5-r01",
+                      "title": "Sales Funnel Makeup/Wedding",
+                      "resourceType": "article",
+                      "summary": "Content → Lead → Inbox → Tư vấn → Booking → Cọc → Dịch vụ → Feedback → Referral.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Sales Funnel Makeup/Wedding\n\n## Mục tiêu\nContent → Lead → Inbox → Tư vấn → Booking → Cọc → Dịch vụ → Feedback → Referral.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s5-r02",
+                      "title": "H2O Wedding Sales Playbook",
+                      "resourceType": "playbook",
+                      "summary": "Lead lạnh/nóng, hỏi giá, so sánh, xin giảm, follow-up, upsell, cross-sell.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O Wedding Sales Playbook\n\n## Mục tiêu\nLead lạnh/nóng, hỏi giá, so sánh, xin giảm, follow-up, upsell, cross-sell.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s5-sm2",
+              "title": "CRM Pro",
+              "groups": [
+                {
+                  "key": "s5-sg2",
+                  "title": "Pipeline",
+                  "resources": [
+                    {
+                      "key": "s5-r03",
+                      "title": "CRM Pipeline chuẩn Makeup Artist",
+                      "resourceType": "tool_guide",
+                      "summary": "New Lead → Contacted → Consulting → Follow-up → Booked → Completed → Referral.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# CRM Pipeline chuẩn Makeup Artist\n\n## Mục tiêu\nNew Lead → Contacted → Consulting → Follow-up → Booked → Completed → Referral.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s5-r04",
+                      "title": "Follow-up Cadence",
+                      "resourceType": "sop",
+                      "summary": "Quy tắc follow-up theo trạng thái lead và thời điểm cưới.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Follow-up Cadence\n\n## Mục tiêu\nQuy tắc follow-up theo trạng thái lead và thời điểm cưới.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s5-p2",
+          "title": "Operations & Finance",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s5-om1",
+              "title": "Operations",
+              "groups": [
+                {
+                  "key": "s5-og1",
+                  "title": "SOP",
+                  "resources": [
+                    {
+                      "key": "s5-r05",
+                      "title": "H2O Makeup Artist Operations SOP",
+                      "resourceType": "sop",
+                      "summary": "Tiếp nhận, tư vấn, booking, cọc, chuẩn bị, dịch vụ, thu tiền, feedback, lưu dữ liệu.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# H2O Makeup Artist Operations SOP\n\n## Mục tiêu\nTiếp nhận, tư vấn, booking, cọc, chuẩn bị, dịch vụ, thu tiền, feedback, lưu dữ liệu.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s5-r06",
+                      "title": "Customer Care Workflow",
+                      "resourceType": "sop",
+                      "summary": "Chăm sóc trước lịch, sau dịch vụ, referral và khách quay lại.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Customer Care Workflow\n\n## Mục tiêu\nChăm sóc trước lịch, sau dịch vụ, referral và khách quay lại.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s5-om2",
+              "title": "Finance",
+              "groups": [
+                {
+                  "key": "s5-og2",
+                  "title": "Dashboard",
+                  "resources": [
+                    {
+                      "key": "s5-r07",
+                      "title": "Revenue Dashboard Makeup",
+                      "resourceType": "template",
+                      "summary": "Doanh thu, booking, giá trị đơn, chi phí, lợi nhuận, nguồn khách, conversion.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Revenue Dashboard Makeup\n\n## Mục tiêu\nDoanh thu, booking, giá trị đơn, chi phí, lợi nhuận, nguồn khách, conversion.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s5-r08",
+                      "title": "Doanh thu, dòng tiền và lợi nhuận",
+                      "resourceType": "article",
+                      "summary": "Phân biệt các chỉ số để đánh giá đúng hiệu quả kinh doanh.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Doanh thu, dòng tiền và lợi nhuận\n\n## Mục tiêu\nPhân biệt các chỉ số để đánh giá đúng hiệu quả kinh doanh.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s5-p3",
+          "title": "Quality Control & Team Standard",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s5-qm1",
+              "title": "QC",
+              "groups": [
+                {
+                  "key": "s5-qg1",
+                  "title": "Standards",
+                  "resources": [
+                    {
+                      "key": "s5-r09",
+                      "title": "Quality Control Checklist cho Makeup Service",
+                      "resourceType": "checklist",
+                      "summary": "Kỹ thuật, vệ sinh, thời gian, giao tiếp, tóc và hình ảnh kết quả.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Quality Control Checklist cho Makeup Service\n\n## Mục tiêu\nKỹ thuật, vệ sinh, thời gian, giao tiếp, tóc và hình ảnh kết quả.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s5-r10",
+                      "title": "Onboarding cộng tác viên Makeup",
+                      "resourceType": "sop",
+                      "summary": "Tuyển, hướng dẫn, kiểm tra tay nghề, service rule và feedback.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Onboarding cộng tác viên Makeup\n\n## Mục tiêu\nTuyển, hướng dẫn, kiểm tra tay nghề, service rule và feedback.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s5-p4",
+          "title": "Campaign & Business Assets",
+          "surface": "create",
+          "modules": [
+            {
+              "key": "s5-crm1",
+              "title": "Campaign",
+              "groups": [
+                {
+                  "key": "s5-crg1",
+                  "title": "Growth",
+                  "resources": [
+                    {
+                      "key": "s5-r11",
+                      "title": "Campaign Planning Template",
+                      "resourceType": "template",
+                      "summary": "Mục tiêu, tệp khách, thông điệp, content, ưu đãi, lịch và đo hiệu quả.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Campaign Planning Template\n\n## Mục tiêu\nMục tiêu, tệp khách, thông điệp, content, ưu đãi, lịch và đo hiệu quả.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s5-p5",
+          "title": "H2O Coaching — Business Health",
+          "surface": "coaching",
+          "modules": [
+            {
+              "key": "s5-cm1",
+              "title": "Audit",
+              "groups": [
+                {
+                  "key": "s5-cg1",
+                  "title": "Check",
+                  "resources": [
+                    {
+                      "key": "s5-r12",
+                      "title": "Business Health Check",
+                      "resourceType": "assessment",
+                      "summary": "Sales, CRM, tài chính, SOP, chất lượng và điểm nghẽn.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Business Health Check\n\n## Mục tiêu\nSales, CRM, tài chính, SOP, chất lượng và điểm nghẽn.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s5-r13",
+                      "title": "Kế hoạch tối ưu 90 ngày",
+                      "resourceType": "template",
+                      "summary": "3 điểm nghẽn lớn + KPI + owner + deadline.",
+                      "surface": "coaching",
+                      "role": "recommended",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Kế hoạch tối ưu 90 ngày\n\n## Mục tiêu\n3 điểm nghẽn lớn + KPI + owner + deadline.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assignments": [
+        {
+          "key": "s5-a1",
+          "title": "Thiết lập CRM Pro + pipeline",
+          "type": "crm",
+          "required": true
+        },
+        {
+          "key": "s5-a2",
+          "title": "Hoàn thiện Sales Playbook cá nhân",
+          "type": "sales",
+          "required": true
+        },
+        {
+          "key": "s5-a3",
+          "title": "Hoàn thiện Operations SOP",
+          "type": "sop",
+          "required": true
+        },
+        {
+          "key": "s5-a4",
+          "title": "Revenue Dashboard 1 tháng hoặc simulation",
+          "type": "finance",
+          "required": true
+        }
+      ],
+      "gate": {
+        "requiredAssignments": [
+          "s5-a1",
+          "s5-a2",
+          "s5-a3",
+          "s5-a4"
+        ],
+        "minimumProgress": 85
+      }
+    },
+    {
+      "seedKey": "h2o-stage-06-owner-educator-scale",
+      "position": 6,
+      "title": "Studio / Academy / Mentor & Scale",
+      "shortTitle": "Leader & Scale",
+      "duration": "24+ tháng hoặc theo mô hình",
+      "description": "Xây mô hình, đội nhóm, chương trình đào tạo, sản phẩm tri thức và scale.",
+      "outcomes": [
+        "Chọn mô hình kinh doanh",
+        "Có tài chính/đội nhóm/SOP/KPI",
+        "Biết xây curriculum và sản phẩm tri thức",
+        "Có kế hoạch scale People × Process × Tech × Data × AI"
+      ],
+      "programs": [
+        {
+          "key": "s6-p1",
+          "title": "Business Model & Scale",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s6-bm1",
+              "title": "Business Model",
+              "groups": [
+                {
+                  "key": "s6-bg1",
+                  "title": "Model",
+                  "resources": [
+                    {
+                      "key": "s6-r01",
+                      "title": "7 mô hình phát triển nghề Makeup",
+                      "resourceType": "article",
+                      "summary": "Freelancer Premium, Team, Bridal Studio, Makeup Studio, Academy, Studio+Academy, Educator.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 7 mô hình phát triển nghề Makeup\n\n## Mục tiêu\nFreelancer Premium, Team, Bridal Studio, Makeup Studio, Academy, Studio+Academy, Educator.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s6-r02",
+                      "title": "Business Model Canvas cho Makeup/Studio",
+                      "resourceType": "worksheet",
+                      "summary": "Khách hàng, giá trị, kênh, doanh thu, chi phí, nguồn lực, hoạt động, đối tác.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Business Model Canvas cho Makeup/Studio\n\n## Mục tiêu\nKhách hàng, giá trị, kênh, doanh thu, chi phí, nguồn lực, hoạt động, đối tác.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s6-bm2",
+              "title": "Finance & Scale",
+              "groups": [
+                {
+                  "key": "s6-bg2",
+                  "title": "Scale",
+                  "resources": [
+                    {
+                      "key": "s6-r03",
+                      "title": "P&L cơ bản cho Studio/Academy",
+                      "resourceType": "template",
+                      "summary": "Revenue, COGS, payroll, marketing, rent, investment, cashflow, profit.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# P&L cơ bản cho Studio/Academy\n\n## Mục tiêu\nRevenue, COGS, payroll, marketing, rent, investment, cashflow, profit.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s6-r04",
+                      "title": "Scale Framework: People × Process × Technology × Data × AI",
+                      "resourceType": "article",
+                      "summary": "Những việc cần chuẩn hóa trước khi mở rộng.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Scale Framework: People × Process × Technology × Data × AI\n\n## Mục tiêu\nNhững việc cần chuẩn hóa trước khi mở rộng.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s6-p2",
+          "title": "Teach & Curriculum",
+          "surface": "learn",
+          "modules": [
+            {
+              "key": "s6-tm1",
+              "title": "Instructional Design",
+              "groups": [
+                {
+                  "key": "s6-tg1",
+                  "title": "Curriculum",
+                  "resources": [
+                    {
+                      "key": "s6-r05",
+                      "title": "Từ kỹ năng nghề thành Curriculum",
+                      "resourceType": "article",
+                      "summary": "Kiến thức → Module → Lesson → Demo → Assignment → Rubric → Certification.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Từ kỹ năng nghề thành Curriculum\n\n## Mục tiêu\nKiến thức → Module → Lesson → Demo → Assignment → Rubric → Certification.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s6-r06",
+                      "title": "Rubric chấm bài Makeup & Hair",
+                      "resourceType": "rubric",
+                      "summary": "Kỹ thuật, thẩm mỹ, quy trình, thời gian và tác phong.",
+                      "surface": "learn",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Rubric chấm bài Makeup & Hair\n\n## Mục tiêu\nKỹ thuật, thẩm mỹ, quy trình, thời gian và tác phong.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "s6-tm2",
+              "title": "Academy Operations",
+              "groups": [
+                {
+                  "key": "s6-tg2",
+                  "title": "Class SOP",
+                  "resources": [
+                    {
+                      "key": "s6-r07",
+                      "title": "SOP lớp học Makeup chuyên nghiệp",
+                      "resourceType": "sop",
+                      "summary": "Mẫu, lens, sắp đồ, quay lớp, vệ sinh, chấm điểm, ảnh duyệt và hậu trường.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# SOP lớp học Makeup chuyên nghiệp\n\n## Mục tiêu\nMẫu, lens, sắp đồ, quay lớp, vệ sinh, chấm điểm, ảnh duyệt và hậu trường.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s6-p3",
+          "title": "Knowledge Product Builder",
+          "surface": "create",
+          "modules": [
+            {
+              "key": "s6-km1",
+              "title": "Create & Publish",
+              "groups": [
+                {
+                  "key": "s6-kg1",
+                  "title": "Products",
+                  "resources": [
+                    {
+                      "key": "s6-r08",
+                      "title": "Knowledge Product Map",
+                      "resourceType": "worksheet",
+                      "summary": "Ebook, workshop, course, mentoring, template, tool, checklist, membership.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Knowledge Product Map\n\n## Mục tiêu\nEbook, workshop, course, mentoring, template, tool, checklist, membership.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s6-r09",
+                      "title": "Course Production Checklist",
+                      "resourceType": "checklist",
+                      "summary": "Curriculum, lesson, asset, recording, assignment, rubric, preview, publish, support.",
+                      "surface": "create",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Course Production Checklist\n\n## Mục tiêu\nCurriculum, lesson, asset, recording, assignment, rubric, preview, publish, support.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s6-p4",
+          "title": "Team & Operations",
+          "surface": "business",
+          "modules": [
+            {
+              "key": "s6-tm3",
+              "title": "People & KPI",
+              "groups": [
+                {
+                  "key": "s6-tg3",
+                  "title": "Team",
+                  "resources": [
+                    {
+                      "key": "s6-r10",
+                      "title": "Team Onboarding & KPI Framework",
+                      "resourceType": "template",
+                      "summary": "Tuyển, phân vai, onboarding, training, KPI, QC, review.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Team Onboarding & KPI Framework\n\n## Mục tiêu\nTuyển, phân vai, onboarding, training, KPI, QC, review.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s6-r11",
+                      "title": "Business Operations Manual Map",
+                      "resourceType": "template",
+                      "summary": "Sale, Makeup, Customer Care, Booking, Complaint, Content, Cash, Inventory, Training SOP.",
+                      "surface": "business",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Business Operations Manual Map\n\n## Mục tiêu\nSale, Makeup, Customer Care, Booking, Complaint, Content, Cash, Inventory, Training SOP.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "s6-p5",
+          "title": "H2O Coaching — Owner / Mentor",
+          "surface": "coaching",
+          "modules": [
+            {
+              "key": "s6-cm1",
+              "title": "Scale Readiness",
+              "groups": [
+                {
+                  "key": "s6-cg1",
+                  "title": "Check",
+                  "resources": [
+                    {
+                      "key": "s6-r12",
+                      "title": "Owner & Mentor Readiness Audit",
+                      "resourceType": "assessment",
+                      "summary": "Mô hình, tài chính, đội nhóm, SOP, thương hiệu, đào tạo và scale.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# Owner & Mentor Readiness Audit\n\n## Mục tiêu\nMô hình, tài chính, đội nhóm, SOP, thương hiệu, đào tạo và scale.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    },
+                    {
+                      "key": "s6-r13",
+                      "title": "12-Month Scale Roadmap",
+                      "resourceType": "template",
+                      "summary": "Mục tiêu, ưu tiên chiến lược, KPI, nguồn lực và kế hoạch triển khai.",
+                      "surface": "coaching",
+                      "role": "required",
+                      "unlockMode": "immediate",
+                      "tags": [],
+                      "bodyMarkdown": "# 12-Month Scale Roadmap\n\n## Mục tiêu\nMục tiêu, ưu tiên chiến lược, KPI, nguồn lực và kế hoạch triển khai.\n\n## Học viên cần làm\n- Học/xem nội dung.\n- Ghi 3 ý áp dụng trực tiếp.\n- Hoàn thành thực hành/checklist liên quan.\n- Lưu bằng chứng vào hồ sơ H2OBOOK.\n\n## Tiêu chuẩn hoàn thành\nCó thể giải thích lại và áp dụng vào bài tập hoặc tình huống nghề thực tế.\n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assignments": [
+        {
+          "key": "s6-a1",
+          "title": "Business Model Canvas",
+          "type": "business_model",
+          "required": true
+        },
+        {
+          "key": "s6-a2",
+          "title": "P&L + kế hoạch tài chính cơ bản",
+          "type": "finance",
+          "required": true
+        },
+        {
+          "key": "s6-a3",
+          "title": "Operations Manual hoặc Curriculum",
+          "type": "system",
+          "required": true
+        },
+        {
+          "key": "s6-a4",
+          "title": "12-Month Scale Roadmap",
+          "type": "strategy",
+          "required": true
+        }
+      ],
+      "gate": {
+        "requiredAssignments": [
+          "s6-a1",
+          "s6-a2",
+          "s6-a3",
+          "s6-a4"
+        ],
+        "minimumProgress": 85
+      }
+    }
+  ],
+  "studentExperience": {
+    "topLevelStable": [
+      "home",
+      "learn",
+      "create",
+      "business",
+      "coaching"
+    ],
+    "globalRules": {
+      "continueLearningFirst": true,
+      "showNextAction": true,
+      "showStageGateProgress": true,
+      "showLockedReason": true,
+      "mobileFirst": true
+    },
+    "stageDefaults": [
+      {
+        "stagePosition": 1,
+        "homeWidgets": [
+          "continue_learning",
+          "stage_progress",
+          "next_best_action",
+          "assignment_due",
+          "coaching_checkin"
+        ],
+        "learnChildren": [
+          "journey",
+          "library",
+          "practice"
+        ],
+        "createChildren": [
+          "projects",
+          "portfolio",
+          "tools"
+        ],
+        "businessChildren": [
+          "business_center",
+          "crm_or_templates",
+          "content_growth"
+        ],
+        "coachingChildren": [
+          "stage_checkup",
+          "gap_analysis",
+          "next_stage_preview"
+        ]
+      },
+      {
+        "stagePosition": 2,
+        "homeWidgets": [
+          "continue_learning",
+          "stage_progress",
+          "next_best_action",
+          "assignment_due",
+          "coaching_checkin"
+        ],
+        "learnChildren": [
+          "journey",
+          "library",
+          "practice"
+        ],
+        "createChildren": [
+          "projects",
+          "portfolio",
+          "tools"
+        ],
+        "businessChildren": [
+          "business_center",
+          "crm_or_templates",
+          "content_growth"
+        ],
+        "coachingChildren": [
+          "stage_checkup",
+          "gap_analysis",
+          "next_stage_preview"
+        ]
+      },
+      {
+        "stagePosition": 3,
+        "homeWidgets": [
+          "continue_learning",
+          "stage_progress",
+          "next_best_action",
+          "assignment_due",
+          "coaching_checkin"
+        ],
+        "learnChildren": [
+          "journey",
+          "library",
+          "practice"
+        ],
+        "createChildren": [
+          "projects",
+          "portfolio",
+          "tools"
+        ],
+        "businessChildren": [
+          "business_center",
+          "crm_or_templates",
+          "content_growth"
+        ],
+        "coachingChildren": [
+          "stage_checkup",
+          "gap_analysis",
+          "next_stage_preview"
+        ]
+      },
+      {
+        "stagePosition": 4,
+        "homeWidgets": [
+          "continue_learning",
+          "stage_progress",
+          "next_best_action",
+          "assignment_due",
+          "coaching_checkin"
+        ],
+        "learnChildren": [
+          "journey",
+          "library",
+          "practice"
+        ],
+        "createChildren": [
+          "projects",
+          "portfolio",
+          "tools"
+        ],
+        "businessChildren": [
+          "business_center",
+          "crm_or_templates",
+          "content_growth"
+        ],
+        "coachingChildren": [
+          "stage_checkup",
+          "gap_analysis",
+          "next_stage_preview"
+        ]
+      },
+      {
+        "stagePosition": 5,
+        "homeWidgets": [
+          "continue_learning",
+          "stage_progress",
+          "next_best_action",
+          "assignment_due",
+          "coaching_checkin"
+        ],
+        "learnChildren": [
+          "journey",
+          "library",
+          "practice"
+        ],
+        "createChildren": [
+          "projects",
+          "portfolio",
+          "tools"
+        ],
+        "businessChildren": [
+          "business_center",
+          "crm_or_templates",
+          "content_growth"
+        ],
+        "coachingChildren": [
+          "stage_checkup",
+          "gap_analysis",
+          "next_stage_preview"
+        ]
+      },
+      {
+        "stagePosition": 6,
+        "homeWidgets": [
+          "continue_learning",
+          "stage_progress",
+          "next_best_action",
+          "assignment_due",
+          "coaching_checkin"
+        ],
+        "learnChildren": [
+          "journey",
+          "library",
+          "practice"
+        ],
+        "createChildren": [
+          "projects",
+          "portfolio",
+          "tools"
+        ],
+        "businessChildren": [
+          "business_center",
+          "crm_or_templates",
+          "content_growth"
+        ],
+        "coachingChildren": [
+          "stage_checkup",
+          "gap_analysis",
+          "next_stage_preview"
+        ]
+      }
+    ]
+  }
+}

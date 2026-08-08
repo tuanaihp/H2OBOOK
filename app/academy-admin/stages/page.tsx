@@ -90,6 +90,32 @@ export default function CareerStagesAdminPage() {
       </div>
     </section>}
 
+    {/* Seeding is idempotent, so this stays available rather than only appearing on an empty
+        workspace: re-running after the manifest gains a program adds just that program. */}
+    <section className={styles.card} style={{ marginBottom: 18 }}>
+      <div className={styles.cardHead}>
+        <div>
+          <h2>Nạp giáo trình 6 giai đoạn (ThuyH2O Makeup)</h2>
+          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>
+            Tạo giai đoạn → chương trình → học phần → nhóm → tài liệu vào đúng cấu hình admin. Chạy lại nhiều lần không nhân bản: mục nào đã có thì giữ nguyên, kể cả khi bạn đã sửa tay.
+          </p>
+        </div>
+      </div>
+      <div style={{ padding: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button className={styles.button} disabled={busy} onClick={async () => {
+          setBusy(true); setMessage(null);
+          const res = await fetch("/api/academy-admin/curriculum/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
+          const json = await res.json().catch(() => null);
+          setBusy(false);
+          setMessage(json ? `Chạy thử: sẽ tạo ${json.stages?.created ?? 0} giai đoạn · ${json.nodes?.created ?? 0} mục cấu trúc · ${json.documents?.created ?? 0} tài liệu · ${json.placements?.created ?? 0} lượt gắn.` : "Không chạy thử được.");
+        }}>Chạy thử (không ghi)</button>
+        <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy} onClick={async () => {
+          if (!confirm("Nạp giáo trình 6 giai đoạn vào workspace này? Mục đã có sẽ được giữ nguyên, không ghi đè.")) return;
+          if (!await call("/api/academy-admin/curriculum/seed", { method: "POST", body: "{}" }, "Đã nạp giáo trình.")) return;
+        }}>Nạp vào workspace</button>
+      </div>
+    </section>
+
     <section className={styles.card} style={{ marginBottom: 18 }}>
       <div className={styles.cardHead}><div><h2>Thêm giai đoạn</h2><p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>Giai đoạn mới được thêm vào cuối và ở trạng thái nháp — dùng mũi tên để đưa về đúng vị trí.</p></div></div>
       <div style={{ padding: 18, display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
