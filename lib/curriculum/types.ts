@@ -42,12 +42,24 @@ export interface CurriculumManifest {
   studentExperience?: Record<string, unknown>;
 }
 
+export interface SeedTally {
+  created: number;
+  existing: number;
+  /**
+   * Found with our seed_key but status='archived' — from "Lưu trữ giai đoạn" on the stage list, or a
+   * per-node archive in the Structure tab, which soft-delete rather than remove the row. Re-running
+   * the seed is an explicit "make this curriculum present" request, so an archived match is switched
+   * back to active rather than counted as already satisfied and left invisible.
+   */
+  revived: number;
+}
+
 export interface SeedCounts {
-  stages: { created: number; existing: number };
-  nodes: { created: number; existing: number };
-  documents: { created: number; existing: number };
-  catalogItems: { created: number; existing: number };
-  placements: { created: number; existing: number };
+  stages: SeedTally;
+  nodes: SeedTally;
+  documents: SeedTally;
+  catalogItems: SeedTally;
+  placements: SeedTally;
 }
 
 export interface SeedReport extends SeedCounts {

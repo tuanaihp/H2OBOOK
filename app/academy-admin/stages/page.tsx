@@ -116,7 +116,11 @@ export default function CareerStagesAdminPage() {
           try {
             const res = await fetch("/api/academy-admin/curriculum/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
             const json = await res.json().catch(() => null);
-            setMessage(json ? `Chạy thử: sẽ tạo ${json.stages?.created ?? 0} giai đoạn · ${json.nodes?.created ?? 0} mục cấu trúc · ${json.documents?.created ?? 0} tài liệu · ${json.placements?.created ?? 0} lượt gắn.` : "Không chạy thử được.");
+            const revived = (json?.stages?.revived ?? 0) + (json?.nodes?.revived ?? 0) + (json?.documents?.revived ?? 0) + (json?.placements?.revived ?? 0);
+            setMessage(json
+              ? `Chạy thử: sẽ tạo ${json.stages?.created ?? 0} giai đoạn · ${json.nodes?.created ?? 0} mục cấu trúc · ${json.documents?.created ?? 0} tài liệu · ${json.placements?.created ?? 0} lượt gắn.`
+                + (revived ? ` Sẽ hồi sinh ${revived} mục đang lưu trữ (đã xóa trước đó).` : "")
+              : "Không chạy thử được.");
           } catch {
             setMessage("Mất kết nối — thử lại.");
           } finally {
@@ -124,8 +128,20 @@ export default function CareerStagesAdminPage() {
           }
         }}>Chạy thử (không ghi)</button>
         <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy} onClick={async () => {
-          if (!confirm("Nạp giáo trình 6 giai đoạn vào workspace này? Mục đã có sẽ được giữ nguyên, không ghi đè.")) return;
-          if (!await call("/api/academy-admin/curriculum/seed", { method: "POST", body: "{}" }, "Đã nạp giáo trình.")) return;
+          if (!confirm("Nạp giáo trình 6 giai đoạn vào workspace này? Mục đã có sẽ được giữ nguyên, không ghi đè. Mục đã lưu trữ (đã xóa) sẽ được hồi sinh lại.")) return;
+          setBusy(true); setMessage(null);
+          try {
+            const res = await fetch("/api/academy-admin/curriculum/seed", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+            const json = await res.json().catch(() => null);
+            if (!res.ok) { setMessage(json?.error ?? "Thao tác thất bại."); return; }
+            const revived = (json?.stages?.revived ?? 0) + (json?.nodes?.revived ?? 0) + (json?.documents?.revived ?? 0) + (json?.placements?.revived ?? 0);
+            setMessage(`Đã nạp giáo trình: tạo mới ${json?.stages?.created ?? 0} giai đoạn.` + (revived ? ` Hồi sinh ${revived} mục đã lưu trữ trước đó.` : ""));
+            await load();
+          } catch {
+            setMessage("Mất kết nối hoặc thao tác quá lâu — thử lại. Nếu vừa bấm nạp giáo trình, dữ liệu đã tạo vẫn được giữ, bấm lại không nhân bản.");
+          } finally {
+            setBusy(false);
+          }
         }}>Nạp vào workspace</button>
       </div>
     </section>
