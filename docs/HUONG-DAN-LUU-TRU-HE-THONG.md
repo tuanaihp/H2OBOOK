@@ -6,6 +6,21 @@
 
 ---
 
+**2026-08-09 — ✨ Đã merge + deploy: Curriculum Content V2 (folder 26) — ⚠️ CẦN CHẠY MIGRATION 0046 trước khi bấm "Nâng cấp nội dung".**
+
+**V2 giải quyết gì:** 80 tài liệu module 25 nạp vào chỉ là khung mẫu giống hệt nhau sau mục "Mục tiêu" — tôi đã báo điều này khi nạp giáo trình 6 giai đoạn. V2 thay bằng nội dung thật cho từng tài liệu: mục tiêu, kiến thức cốt lõi, quy trình thực chiến, case ngành Makeup, bài thực hành, bằng chứng cần nộp, KPI, lỗi thường gặp, câu hỏi coaching, ghi chú giảng viên. Mỗi giai đoạn còn có thêm "playbook" (nhịp thực hành hàng tuần, trọng tâm kinh doanh/coach, KPI giai đoạn).
+
+**Việc bạn cần làm:**
+1. Vào Supabase → SQL Editor → chạy file `supabase/_RUN-0046-ONLY.sql` (chỉ thêm cột, không đụng dữ liệu cũ).
+2. Báo tôi "đã chạy xong 0046" — tôi sẽ tự áp dụng nâng cấp nội dung lên production luôn, không cần bạn bấm nút.
+3. Muốn tự bấm cũng được: vào `/academy-admin/stages` → mục "Nâng cấp nội dung V2" → "Chạy thử" để xem trước, rồi "Nâng cấp nội dung". Chạy lại nhiều lần an toàn — tài liệu đã nâng cấp sẽ không bị ghi đè lần nữa (kể cả khi bạn đã sửa tay).
+
+**Đã tiện thể sửa 1 lỗi thật phát hiện trong lúc làm:** tài liệu loại "document" trong giai đoạn trước đây không có tiêu đề riêng trên thẻ tài liệu (hiện UUID thay vì tên) vì bước gắn tài liệu không copy tiêu đề sang. Đã sửa cả nơi tạo mới lẫn 102 tài liệu cũ (tự backfill khi chạy nâng cấp nội dung).
+
+**Chưa làm trong đợt này (báo thật, không giấu):** trang đọc bài học thật cho học viên (student-facing document reader) — hiện chưa có route nào trong app đọc `curriculum_documents` để hiển thị cho học viên, nên dù nội dung đã lưu đúng vào database, học viên bấm vào tài liệu này hôm nay vẫn chưa thấy nội dung hiển thị đúng. Đây là việc cần làm tiếp theo nếu bạn muốn học viên đọc được ngay. Cũng bỏ qua phần "reconcile 5 giai đoạn cũ" trong gói nguồn — vì 5 giai đoạn cũ đã archived từ trước, không còn gì để gộp.
+
+---
+
 **2026-08-09 — 🛠 Đã merge + deploy: fix nút "Nạp vào workspace" không hồi sinh giai đoạn đã xóa — ⚠️ KHÔNG CẦN MIGRATION, chỉ sửa code + đã tự khôi phục dữ liệu thật của bạn.**
 
 **Bạn gặp lỗi gì:** bạn xóa (lưu trữ) hết 6 giai đoạn giáo trình makeup, rồi bấm "Nạp vào workspace" lại — trang báo 0 Giai đoạn, không thêm lại được gì.
