@@ -342,6 +342,10 @@ function resolveCatalogAndPlacement(
     placementRows.push({
       organization_id: org, stage_id: stageId, node_id: nodeId,
       resource_type: "document", resource_id: documentId,
+      // Without this, the placement has no title of its own and every admin view that lists
+      // resources — Content Canvas, stage card counts — has nothing to show but the raw resource_id
+      // UUID, since career_stage_resources never joins back to curriculum_documents for display.
+      title_override: item.title, summary: item.summary,
       position, requirement_type: requirementType,
       // Visible and open, as requested for review. surface is left null so each resource inherits it
       // from its program node (migration 0043).

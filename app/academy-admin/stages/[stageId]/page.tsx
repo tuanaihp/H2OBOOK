@@ -36,7 +36,8 @@ const SURFACE_LABEL: Record<string, string> = { learn: "Learn", create: "Create"
 const NODE_TYPE_LABEL: Record<string, string> = { program: "Chương trình", module: "Học phần", group: "Nhóm tài liệu" };
 const TYPE_LABEL: Record<string, string> = {
   book: "Sách / giáo trình", course: "Khóa học", publication: "Ấn phẩm", template: "Mẫu thiết kế",
-  knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Liên kết ngoài", asset: "Tài sản trong kho"
+  knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Liên kết ngoài", asset: "Tài sản trong kho",
+  document: "Tài liệu biên soạn"
 };
 const ACCESS_LABEL: Record<string, string> = { free_preview: "Miễn phí — ai cũng xem", stage_locked: "Khóa theo giai đoạn", entitlement_only: "Chỉ khi được cấp riêng" };
 const UNLOCK_LABEL: Record<string, string> = {

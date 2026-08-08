@@ -146,6 +146,51 @@ export default function CareerStagesAdminPage() {
       </div>
     </section>
 
+    {/* Content V2 chỉ làm giàu tài liệu đã có sẵn (không tạo mới) — mỗi tài liệu chỉ được nâng cấp
+        một lần, dùng content_version để tránh ghi đè lại nếu bạn đã sửa tay sau khi nâng cấp. */}
+    <section className={styles.card} style={{ marginBottom: 18 }}>
+      <div className={styles.cardHead}>
+        <div>
+          <h2>Nâng cấp nội dung V2 (80 tài liệu thực chiến)</h2>
+          <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>
+            Thay khung mẫu bằng nội dung thật: mục tiêu, quy trình, case ngành Makeup, bằng chứng cần nộp, KPI, lỗi thường gặp, câu hỏi coaching. Chạy lại nhiều lần an toàn — tài liệu đã nâng cấp sẽ không bị ghi đè lần nữa.
+          </p>
+        </div>
+      </div>
+      <div style={{ padding: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button className={styles.button} disabled={busy} onClick={async () => {
+          setBusy(true); setMessage(null);
+          try {
+            const res = await fetch("/api/academy-admin/curriculum/upgrade-content-v2", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
+            const json = await res.json().catch(() => null);
+            setMessage(json
+              ? `Chạy thử: sẽ nâng cấp ${json.documents?.updated ?? 0} tài liệu, ${json.stages?.updated ?? 0} giai đoạn có playbook mới, gắn lại ${json.placementTitles?.backfilled ?? 0} tiêu đề còn thiếu, tạo ${json.experienceDrafts?.written ?? 0} bản nháp trải nghiệm học viên.`
+                + (json.documents?.missing?.length ? ` ⚠ ${json.documents.missing.length} tài liệu chưa tìm thấy (chưa nạp giáo trình 6 giai đoạn?).` : "")
+              : "Không chạy thử được.");
+          } catch {
+            setMessage("Mất kết nối — thử lại.");
+          } finally {
+            setBusy(false);
+          }
+        }}>Chạy thử (không ghi)</button>
+        <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy} onClick={async () => {
+          if (!confirm("Nâng cấp 80 tài liệu lên nội dung V2? Chỉ tài liệu chưa nâng cấp mới bị thay đổi.")) return;
+          setBusy(true); setMessage(null);
+          try {
+            const res = await fetch("/api/academy-admin/curriculum/upgrade-content-v2", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+            const json = await res.json().catch(() => null);
+            if (!res.ok) { setMessage(json?.error ?? "Thao tác thất bại."); return; }
+            setMessage(`Đã nâng cấp ${json?.documents?.updated ?? 0} tài liệu, ${json?.stages?.updated ?? 0} giai đoạn có playbook mới, gắn lại ${json?.placementTitles?.backfilled ?? 0} tiêu đề còn thiếu.`);
+            await load();
+          } catch {
+            setMessage("Mất kết nối hoặc thao tác quá lâu — thử lại. Tài liệu đã nâng cấp vẫn được giữ, bấm lại không ghi đè lần nữa.");
+          } finally {
+            setBusy(false);
+          }
+        }}>Nâng cấp nội dung</button>
+      </div>
+    </section>
+
     <section className={styles.card} style={{ marginBottom: 18 }}>
       <div className={styles.cardHead}><div><h2>Thêm giai đoạn</h2><p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>Giai đoạn mới được thêm vào cuối và ở trạng thái nháp — dùng mũi tên để đưa về đúng vị trí.</p></div></div>
       <div style={{ padding: 18, display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
