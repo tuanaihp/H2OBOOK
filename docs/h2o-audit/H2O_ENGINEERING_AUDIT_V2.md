@@ -242,3 +242,74 @@ Sau khi chạy xong, xác minh bằng:
 select polname from pg_policy where polrelid = 'public.career_stage_resources'::regclass;
 select proname from pg_proc where proname in ('asset_storage_used_bytes','asset_folder_counts');
 ```
+
+---
+
+## 10. XÁC MINH SAU KHI CHẠY 0047 + 0048 (2026-08-09)
+
+Chủ sở hữu đã chạy `_RUN-0047-0048-AUDIT-FIXES.sql` trên production. Kết quả đo thật:
+
+### 0048 — aggregate trong Postgres: PASS
+
+```
+asset_storage_used_bytes(org, user)  -> 200, tra ve 0        (dung: chua co asset nao)
+asset_folder_counts(org)             -> 200, tra ve []       (dung)
+anon goi 2 RPC nay                   -> 401 / 42501 permission denied for function
+```
+Phần `revoke ... from anon` hoạt động đúng: chỉ code server của app gọi được, người ngoài không.
+
+### 0047 — chặn đọc giáo trình trả phí: PASS (đã thử tấn công thật, không chỉ đọc policy)
+
+Trước khi kết luận, phải giải thích một chênh lệch trông như lỗi:
+
+```
+Tong so dong that (service role) : 105
+anon doc duoc                    : 102
+```
+
+Phân tích đầy đủ 105 dòng:
+
+| status | access | Số dòng | anon thấy? |
+|---|---|---|---|
+| archived | stage_locked | 2 | không (chặn bởi cả 2 điều kiện) |
+| archived | free_preview | 1 | không (chặn bởi `status`) |
+| active | free_preview | **102** | **có — đúng** |
+
+102 anon thấy **khớp chính xác** với 102 dòng đáng lẽ được thấy. Không dư một dòng nào.
+
+**Thử tấn công thật** (khóa 1 tài liệu đang hiển thị, đọc bằng anon key, rồi trả lại nguyên trạng):
+
+```
+Dong thu nghiem : "Bới thấp và xử lý mái rơi"  (active | free_preview)
+anon truoc      : 102
+--- doi access sang stage_locked ---
+anon khi khoa   : 101   <- tut dung 1
+doc dong do     : KHONG doc duoc  -> POLICY CHAN DUNG
+--- tra lai free_preview ---
+khoi phuc       : active | free_preview  -> NGUYEN VEN
+anon doc lai    : CO
+anon sau cung   : 102   <- ve dung nhu ban dau
+```
+
+Đây là bằng chứng trực tiếp cho rủi ro P1-2 đã được bịt: **khi bạn khóa nội dung lại, người ngoài không còn đọc được tiêu đề/tóm tắt qua API nữa.** Trước migration này, cùng thao tác đó vẫn để lộ toàn bộ.
+
+> **Ghi chú trung thực về quá trình test:** hai lần thử đầu tôi bốc trúng dòng không phù hợp (1 dòng vốn đã `stage_locked`, 1 dòng `archived`), nên kết quả trông như policy hỏng. Không phải hỏng — do dòng mẫu sai. Chỉ sau khi lọc đúng `status=active AND access=free_preview` mới ra được phép thử có ý nghĩa. Cả 3 dòng đã đụng tới đều được trả về giá trị gốc và đã verify lại.
+
+### Dữ liệu sau toàn bộ quá trình — không mất gì
+
+```
+Giai doan active        6/6
+Tai lieu gan vao      102/102
+Tai lieu noi dung     102/102
+Cau truc chuong trinh 117/117
+/api/health           {"ok":true,...}
+```
+
+### Bảng nhạy cảm — kiểm tra lại bằng anon key
+
+`profiles`, `orders`, `entitlements`, `assets`, `domain_events`, `organization_members` → **tất cả trả về 0 dòng**. RLS chặn đúng.
+
+### Kết luận
+
+Toàn bộ P1 và P2 của audit V2 đã **đóng và được kiểm chứng bằng đo đạc thật trên production**, không phải bằng đọc code.
+Hạng mục duy nhất còn **NOT VERIFIED**: Core Web Vitals field data (cần RUM, chưa có) và validator phase 4 (cần binary `tesseract`, chỉ chạy được trên CI).
