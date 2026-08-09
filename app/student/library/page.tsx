@@ -10,13 +10,17 @@ type LibraryPayload = { mode: "production" | "unconfigured" | "demo"; stages: Li
 
 const TYPE_LABEL: Record<string, string> = {
   book: "Sách", course: "Khóa học", publication: "Ấn phẩm", template: "Mẫu",
-  knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Tài liệu"
+  knowledge_space: "Knowledge Space", roadmap: "Lộ trình", link: "Tài liệu", document: "Tài liệu"
 };
 
 function resourceHref(resource: LibraryResource): string {
   if (resource.href) return resource.href;
   if (resource.resourceType === "course") return `/student/courses/${resource.resourceId}`;
   if (resource.resourceType === "knowledge_space") return `/student/spaces/${resource.resourceId}`;
+  // curriculum_documents rows live in their own table, so the book/publication reader cannot resolve
+  // them — without this branch they fell through to /reader/[slug] and looked up the id in the wrong
+  // table.
+  if (resource.resourceType === "document") return `/student/document/${resource.resourceId}`;
   return `/reader/${resource.resourceId}`;
 }
 

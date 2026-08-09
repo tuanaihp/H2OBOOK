@@ -54,13 +54,15 @@ export async function upgradeCurriculumContentV2(options: ContentUpgradeOptions)
   const org = options.organizationId;
 
   const [{ data: docRows }, { data: stageRows }, { data: placementRows }, { data: uiConfigRows }] = await Promise.all([
-    admin.from("curriculum_documents").select("id,seed_key,content_version").eq("organization_id", org).not("seed_key", "is", null),
+    admin.from("curriculum_documents").select("id,seed_key,content_version,title,summary").eq("organization_id", org).not("seed_key", "is", null),
     admin.from("career_stages").select("id,seed_key,playbook").eq("organization_id", org).not("seed_key", "is", null),
     admin.from("career_stage_resources").select("id,resource_id,title_override").eq("organization_id", org).eq("resource_type", "document"),
     admin.from("academy_stage_ui_config").select("stage_id,version,config").eq("organization_id", org)
   ]);
 
-  const docsBySeedKey = new Map(((docRows ?? []) as { id: string; seed_key: string; content_version: number }[]).map((r) => [r.seed_key, r]));
+  type DocRow = { id: string; seed_key: string; content_version: number; title: string; summary: string };
+  const docsBySeedKey = new Map(((docRows ?? []) as DocRow[]).map((r) => [r.seed_key, r]));
+  const docsById = new Map(((docRows ?? []) as DocRow[]).map((r) => [r.id, r]));
   const stagesBySeedKey = new Map(((stageRows ?? []) as { id: string; seed_key: string; playbook: Record<string, unknown> | null }[]).map((r) => [r.seed_key, r]));
   const placementsByDocId = new Map<string, { id: string; title_override: string | null }[]>();
   for (const row of (placementRows ?? []) as { id: string; resource_id: string; title_override: string | null }[]) {
@@ -117,12 +119,21 @@ export async function upgradeCurriculumContentV2(options: ContentUpgradeOptions)
       });
     }
 
-    for (const placement of placementsByDocId.get(doc.id) ?? []) {
+  }
+
+  // Titles for every document placement, not only the 80 this manifest carries content for. The
+  // assignment documents the V1 seed created are not in the V2 manifest at all, so keying the
+  // backfill off the manifest would leave those cards showing a raw UUID forever; the document's own
+  // title is the right source for all of them either way.
+  for (const [documentId, placements] of placementsByDocId) {
+    const doc = docsById.get(documentId);
+    if (!doc) continue;
+    for (const placement of placements) {
       if (placement.title_override && placement.title_override.trim()) {
         report.placementTitles.alreadyPresent += 1;
       } else {
         report.placementTitles.backfilled += 1;
-        placementTitleUpdates.push({ id: placement.id, row: { title_override: resource.title, summary: resource.summary } });
+        placementTitleUpdates.push({ id: placement.id, row: { title_override: doc.title, summary: doc.summary } });
       }
     }
   }
