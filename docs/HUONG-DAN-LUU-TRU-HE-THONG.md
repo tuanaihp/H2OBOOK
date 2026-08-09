@@ -6,6 +6,30 @@
 
 ---
 
+**2026-08-09 — 🛡 Đã merge + deploy: audit toàn hệ thống theo chuẩn H2O V2 + sửa toàn bộ lỗi tìm được — ⚠️ CẦN CHẠY 1 FILE SQL: `supabase/_RUN-0047-0048-AUDIT-FIXES.sql`.**
+
+**Kết quả audit:** không có lỗi chặn release. RLS đã được kiểm chứng thật bằng anon key trên production — dữ liệu nhạy cảm (hồ sơ, đơn hàng, quyền truy cập, tài sản, nhật ký) đều **không** đọc được từ bên ngoài. Không có secret nào lộ ra client.
+
+**Đã sửa xong và deploy (không cần bạn làm gì):**
+1. **Lỗ hổng nghiêm trọng nhất — thư viện đọc PDF.** `pdfjs-dist` bản cũ có lỗi cho phép **chạy mã JavaScript tùy ý khi mở một file PDF độc hại**. Vì H2OBOOK chủ động nhận PDF người dùng tải lên, đây là rủi ro thật. Đã nâng lên đúng bản vá 6.2.108, chạy lại bộ test bảo vệ import PDF → PASS.
+2. **11 lỗ hổng phụ thuộc (9 mức cao) → còn 0.** Nâng Next.js + ghim các thư viện con về bản đã vá.
+3. **Bật Dependabot + CodeQL.** Trước đây không có gì theo dõi lỗ hổng nên chúng cứ tích tụ; giờ tự động cảnh báo và quét bảo mật mỗi lần thay đổi code.
+4. **Bớt 1 truy vấn thừa** trên trang public, thư viện học viên và trang đọc tài liệu (đang đọc một bảng đã ngừng dùng, luôn trả về rỗng).
+5. **Sửa 1 lỗi CI đã hỏng từ trước** — một bước kiểm tra viết sai điều kiện nên **không bao giờ có thể pass**, khiến CI luôn đỏ ở đó.
+6. **Sửa 1 lỗi tính dung lượng:** cách tính cũ không trừ file đã xóa, nên học viên xóa file rồi vẫn bị trừ hạn mức lưu trữ.
+
+**⚠️ Việc duy nhất bạn cần làm:** Supabase → SQL Editor → dán toàn bộ file `supabase/_RUN-0047-0048-AUDIT-FIXES.sql` → Run. (Đây là lệnh đổi cấu trúc/quyền, Supabase không cho chạy qua API nên tôi không chạy hộ được.) An toàn chạy lại nhiều lần, không xóa/sửa dữ liệu nào.
+
+File này làm 2 việc:
+- **Bịt lỗ đọc giáo trình trả phí:** hiện tại ai cũng có thể đọc tiêu đề + tóm tắt của toàn bộ 102 tài liệu qua API mà không cần đăng nhập. Đang **chưa gây hại** vì bạn đang cố ý để mở hết cho việc rà soát — **nhưng hãy chạy file này TRƯỚC khi bạn khóa nội dung lại**, nếu không thì khóa trên giao diện mà bên ngoài vẫn đọc được.
+- **Tăng tốc & tính đúng dung lượng lưu trữ** khi số lượng file lớn dần.
+
+Trong lúc chưa chạy, hệ thống vẫn chạy bình thường và hạn mức lưu trữ vẫn được kiểm soát (code tự dùng cách tính cũ khi chưa thấy hàm mới).
+
+Báo cáo audit đầy đủ: `docs/h2o-audit/H2O_ENGINEERING_AUDIT_V2.md`.
+
+---
+
 **2026-08-09 — ✨ Đã merge + deploy: Curriculum Content V2 (folder 26) — ⚠️ CẦN CHẠY MIGRATION 0046 trước khi bấm "Nâng cấp nội dung".**
 
 **V2 giải quyết gì:** 80 tài liệu module 25 nạp vào chỉ là khung mẫu giống hệt nhau sau mục "Mục tiêu" — tôi đã báo điều này khi nạp giáo trình 6 giai đoạn. V2 thay bằng nội dung thật cho từng tài liệu: mục tiêu, kiến thức cốt lõi, quy trình thực chiến, case ngành Makeup, bài thực hành, bằng chứng cần nộp, KPI, lỗi thường gặp, câu hỏi coaching, ghi chú giảng viên. Mỗi giai đoạn còn có thêm "playbook" (nhịp thực hành hàng tuần, trọng tâm kinh doanh/coach, KPI giai đoạn).

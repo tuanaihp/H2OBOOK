@@ -1,6 +1,7 @@
 # H2OBOOK — H2O ENGINEERING AUDIT V2
 
 Ngày audit: 2026-08-09
+Ngày khắc phục: 2026-08-09 (xem §8 — Trạng thái sau khi fix)
 Policy: `H2O_ENGINEERING_STANDARD_V2_GLOBAL` (E:\CLAUDECODE\H2OPACKSKILL\AUDIT-H2O_ENGINEERING_STANDARD_V2_GLOBAL)
 Phạm vi: toàn repo `H2OBOOK-UNIFIED-INPUT-4.13.7-PHASE7` + dữ liệu production thật.
 
@@ -182,3 +183,62 @@ Không có lỗi nào chặn release ngay lúc này. Nhưng có **3 vấn đề 
 | **E** | P2-4 thêm CodeQL workflow | Rất nhỏ — chỉ thêm CI |
 
 **Khuyến nghị thứ tự: A → B → C → D → E.** Batch A sửa được đúng lỗ hổng sẽ phát sinh khi bạn khóa nội dung, mà gần như không có rủi ro.
+
+---
+
+## 8. Trạng thái SAU KHI FIX (2026-08-09)
+
+Toàn bộ P1 và P2 đã được xử lý, merge vào `main` và deploy production.
+Bảng dưới ghi bằng chứng đo được **sau** khi sửa, không phải kỳ vọng.
+
+| # | Vấn đề | Trước | Sau | Bằng chứng |
+|---|---|---|---|---|
+| P1-1 | `pdfjs-dist` chạy JS tùy ý khi mở PDF độc hại | 5.7.284 (dính advisory) | **6.2.108** — đúng bản vá | `pnpm audit` sạch; `validate:input-phase3` PASS |
+| P1-2 | RLS lộ giáo trình trả phí qua anon key | anon đọc **102/102** dòng | policy tách theo role: anon chỉ `free_preview` | migration 0047 — **cần bạn chạy SQL**, xem §9 |
+| P1-3 | 11 lỗ hổng (9 high), không có quy trình cập nhật | 11 | **0** | `pnpm audit` → *No known vulnerabilities found* |
+| P2-1 | Đọc bảng chết trên đường nóng | 3 query/lần gọi | **2 query/lần gọi** | `career_stage_programs` đã gỡ khỏi `loadCareerStages` |
+| P2-2 | Gộp số liệu bằng JS, không giới hạn dòng | kéo mọi asset về Node | aggregate trong Postgres | migration 0048 — **cần bạn chạy SQL**, xem §9 |
+| P2-4 | Chưa có SAST | không có | CodeQL (TS + Python), chạy mỗi PR + hàng tuần | `.github/workflows/codeql.yml` |
+| — | Không có quy trình cập nhật phụ thuộc | không có | Dependabot (npm + actions + pip) | `.github/dependabot.yml` |
+| **Mới** | `validate:input-phase7` **không bao giờ pass được** | luôn FAIL sau `pnpm install` | PASS | check đổi sang hỏi git thay vì filesystem |
+
+### Phát hiện thêm trong lúc sửa (không có trong báo cáo gốc)
+
+1. **CI gate đã hỏng từ trước.** `validate:input-phase7` khẳng định `!existsSync("node_modules")`. Trong CI, bước này chạy ngay sau `pnpm install --frozen-lockfile`, nên điều kiện **không bao giờ đúng được** — job luôn đỏ tại đó. Ý định của check ("không được commit artifact") vốn đã đạt: cả `.next` và `node_modules` đều nằm trong `.gitignore` và không được git theo dõi. Chỉ cách kiểm tra là sai. Đã đổi sang `git ls-files`.
+2. **Quota tính sai có lợi cho người dùng.** Hàm cũ cộng `size_bytes` mà **không loại asset đã xóa**, nên người dùng xóa file rồi vẫn bị trừ quota. Đã sửa trong RPC mới (`deleted_at is null`).
+3. **`>=` trong pnpm overrides là bẫy.** Lần đặt đầu tiên dùng `>=` khiến pnpm nhảy `nanoid` 3→6 và `js-yaml` 4→5 — hai bản major không ai yêu cầu. Đã siết lại thành caret để ở trong cùng major.
+4. **`isEvalSupported: false` không còn tồn tại ở pdf.js v6.** Định thêm làm lớp phòng thủ thứ 2 thì phát hiện v6 đã **bỏ hẳn cả option lẫn đường eval** mà nó bảo vệ — truyền vào là lỗi type. Kết quả tốt hơn dự định: không cần cờ vì năng lực nguy hiểm đã bị gỡ.
+
+### Kiểm chứng lại sau khi deploy
+
+```
+/api/health                          -> {"ok":true, ...}
+active stages                        -> 6/6      (không mất dữ liệu)
+active resources                      -> 102/102  (không mất dữ liệu)
+pnpm audit                           -> No known vulnerabilities found
+typecheck / lint / test / test:sql   -> PASS / 51 warning (baseline) / 179-179 / PASS
+build                                -> PASS
+validate:input-phase 2,3,5,6,7       -> PASS
+```
+
+**Phase 4 vẫn không chạy được trên máy này** — nó cần binary `tesseract`, máy Windows này không cài. CI có cài. Đây là hạn chế môi trường, không phải hồi quy, và tôi **không** đánh dấu nó là PASS.
+
+---
+
+## 9. VIỆC DUY NHẤT CÒN LẠI CẦN BẠN LÀM
+
+Hai migration 0047 + 0048 là lệnh DDL. Supabase **không** cho chạy DDL qua REST API, và repo không có chuỗi kết nối Postgres trực tiếp, nên tôi không có đường nào chạy hộ bạn — đây là giới hạn nền tảng, không phải lựa chọn.
+
+**Cách chạy:** Supabase → SQL Editor → dán toàn bộ file `supabase/_RUN-0047-0048-AUDIT-FIXES.sql` → Run.
+An toàn chạy lại nhiều lần; không xóa, không sửa một dòng dữ liệu nào.
+
+**Trong lúc chưa chạy, hệ thống vẫn hoạt động bình thường:**
+- Quota lưu trữ vẫn được thực thi — code tự động dùng lại cách tính cũ khi chưa thấy RPC (đã kiểm chứng: RPC trả 404, app đi nhánh fallback).
+- Cây thư mục vẫn đếm đúng.
+- **Nhưng lỗ hổng P1-2 vẫn còn mở** cho tới khi bạn chạy 0047. Hiện chưa gây hại vì toàn bộ tài liệu đang cố ý để `free_preview` — **hãy chạy 0047 TRƯỚC khi bạn khóa nội dung lại.**
+
+Sau khi chạy xong, xác minh bằng:
+```sql
+select polname from pg_policy where polrelid = 'public.career_stage_resources'::regclass;
+select proname from pg_proc where proname in ('asset_storage_used_bytes','asset_folder_counts');
+```
