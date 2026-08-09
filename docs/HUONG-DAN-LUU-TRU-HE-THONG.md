@@ -6,6 +6,22 @@
 
 ---
 
+**2026-08-09 — 🔍 Đã merge + deploy: audit folder 27 (Ingestion Fabric V3) — chỉ làm phần audit + 1 gap thật tìm được, CHƯA xây kernel lớn — ⚠️ CẦN CHẠY MIGRATION 0049 (chỉ thêm index + đánh dấu, không đổi dữ liệu).**
+
+**Bạn đã dặn:** audit trước, tích hợp sau. Đã làm đúng vậy.
+
+**Kết quả audit** (`docs/ingestion-v3/01-current-ingestion-audit.md`): gói nguồn đề xuất xây 4 bảng mới để "hợp nhất 5 cơ chế nạp nội dung". Kiểm tra thật trên repo + dữ liệu production thì thấy 2 trong 5 cơ chế đó **đã là cùng một hệ thống** (Input Gateway hiện tại), 1 cơ chế ("Universal Ingestion" từ bản 4.5) **đã chết từ lâu — 0 dòng dữ liệu, không route nào gọi tới**. Nếu xây 4 bảng mới như đề xuất sẽ tạo ra một Content Store song song thứ hai — đúng điều `CLAUDE.md` cấm.
+
+**Khoảng trống thật duy nhất tìm được:** hệ thống **chưa từng tính hash nội dung thật** để phát hiện file trùng lặp khi upload — cột `checksum` có sẵn nhưng chỉ là giá trị client gửi lên, không được server xác minh hay dùng để làm gì. Đã xây đúng phần này: server tự tính SHA-256 thật từ file trong kho lưu trữ (không tin dữ liệu client gửi), tra cứu trùng lặp trong cùng tổ chức trước khi tạo asset mới.
+
+**Một việc tôi định làm rồi tự rút lại:** ban đầu định "gắn thêm nhật ký" cho trang Nhập nội dung — sau khi đọc kỹ thấy trang đó tạo sách hoàn toàn ở máy người dùng (cố ý hoạt động offline), gắn thêm việc gọi server chỉ để ghi log sẽ làm hỏng tính chất offline-first của nó. Không làm, đã ghi rõ lý do trong audit thay vì âm thầm bỏ qua.
+
+**⚠️ Việc cần bạn làm:** chạy `supabase/_RUN-0049-ONLY.sql` (chỉ thêm 1 index + đánh dấu "deprecated" trên 4 bảng chết bằng comment, không xóa gì, không đổi dữ liệu nào).
+
+**Phần lớn còn lại (Docling worker đọc PDF/DOCX chuyên sâu + gộp toàn bộ màn hình quản trị nạp nội dung thành 1 trung tâm) — CHƯA làm, cần bạn quyết định trước** vì đây là thêm hạ tầng mới (1 service Docker riêng, có chi phí vận hành) và đụng vào cả luồng tạo sách lẫn luồng giáo trình cùng lúc — không phải chi tiết kỹ thuật tôi nên tự quyết.
+
+---
+
 **2026-08-09 — 🛡 Đã merge + deploy: audit toàn hệ thống theo chuẩn H2O V2 + sửa toàn bộ lỗi tìm được — ⚠️ CẦN CHẠY 1 FILE SQL: `supabase/_RUN-0047-0048-AUDIT-FIXES.sql`.**
 
 **Kết quả audit:** không có lỗi chặn release. RLS đã được kiểm chứng thật bằng anon key trên production — dữ liệu nhạy cảm (hồ sơ, đơn hàng, quyền truy cập, tài sản, nhật ký) đều **không** đọc được từ bên ngoài. Không có secret nào lộ ra client.
