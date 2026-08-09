@@ -1,0 +1,46 @@
+# Static application security testing.
+#
+# Added from the H2O Engineering Standard V2 audit, which had to mark SAST NOT VERIFIED because
+# nothing had ever run. Based on the audit pack's template, with two deliberate changes: Python is
+# analysed as well (services/document-processor parses uploaded documents, so it handles untrusted
+# input too), and the JS/TS analysis skips autobuild.
+#
+# Autobuild is skipped because a full `next build` is not needed for CodeQL to analyse TypeScript —
+# it extracts from source — and building here would double the CI cost of every PR while duplicating
+# what the release gate in ci.yml already does.
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so advisories published after a PR merges are still found against code already shipped.
+    - cron: "23 3 * * 2"
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript", "python"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

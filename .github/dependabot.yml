@@ -1,0 +1,47 @@
+# Automated dependency updates.
+#
+# The V2 audit found eleven known vulnerabilities (nine high) that had simply accumulated because
+# nothing watched for them — including an arbitrary-JavaScript-execution flaw in pdfjs-dist, the
+# library that parses user-uploaded PDFs. The fixes were all available upstream; the gap was the
+# absence of any process, which is what this file is.
+#
+# Grouped rather than one PR per package: a stream of individual bumps gets ignored, and the CI
+# release gate (.github/workflows/ci.yml) runs the whole validate/lint/typecheck/test/build/E2E
+# suite on each PR anyway, so a grouped PR is verified just as strictly as a single one.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Anything with a published advisory travels on its own, so a security fix is never held up
+      # waiting on an unrelated minor bump in the same group.
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+      # Next.js pulls in postcss/sharp/nanoid, which is where most of the audit's transitive
+      # findings came from. Keeping the framework and its lint config together avoids the mismatch
+      # where eslint-config-next expects a different Next than the one installed.
+      next:
+        patterns: ["next", "eslint-config-next", "@next/*"]
+      dev-tooling:
+        dependency-type: development
+        patterns: ["*"]
+      production:
+        dependency-type: production
+        patterns: ["*"]
+        # These three decide how documents are parsed and rendered; a surprise major here breaks
+        # import in ways the unit tests would not necessarily catch, so they stay manual.
+        exclude-patterns: ["pdfjs-dist", "tesseract.js", "mammoth"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: pip
+    directory: "/services/document-processor"
+    schedule:
+      interval: weekly

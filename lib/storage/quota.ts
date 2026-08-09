@@ -11,10 +11,25 @@ export async function resolveStorageQuotaBytes(supabase: SupabaseServerClient, o
   return typeof override === "number" && override > 0 ? override : DEFAULT_STUDENT_STORAGE_QUOTA_BYTES;
 }
 
+/**
+ * Summed by Postgres, not by this process. The previous version selected size_bytes for every asset
+ * the user owned and reduced the array here, which grew with the user's library on every upload and,
+ * worse, would fail open if the row set were ever truncated in transit: a short array sums to less
+ * than the truth, and this number decides whether an upload is allowed.
+ *
+ * Falls back to the old client-side sum when the RPC is missing, so a deployment that lands before
+ * migration 0048 still enforces the quota rather than letting every upload through.
+ */
 export async function getStorageUsageBytes(supabase: SupabaseServerClient, organizationId: string, userId: string): Promise<number> {
-  const { data, error } = await supabase.from("assets").select("size_bytes").eq("organization_id", organizationId).eq("uploaded_by", userId);
-  if (error || !data) return 0;
-  return data.reduce((sum, row) => sum + Number(row.size_bytes ?? 0), 0);
+  const { data, error } = await supabase.rpc("asset_storage_used_bytes", {
+    p_organization_id: organizationId,
+    p_user_id: userId
+  });
+  if (!error && data !== null && data !== undefined) return Number(data) || 0;
+
+  const fallback = await supabase.from("assets").select("size_bytes").eq("organization_id", organizationId).eq("uploaded_by", userId).is("deleted_at", null);
+  if (fallback.error || !fallback.data) return 0;
+  return fallback.data.reduce((sum, row) => sum + Number(row.size_bytes ?? 0), 0);
 }
 
 export async function checkStorageQuota(supabase: SupabaseServerClient, organizationId: string, userId: string, role: string, incomingBytes: number) {
