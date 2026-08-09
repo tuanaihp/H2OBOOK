@@ -46,6 +46,14 @@ async function loadPdf(file: File): Promise<PdfJsDocument> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
   try {
+    // Every PDF reaching this function is an untrusted user upload. pdfjs-dist is pinned to
+    // 6.2.108, the release that fixes the arbitrary-JavaScript-execution advisory affecting
+    // >=5.6.83 <6.2.108 (the version range this project was on).
+    //
+    // There is deliberately no `isEvalSupported: false` here: that option existed in v5 to switch
+    // off pdf.js's eval-based font/content-stream compilation, and v6 removed both the option and
+    // the eval path it guarded. Passing it now is a type error, and adding it back would only
+    // suggest a defence that the library no longer needs.
     return await pdfjs.getDocument({ data: await file.arrayBuffer(), useSystemFonts: true }).promise as unknown as PdfJsDocument;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

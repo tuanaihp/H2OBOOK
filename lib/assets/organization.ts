@@ -25,13 +25,29 @@ export async function listFolders(organizationId: string, options?: { includeArc
   }));
 }
 
-/** How many live assets sit directly in each folder. Drives the count beside each tree node. */
+/**
+ * How many live assets sit directly in each folder. Drives the count beside each tree node.
+ *
+ * Grouped by Postgres rather than here: the previous version pulled folder_id for every live asset
+ * in the organisation on each render of the tree, so the work grew with the whole library to produce
+ * a handful of small numbers. Falls back to that approach when the RPC is missing, so the tree still
+ * shows counts on a deployment that precedes migration 0048.
+ */
 export async function folderAssetCounts(organizationId: string): Promise<Record<string, number>> {
   const supabase = await client();
   if (!supabase) return {};
-  const { data } = await supabase.from("assets").select("folder_id").eq("organization_id", organizationId).is("deleted_at", null).not("folder_id", "is", null);
   const counts: Record<string, number> = {};
-  for (const row of data ?? []) {
+
+  const { data, error } = await supabase.rpc("asset_folder_counts", { p_organization_id: organizationId });
+  if (!error && Array.isArray(data)) {
+    for (const row of data as { folder_id: string; asset_count: number }[]) {
+      counts[String(row.folder_id)] = Number(row.asset_count ?? 0);
+    }
+    return counts;
+  }
+
+  const fallback = await supabase.from("assets").select("folder_id").eq("organization_id", organizationId).is("deleted_at", null).not("folder_id", "is", null);
+  for (const row of fallback.data ?? []) {
     const key = String((row as { folder_id: string }).folder_id);
     counts[key] = (counts[key] ?? 0) + 1;
   }

@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { learningPaths } from "@/lib/public-site/content";
-import type { CareerStage, CareerStageProgram, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, StageSurfaceTag, UnlockMode } from "./types";
+import type { CareerStage, CareerStageResource, RequirementType, StageResourceAccess, StageResourceType, StageStatus, StageSurfaceTag, UnlockMode } from "./types";
 
 type StageRow = {
   id: string; slug: string; position: number; index_label: string | null; title: string;
@@ -15,24 +15,6 @@ type ResourceRow = {
   unlock_at: string | null; requirement_type: string | null; display_locations: string[] | null;
   program_id: string | null; node_id: string | null; surface: string | null; is_featured: boolean | null;
 };
-type ProgramRow = {
-  id: string; stage_id: string; parent_id: string | null; slug: string; title: string;
-  description: string | null; position: number; status: string;
-};
-
-function mapProgram(row: ProgramRow): CareerStageProgram {
-  return {
-    id: String(row.id),
-    stageId: String(row.stage_id),
-    parentId: row.parent_id ? String(row.parent_id) : null,
-    slug: String(row.slug),
-    title: String(row.title),
-    description: String(row.description ?? ""),
-    position: Number(row.position ?? 0),
-    status: row.status as StageStatus
-  };
-}
-
 function mapResource(row: ResourceRow): CareerStageResource {
   return {
     id: String(row.id),
@@ -58,7 +40,7 @@ function mapResource(row: ResourceRow): CareerStageResource {
   };
 }
 
-function mapStage(row: StageRow, resources: ResourceRow[], programs: ProgramRow[]): CareerStage {
+function mapStage(row: StageRow, resources: ResourceRow[]): CareerStage {
   return {
     id: String(row.id),
     slug: String(row.slug),
@@ -71,7 +53,6 @@ function mapStage(row: StageRow, resources: ResourceRow[], programs: ProgramRow[
     skills: Array.isArray(row.skills) ? row.skills.map(String) : [],
     status: row.status as StageStatus,
     resources: resources.filter((resource) => String(resource.stage_id) === String(row.id)).map(mapResource).sort((a, b) => a.position - b.position),
-    programs: programs.filter((program) => String(program.stage_id) === String(row.id)).map(mapProgram).sort((a, b) => a.position - b.position),
     publishedAt: row.published_at ? String(row.published_at) : null,
     archivedAt: row.archived_at ? String(row.archived_at) : null
   };
@@ -86,18 +67,20 @@ function mapStage(row: StageRow, resources: ResourceRow[], programs: ProgramRow[
 export async function loadCareerStages(organizationId: string, options?: { includeHidden?: boolean }): Promise<CareerStage[]> {
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
-  const [{ data: stageRows }, { data: resourceRows }, { data: programRows }] = await Promise.all([
+  // career_stage_programs is deliberately not read here. Migration 0041 replaced it with
+  // academy_stage_nodes, which is what the admin Structure tab writes and what the stage workspace
+  // navigates; the old table has been empty in production since. Querying it cost one round trip on
+  // the public site, the student library and the document reader to always return nothing, and left
+  // two tables looking like they both answered "what is the structure of a stage".
+  const [{ data: stageRows }, { data: resourceRows }] = await Promise.all([
     admin.from("career_stages").select("id,slug,position,index_label,title,subtitle,description,duration_label,skills,status,published_at,archived_at").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
-    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations,program_id,node_id,surface,is_featured").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true }),
-    admin.from("career_stage_programs").select("id,stage_id,parent_id,slug,title,description,position,status").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
+    admin.from("career_stage_resources").select("id,stage_id,resource_type,resource_id,title_override,summary,href,position,access,status,unlock_mode,prerequisite_binding_id,required_progress,unlock_at,requirement_type,display_locations,program_id,node_id,surface,is_featured").eq("organization_id", organizationId).neq("status", "archived").order("position", { ascending: true })
   ]);
   const stages = (stageRows ?? []) as StageRow[];
   const resources = (resourceRows ?? []) as ResourceRow[];
-  const programs = (programRows ?? []) as ProgramRow[];
   const visible = options?.includeHidden ? stages : stages.filter((row) => row.status === "active");
   const visibleResources = options?.includeHidden ? resources : resources.filter((row) => row.status === "active");
-  const visiblePrograms = options?.includeHidden ? programs : programs.filter((row) => row.status === "active");
-  return visible.map((row) => mapStage(row, visibleResources, visiblePrograms));
+  return visible.map((row) => mapStage(row, visibleResources));
 }
 
 /**

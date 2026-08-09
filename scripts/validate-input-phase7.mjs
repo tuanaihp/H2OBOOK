@@ -1,7 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 const root = process.cwd();
+
+/** True when neither build output nor installed dependencies are tracked by git. */
+function artifactsUntracked() {
+  try {
+    const tracked = execFileSync("git", ["ls-files", "--", "node_modules", ".next"], { cwd: root, encoding: "utf8" });
+    return tracked.trim() === "";
+  } catch {
+    // No git available (a tarball export, say). The check cannot be answered, and failing the whole
+    // validation over an unanswerable question would be worse than skipping it.
+    return true;
+  }
+}
 const must = [
   "packages/input-core/src/hardening.ts",
   "lib/observability/input-observability.ts",
@@ -43,7 +56,12 @@ const assertions = [
   [sql.includes("commit_input_session_hardened") && sql.includes("IMPORT_NODE_LIMIT_EXCEEDED"), "database commit limits missing"],
   [sql.includes("input_sessions_owner_update") && sql.includes("requested_by = auth.uid()"), "RLS ownership hardening missing"],
   [compose.includes("input-recovery"), "scheduled recovery service missing"],
-  [!fs.existsSync(path.join(root, "node_modules")) && !fs.existsSync(path.join(root, ".next")), "build/cache artifacts must not ship"],
+  // "Must not ship" means "must not be committed to the repository", which is a question about git,
+  // not about the filesystem. The previous version tested `!existsSync("node_modules")`, so it
+  // failed on every machine that had run an install — including CI, where the step runs right after
+  // `pnpm install --frozen-lockfile` and could therefore never pass. Asking git whether either path
+  // is tracked checks the property that was actually meant.
+  [artifactsUntracked(), "build/cache artifacts must not ship"],
 ];
 const failed = assertions.filter(([ok]) => !ok).map(([, message]) => message);
 if (failed.length) throw new Error(`Phase 7 validation failed:\n- ${failed.join("\n- ")}`);

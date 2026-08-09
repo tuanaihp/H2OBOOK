@@ -52,30 +52,11 @@ export interface CareerStageResource {
 export const STAGE_SURFACES = ["learn", "create", "business", "coaching"] as const;
 export type StageSurfaceTag = (typeof STAGE_SURFACES)[number];
 
-/**
- * A named group of resources within a stage — "Module 1: Nền tảng" rather than one long flat list.
- * One level of nesting only: a program may contain modules (parentId set), a module may not
- * contain further children. Enforced by a trigger in migration 0040, not by this type.
- */
-export interface CareerStageProgram {
-  id: string;
-  stageId: string;
-  parentId: string | null;
-  slug: string;
-  title: string;
-  description: string;
-  position: number;
-  status: StageStatus;
-}
-
-export interface CareerStageProgramInput {
-  slug: string;
-  title: string;
-  parentId?: string | null;
-  description?: string;
-  position?: number;
-  status?: StageStatus;
-}
+// CareerStageProgram / CareerStageProgramInput used to live here, describing career_stage_programs
+// (migration 0040). Migration 0041 replaced that table with academy_stage_nodes, which supports
+// program -> module -> group rather than one fixed level of nesting, and which is what the admin
+// Structure tab reads and writes. The types went with the table: see lib/academy-control for the
+// current structure model.
 
 export interface CareerStage {
   id: string;
@@ -89,7 +70,6 @@ export interface CareerStage {
   skills: string[];
   status: StageStatus;
   resources: CareerStageResource[];
-  programs: CareerStageProgram[];
   // Migration 0042. Set the first time a stage's status moves to 'active' via publishStage() /
   // archived_at when it moves to 'archived' — 'hidden' remains the practical pre-publish/draft
   // state, so no new status value was added alongside these.
