@@ -1,6 +1,6 @@
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
-boto3==1.40.0
+boto3==1.43.65
 PyMuPDF==1.26.3
 python-docx==1.2.0
 Pillow==11.3.0
