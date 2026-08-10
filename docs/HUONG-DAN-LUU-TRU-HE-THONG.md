@@ -6,6 +6,22 @@
 
 ---
 
+**2026-08-10 — 🔍 Đã merge + deploy: audit folder 28 (Learn Outcome OS) — sửa 2 lỗi thật tìm được, CHƯA xây graph mới — phát hiện thêm 1 bug thật ở tab CREATE, chưa sửa.**
+
+**Phát hiện bất ngờ nhất:** 4 tab LEARN mà gói nguồn "đề xuất nâng cấp" — "Hành trình của tôi" / "Học & ghi nhớ" / "Thư viện của tôi" — **đã đúng y hệt tên trong sidebar đang chạy thật**, không phải trùng hợp. Phần lớn giá trị gói nguồn muốn (bằng chứng năng lực có giáo viên xác nhận, Smart Home có nhiệm vụ hôm nay + lộ trình, H2O Mentor) **đã có sẵn** dưới hình thức thực dụng hơn (`portfolio_ready`, Smart Home hiện tại, Mentor rule-based).
+
+**Đã sửa 2 lỗi thật tìm được khi audit:**
+1. **`/student/roadmap` hiện sai giai đoạn** — trang này bấy lâu hiện 5 giai đoạn **giả, hardcode bằng tiếng Anh** (foundation/practice/...), hoàn toàn không khớp 6 giai đoạn thật bạn đã cấu hình (và tôi đã làm giàu nội dung ở module 25/26). Chỉ có trạng thái khóa/mở là thật, còn tên/mô tả/điều kiện đều là giả. Học viên bấm "Xem lộ trình của tôi" từ Smart Home sẽ thấy giai đoạn không tồn tại trong hệ thống. Đã sửa đọc đúng 6 giai đoạn thật.
+2. **"Công cụ của tôi" trong sidebar là link chết** — trỏ nhầm sang trang Mentor thay vì công cụ nào. Đã trỏ đúng sang Thư viện thiết kế (vốn đã có thật — học viên tự tạo cover/profile/thiệp/bằng — nhưng trước đó không nằm trong menu, chỉ vào được nếu gõ đúng URL).
+
+**Phát hiện thêm nhưng CHƯA sửa — cần bạn biết:** hệ thống mở khóa "công thức" ở tab CREATE (`lib/student/outcome-access.ts`) hiện đang dùng **cùng mảng giả nói trên** để quyết định ai được dùng công thức nào — nghĩa là **mọi học viên đều thấy đúng một trạng thái mở khóa giống hệt nhau**, không tính theo tiến độ/gói thành viên thật của từng người. Đây là lỗi thật, riêng biệt, nhưng đụng vào logic mở khóa của tab CREATE (không phải LEARN) — gói nguồn module 28 tự dặn rõ chưa đụng CREATE ở giai đoạn này, nên tôi không tự sửa. Báo bạn biết, nếu muốn sửa hãy nói tôi làm riêng.
+
+**Chưa làm — cần bạn quyết định:** phần lớn của gói nguồn — 10 bảng mới (Outcome/Milestone/Mission/Action/Evidence/Result) + màn hình Admin xây "Hành trình" có versioning (Draft→Preflight→Publish) + cron chạy tổng kết ngày/tuần (hệ thống hiện **chưa có cơ chế lập lịch nào cả**, cần hạ tầng mới). Đây là công việc nhiều tuần, đổi mô hình sư phạm — không tự làm nếu bạn không chọn.
+
+Báo cáo đầy đủ: `docs/learn-outcome-os/01_CURRENT_LEARN_AUDIT.md`.
+
+---
+
 **2026-08-09 — 🔍 Đã merge + deploy: audit folder 27 (Ingestion Fabric V3) — chỉ làm phần audit + 1 gap thật tìm được, CHƯA xây kernel lớn — ⚠️ CẦN CHẠY MIGRATION 0049 (chỉ thêm index + đánh dấu, không đổi dữ liệu).**
 
 **Bạn đã dặn:** audit trước, tích hợp sau. Đã làm đúng vậy.
