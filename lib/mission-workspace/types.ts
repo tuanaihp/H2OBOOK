@@ -46,6 +46,16 @@ export const GENERIC_CONFIG_TYPES = new Set<MissionBlockType>([
   "video", "image", "link", "result_metric", "result_card"
 ]);
 
+/**
+ * Types whose config is "a short list of labels" (choices to pick from, table columns, KPI metric
+ * names, kanban columns, checklist/action-plan steps, calculator fields) — structurally the same
+ * shape, so the Admin builder edits them with one generic textarea (one item per line) into
+ * `options.items: string[]` rather than a bespoke form per type. Release 1 shipped these block
+ * types without any way to configure that list — this is the Release 2 fix, since the student
+ * renderer otherwise has nothing to render (an empty dropdown/checklist/table).
+ */
+export const ITEMS_CONFIG_TYPES = new Set<MissionBlockType>(["select", "multi_select", "checklist", "table", "kpi", "action_plan", "kanban", "calculator"]);
+
 export interface MissionBlock {
   id: string;
   type: MissionBlockType;

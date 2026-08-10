@@ -9,12 +9,18 @@ type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 export type MissionDisplayState = "locked" | "available" | StudentMissionState;
 
 export interface ResolvedResourceBinding extends MissionResourceBinding { title: string }
+export interface MissionEvidenceEntry { note?: string; assetId?: string; submittedAt: string }
 export interface MissionWithProgress extends Omit<JourneyMission, "resourceBindings"> {
   displayState: MissionDisplayState;
   /** Only set when displayState is "locked" — the prerequisite's title, so the UI can say why rather than just showing a lock icon. */
   lockedReason: string | null;
   resourceBindings: ResolvedResourceBinding[];
   actions: { id: string; title: string; required: boolean; evidenceRequired: boolean; status: string }[];
+  /** Carried through for the Mission Workspace's Evidence/Kết quả tabs (docs/smart-learning Release 2) — unused by the existing Journey Map drawer, which only reads displayState/lockedReason. */
+  evidence: MissionEvidenceEntry[];
+  evidenceSubmittedAt: string | null;
+  verifiedAt: string | null;
+  resultAchievedAt: string | null;
 }
 export interface OutcomeWithProgress extends Omit<JourneyOutcome, "milestones"> {
   milestones: { id: string; title: string; description: string; missions: MissionWithProgress[] }[];
@@ -38,7 +44,7 @@ export async function getJourneyForStudent(userId: string, organizationId: strin
   const missionIds = missions.map((m) => m.id);
   if (!admin || !missionIds.length) {
     return {
-      outcomes: published.outcomes.map((o) => ({ ...o, milestones: o.milestones.map((m) => ({ ...m, missions: m.missions.map((mission) => ({ ...mission, displayState: "locked" as const, lockedReason: null, resourceBindings: [], actions: [] })) })) })) as unknown as OutcomeWithProgress[],
+      outcomes: published.outcomes.map((o) => ({ ...o, milestones: o.milestones.map((m) => ({ ...m, missions: m.missions.map((mission) => ({ ...mission, displayState: "locked" as const, lockedReason: null, resourceBindings: [], actions: [], evidence: [], evidenceSubmittedAt: null, verifiedAt: null, resultAchievedAt: null })) })) })) as unknown as OutcomeWithProgress[],
       versionId: published.version.id, blueprintTitle: published.blueprint.title, progressPercent: 0
     };
   }
@@ -72,18 +78,25 @@ export async function getJourneyForStudent(userId: string, organizationId: strin
     ...outcome,
     milestones: outcome.milestones.map((milestone) => ({
       id: milestone.id, title: milestone.title, description: milestone.description,
-      missions: milestone.missions.map((mission): MissionWithProgress => ({
-        ...mission,
-        displayState: displayStateFor(mission),
-        lockedReason: mission.prerequisiteMissionId && !achievedMissionIds.has(mission.prerequisiteMissionId)
-          ? `Cần hoàn thành: ${missionById.get(mission.prerequisiteMissionId)?.title ?? "mission trước đó"}`
-          : null,
-        resourceBindings: mission.resourceBindings.map((binding) => ({ ...binding, title: titleById.get(binding.resourceId) ?? "Tài liệu (đang chờ nội dung)" })),
-        actions: (actionsByMission.get(mission.id) ?? []).map((a) => {
-          const template = mission.actionTemplates.find((t) => t.id === a.source_id);
-          return { id: a.id, title: a.title, required: template?.required ?? true, evidenceRequired: template?.evidenceRequired ?? false, status: a.status };
-        })
-      }))
+      missions: milestone.missions.map((mission): MissionWithProgress => {
+        const state = stateByMission.get(mission.id);
+        return {
+          ...mission,
+          displayState: displayStateFor(mission),
+          lockedReason: mission.prerequisiteMissionId && !achievedMissionIds.has(mission.prerequisiteMissionId)
+            ? `Cần hoàn thành: ${missionById.get(mission.prerequisiteMissionId)?.title ?? "mission trước đó"}`
+            : null,
+          resourceBindings: mission.resourceBindings.map((binding) => ({ ...binding, title: titleById.get(binding.resourceId) ?? "Tài liệu (đang chờ nội dung)" })),
+          actions: (actionsByMission.get(mission.id) ?? []).map((a) => {
+            const template = mission.actionTemplates.find((t) => t.id === a.source_id);
+            return { id: a.id, title: a.title, required: template?.required ?? true, evidenceRequired: template?.evidenceRequired ?? false, status: a.status };
+          }),
+          evidence: Array.isArray(state?.evidence) ? (state.evidence as MissionEvidenceEntry[]) : [],
+          evidenceSubmittedAt: state?.evidence_submitted_at ?? null,
+          verifiedAt: state?.verified_at ?? null,
+          resultAchievedAt: state?.result_achieved_at ?? null
+        };
+      })
     }))
   }));
 
