@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, RefreshCw, CheckCircle2, Archive, Copy, AlertTriangle, Search, X } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
+import { MissionWorkspaceBuilder } from "@/components/academy-admin/mission-workspace-builder";
 import styles from "@/components/operations/operations.module.css";
 
 type Stage = { id: string; title: string; indexLabel: string };
@@ -217,6 +218,14 @@ export default function JourneyMapAdminPage() {
           <div><strong>Action templates</strong>
             <ul style={{ margin: "4px 0" }}>{selectedMission.actionTemplates.map((a) => <li key={a.id}>{a.title}{a.required ? " · bắt buộc" : ""}{a.evidenceRequired ? " · cần evidence" : ""}</li>)}</ul>
             {isDraft && <MiniForm placeholder="+ Thêm action template" onSubmit={(title) => call("/api/academy-admin/learn-outcome/node", { action: "createActionTemplate", missionId: selectedMission.id, actionTemplate: { title } }, "Đã thêm action template.")}/>}
+          </div>
+
+          <div style={{ borderTop: "1px solid #eef1f4", paddingTop: 10 }}>
+            {versionId && <MissionWorkspaceBuilder journeyVersionId={versionId} missionId={selectedMission.id} isDraft={isDraft}
+              resourceBindings={selectedMission.resourceBindings.map((b) => ({ id: b.id, label: b.title || b.resourceId || b.id }))}
+              toolBindings={selectedMission.toolBindings.map((b) => ({ id: b.id, label: b.toolId || b.id }))}
+              assignmentBindings={selectedMission.assignmentBindings.map((b) => ({ id: b.id, label: b.assignmentId || b.id }))}
+            />}
           </div>
         </div>
       </section>}
