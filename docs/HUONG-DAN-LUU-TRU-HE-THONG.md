@@ -6,6 +6,27 @@
 
 ---
 
+**2026-08-10 — 🚀 Đã merge + deploy: Smart Roadmap + Universal Mission OS — Release 2 (folder 30) — học viên đã thấy thay đổi thật, KHÔNG cần migration mới.**
+
+**Release 1 (bên dưới) chỉ là nền dữ liệu + màn Admin. Release 2 là phần học viên nhìn thấy được:**
+
+- Bấm vào 1 Mission trên "Hành trình của tôi" giờ mở ra màn hình mới **Mission Workspace** (`/student/missions/[id]`) — 3 cột: bối cảnh hành trình bên trái, 4 tab ở giữa ("Hiểu nhiệm vụ / Làm việc / Evidence / Kết quả"), khung H2O Mission AI bên phải.
+- Tab "Làm việc" hiển thị đúng các block Admin đã cấu hình ở Release 1 — học viên điền, hệ thống tự lưu (autosave) sau 800ms ngừng gõ.
+- Tab "Evidence" và luồng nộp bằng chứng **dùng lại nguyên** cơ chế đã có từ trước (không tạo hệ thống nộp bài thứ hai).
+- Tab "Kết quả" hiện tóm tắt thật: trạng thái, số việc bắt buộc đã xong, số lần nộp bằng chứng, ngày xác nhận/hoàn thành.
+- Thêm chỉ số **"Sẵn sàng" (readiness) tính tự động**, không phải AI đoán — dựa trên: đã điền đủ input bắt buộc chưa (40%), đã làm đủ hành động bắt buộc chưa (40%), đã nộp evidence nếu Mission cần chưa (20%).
+- Khung "H2O Mission AI" bên phải hiện đúng "H2O Mentor tạm thời không khả dụng" — AI thật là Release 4, chưa xây, nhưng học viên vẫn học/làm bài bình thường không bị chặn.
+
+**Đã sửa 1 lỗ hổng thật của Release 1 phát hiện khi làm:** màn Admin trước đó cho thêm block kiểu "Chọn 1 / Checklist / Bảng / KPI / Kanban / Máy tính" nhưng **không có chỗ nhập danh sách lựa chọn** — học viên sẽ luôn thấy block đó trống rỗng. Đã thêm ô nhập vào màn Admin.
+
+**Kiểm tra trên dữ liệu thật:** đã test thêm block + lưu giá trị trên 1 Mission thật đang published (Mission "Hoàn thành Career Map"), tuyệt đối không đụng tiến độ thật của học viên — chỉ đọc trạng thái thật để lấy input test, mọi ghi/xóa đều trên dữ liệu tự tạo và đã dọn sạch. Xác nhận công thức "Sẵn sàng" tính đúng bằng tay khớp với số liệu thật.
+
+**Chưa test qua trình duyệt bằng tài khoản học viên thật** (không có mật khẩu để đăng nhập) — mới xác nhận đúng ở tầng dữ liệu + code. Bạn tự đăng nhập thử là chắc chắn nhất.
+
+**Quyết định cần bạn:** Release 3 (Result Card đầy đủ, có thể chia sẻ/export) và Release 4 (H2O Journey AI + Mission AI thật, dự báo ngày hoàn thành) — chưa làm. Báo cáo đầy đủ: `docs/smart-learning/FINAL_SMART_ROADMAP_MISSION_OS_REPORT.md`.
+
+---
+
 **2026-08-10 — 🧩 Đã merge + deploy: Smart Roadmap + Universal Mission OS — Release 1 (folder 30) — ⚠️ CẦN CHẠY MIGRATION 0052.**
 
 **Đây là gói lớn nhất từ trước tới giờ** — chính gói nguồn tự chia làm 4 đợt. Lượt này **chỉ làm Release 1**: nền dữ liệu + màn hình Admin cấu hình nội dung Mission. **Học viên chưa thấy gì thay đổi** — đây là quyết định phạm vi có chủ đích, không phải làm dở dang.
