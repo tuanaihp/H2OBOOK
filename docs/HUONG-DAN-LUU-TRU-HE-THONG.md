@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-10 — 🛠 Đã merge + deploy: sửa bug thật nghiêm trọng — bộ giải mã quyền truy cập giai đoạn đang so khớp với ID giả, không khớp được với 6 giai đoạn thật.**
+
+**Bạn yêu cầu sửa bug tab CREATE (mọi học viên thấy đúng 1 trạng thái mở khóa công thức giống hệt nhau) — khi sửa, phát hiện gốc rễ nghiêm trọng hơn nhiều.**
+
+`lib/student/stage-access.ts` (hàm quyết định giai đoạn nào học viên đã mở khóa) từ trước đến giờ so khớp với 5 ID giả tiếng Anh (`foundation/practice/first-client/professional/leader`) — không phải 6 giai đoạn thật (`h2o-stage-01-foundation`...) đã cấu hình. Kết quả: **`stageUnlocked` luôn = false cho MỌI học viên, ở MỌI giai đoạn thật**, bất kể có gói thành viên hay không.
+
+**Chưa gây hại tới giờ chỉ vì mọi tài liệu đang cố ý để `free_preview`** (mở tự do, tách biệt khỏi cơ chế khóa-theo-giai-đoạn) — **nhưng ngay khi bạn khóa nội dung lại (bước tiếp theo bạn đã nói sẽ làm), toàn bộ học viên sẽ bị chặn khỏi nội dung khóa-theo-giai-đoạn, kể cả người có gói thành viên.**
+
+**Đã sửa tận gốc — không chỉ tab CREATE:**
+- Bộ giải mã quyền giai đoạn (`stage-access.ts`) giờ đọc đúng 6 giai đoạn thật, giai đoạn thấp nhất luôn miễn phí, gói thành viên mở tất cả.
+- Tab CREATE (bug bạn báo) — giờ dùng tín hiệu gói thành viên thật của từng học viên thay vì trạng thái cố định giống nhau cho mọi người.
+- `/student/roadmap` và widget "Lộ trình nghề nghiệp" trên Smart Home — giờ hiện đúng tên 6 giai đoạn thật thay vì danh sách giả.
+
+**Đã kiểm chứng trên dữ liệu thật:** giai đoạn miễn phí đúng là "Nền tảng nghề Makeup" (18 tài liệu active) — sẽ đúng được coi là đã mở khóa cho mọi học viên từ giờ.
+
+---
+
 **2026-08-10 — 🔍 Đã merge + deploy: audit folder 28 (Learn Outcome OS) — sửa 2 lỗi thật tìm được, CHƯA xây graph mới — phát hiện thêm 1 bug thật ở tab CREATE, chưa sửa.**
 
 **Phát hiện bất ngờ nhất:** 4 tab LEARN mà gói nguồn "đề xuất nâng cấp" — "Hành trình của tôi" / "Học & ghi nhớ" / "Thư viện của tôi" — **đã đúng y hệt tên trong sidebar đang chạy thật**, không phải trùng hợp. Phần lớn giá trị gói nguồn muốn (bằng chứng năng lực có giáo viên xác nhận, Smart Home có nhiệm vụ hôm nay + lộ trình, H2O Mentor) **đã có sẵn** dưới hình thức thực dụng hơn (`portfolio_ready`, Smart Home hiện tại, Mentor rule-based).
