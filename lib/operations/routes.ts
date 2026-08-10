@@ -39,8 +39,12 @@ export const systemRoutes = [
 
 export const academyAdminRoutes = [
   { href: "/academy-admin", label: "Tổng quan đào tạo", icon: LayoutDashboard },
-  { href: "/academy-admin/stages", label: "Giai đoạn & lộ trình", icon: Compass },
-  { href: "/academy-admin/journey", label: "Journey Map", icon: Workflow },
+  // Labels renamed per v5/29-H2OBOOK_JOURNEY_MAP_V2_SMART_UPGRADE's docs/ADMIN_NAMING.md — the two
+  // routes were easy to conflate ("lộ trình" and "Journey" both read as "the path"), even though
+  // one configures the curriculum graph (Stage/Program/Module/Group/Resource) and the other the
+  // outcome graph (Outcome/Mission/Action/Evidence/Result). Route and component names are unchanged.
+  { href: "/academy-admin/stages", label: "Giai đoạn & Nội dung đào tạo", icon: Compass },
+  { href: "/academy-admin/journey", label: "Bản đồ kết quả học viên", icon: Workflow },
   { href: "/academy-admin/content", label: "Kho nội dung Academy", icon: LibraryBig },
   { href: "/academy-admin/brain", label: "H2O Brain", icon: Brain },
   { href: "/academy-admin/programs", label: "Khóa học video", icon: GraduationCap },

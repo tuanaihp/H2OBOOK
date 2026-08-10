@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getPublishedJourneyForStage } from "./service";
+import { getPublishedJourneyForStage, resolveResourceTitles } from "./service";
 import type { JourneyMission, JourneyOutcome, MissionResourceBinding, StudentMissionState } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -11,6 +11,8 @@ export type MissionDisplayState = "locked" | "available" | StudentMissionState;
 export interface ResolvedResourceBinding extends MissionResourceBinding { title: string }
 export interface MissionWithProgress extends Omit<JourneyMission, "resourceBindings"> {
   displayState: MissionDisplayState;
+  /** Only set when displayState is "locked" — the prerequisite's title, so the UI can say why rather than just showing a lock icon. */
+  lockedReason: string | null;
   resourceBindings: ResolvedResourceBinding[];
   actions: { id: string; title: string; required: boolean; evidenceRequired: boolean; status: string }[];
 }
@@ -36,7 +38,7 @@ export async function getJourneyForStudent(userId: string, organizationId: strin
   const missionIds = missions.map((m) => m.id);
   if (!admin || !missionIds.length) {
     return {
-      outcomes: published.outcomes.map((o) => ({ ...o, milestones: o.milestones.map((m) => ({ ...m, missions: m.missions.map((mission) => ({ ...mission, displayState: "locked" as const, resourceBindings: [], actions: [] })) })) })) as unknown as OutcomeWithProgress[],
+      outcomes: published.outcomes.map((o) => ({ ...o, milestones: o.milestones.map((m) => ({ ...m, missions: m.missions.map((mission) => ({ ...mission, displayState: "locked" as const, lockedReason: null, resourceBindings: [], actions: [] })) })) })) as unknown as OutcomeWithProgress[],
       versionId: published.version.id, blueprintTitle: published.blueprint.title, progressPercent: 0
     };
   }
@@ -53,21 +55,12 @@ export async function getJourneyForStudent(userId: string, organizationId: strin
     actionsByMission.set(row.mission_id, list);
   }
 
-  // "Không hiển thị UUID nếu source title resolve được" — every binding names a table via
-  // resource_type (same convention as the preflight existence check), resolved here in two batched
-  // queries rather than one per binding.
-  const allBindings = missions.flatMap((m) => m.resourceBindings);
-  const documentIds = [...new Set(allBindings.filter((b) => b.resourceType === "document").map((b) => b.resourceId))];
-  const placementIds = [...new Set(allBindings.filter((b) => b.resourceType === "career_stage_resource").map((b) => b.resourceId))];
-  const [{ data: documentRows }, { data: placementRows }] = await Promise.all([
-    documentIds.length ? admin.from("curriculum_documents").select("id,title").eq("organization_id", organizationId).in("id", documentIds) : Promise.resolve({ data: [] }),
-    placementIds.length ? admin.from("career_stage_resources").select("id,title_override").eq("organization_id", organizationId).in("id", placementIds) : Promise.resolve({ data: [] })
-  ]);
-  const titleById = new Map<string, string>();
-  for (const row of (documentRows ?? []) as { id: string; title: string }[]) titleById.set(row.id, row.title);
-  for (const row of (placementRows ?? []) as { id: string; title_override: string | null }[]) if (row.title_override) titleById.set(row.id, row.title_override);
+  // "Không hiển thị UUID nếu source title resolve được" — shared with the Admin Journey Builder
+  // (lib/learn-outcome/service.ts's resolveResourceTitles) so both surfaces resolve the same way.
+  const titleById = await resolveResourceTitles(organizationId, missions.flatMap((m) => m.resourceBindings));
 
   const achievedMissionIds = new Set(missions.filter((m) => stateByMission.get(m.id)?.state === "result_achieved").map((m) => m.id));
+  const missionById = new Map(missions.map((m) => [m.id, m]));
 
   function displayStateFor(mission: JourneyMission): MissionDisplayState {
     if (mission.prerequisiteMissionId && !achievedMissionIds.has(mission.prerequisiteMissionId)) return "locked";
@@ -82,6 +75,9 @@ export async function getJourneyForStudent(userId: string, organizationId: strin
       missions: milestone.missions.map((mission): MissionWithProgress => ({
         ...mission,
         displayState: displayStateFor(mission),
+        lockedReason: mission.prerequisiteMissionId && !achievedMissionIds.has(mission.prerequisiteMissionId)
+          ? `Cần hoàn thành: ${missionById.get(mission.prerequisiteMissionId)?.title ?? "mission trước đó"}`
+          : null,
         resourceBindings: mission.resourceBindings.map((binding) => ({ ...binding, title: titleById.get(binding.resourceId) ?? "Tài liệu (đang chờ nội dung)" })),
         actions: (actionsByMission.get(mission.id) ?? []).map((a) => {
           const template = mission.actionTemplates.find((t) => t.id === a.source_id);

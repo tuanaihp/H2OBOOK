@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { loadVersionGraph } from "./service";
-import type { MissionBindingRole, MissionInput, PreflightResult } from "./types";
+import type { MissionBindingRole, MissionInput, PreflightFinding, PreflightResult } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -213,22 +213,23 @@ export async function createActionTemplate(access: AcademyAdminAccess, missionId
  */
 export async function preflightVersion(organizationId: string, versionId: string): Promise<PreflightResult> {
   const outcomes = await loadVersionGraph(organizationId, versionId);
-  const blockers: string[] = [];
-  const warnings: string[] = [];
+  const findings: PreflightFinding[] = [];
+  const add = (severity: PreflightFinding["severity"], category: PreflightFinding["category"], message: string, mission?: { id: string; title: string }) =>
+    findings.push({ severity, category, missionId: mission?.id ?? null, missionTitle: mission?.title ?? null, message });
 
-  if (outcomes.length === 0) blockers.push("0 outcomes");
+  if (outcomes.length === 0) add("blocker", "structure", "0 outcomes");
   const missions = outcomes.flatMap((o) => o.milestones.flatMap((m) => m.missions));
-  if (missions.length === 0) blockers.push("0 missions");
+  if (missions.length === 0) add("blocker", "structure", "0 missions");
 
   const missionIds = new Set(missions.map((m) => m.id));
   for (const mission of missions) {
-    if (!mission.expectedResult?.trim()) blockers.push(`Mission "${mission.title}" thiếu expected result`);
-    if (mission.completionPolicy === "evidence_required" && !mission.evidencePolicy?.type) blockers.push(`Mission "${mission.title}" yêu cầu evidence nhưng chưa chọn evidence type`);
-    if (mission.prerequisiteMissionId && !missionIds.has(mission.prerequisiteMissionId)) blockers.push(`Mission "${mission.title}" trỏ tới prerequisite không tồn tại trong version này`);
-    if (!mission.estimatedDays) warnings.push(`Mission "${mission.title}" chưa có estimated days`);
-    if (!mission.resourceBindings.length && !mission.toolBindings.length) warnings.push(`Mission "${mission.title}" chưa có resource/tool gợi ý`);
-    if (!mission.actionTemplates.length) warnings.push(`Mission "${mission.title}" chưa có action template`);
-    if (!mission.successCriteria.length) warnings.push(`Mission "${mission.title}" chưa có success KPI`);
+    if (!mission.expectedResult?.trim()) add("blocker", "structure", "Thiếu expected result", mission);
+    if (mission.completionPolicy === "evidence_required" && !mission.evidencePolicy?.type) add("blocker", "structure", "Yêu cầu evidence nhưng chưa chọn evidence type", mission);
+    if (mission.prerequisiteMissionId && !missionIds.has(mission.prerequisiteMissionId)) add("blocker", "broken_reference", "Prerequisite không tồn tại trong version này", mission);
+    if (!mission.estimatedDays) add("warning", "missing_duration", "Chưa có estimated days", mission);
+    if (!mission.resourceBindings.length && !mission.toolBindings.length) add("warning", "missing_binding", "Chưa có resource/tool gợi ý", mission);
+    if (!mission.actionTemplates.length) add("warning", "other", "Chưa có action template", mission);
+    if (!mission.successCriteria.length) add("warning", "missing_kpi", "Chưa có success KPI", mission);
   }
 
   // Circular prerequisite: walk each mission's prerequisite chain; a cycle means walking never
@@ -238,7 +239,7 @@ export async function preflightVersion(organizationId: string, versionId: string
     const seen = new Set<string>();
     let cursor: string | null = mission.id;
     while (cursor) {
-      if (seen.has(cursor)) { blockers.push(`Circular prerequisite phát hiện tại mission "${mission.title}"`); break; }
+      if (seen.has(cursor)) { add("blocker", "circular", "Circular prerequisite phát hiện tại mission này", mission); break; }
       seen.add(cursor);
       cursor = prereqById.get(cursor) ?? null;
     }
@@ -246,6 +247,11 @@ export async function preflightVersion(organizationId: string, versionId: string
 
   const admin = createSupabaseAdminClient();
   if (admin) {
+    const missionByBindingResource = new Map<string, { id: string; title: string }>();
+    for (const mission of missions) for (const b of mission.resourceBindings) missionByBindingResource.set(b.id, mission);
+    const missionByAssignmentBinding = new Map<string, { id: string; title: string }>();
+    for (const mission of missions) for (const b of mission.assignmentBindings) missionByAssignmentBinding.set(b.id, mission);
+
     const resourceBindings = missions.flatMap((m) => m.resourceBindings);
     const assignmentBindings = missions.flatMap((m) => m.assignmentBindings);
     // resource_type names which real table resource_id points into — a mission resource binding is
@@ -253,28 +259,31 @@ export async function preflightVersion(organizationId: string, versionId: string
     // directly (resource_type='document') resource_id is a curriculum_documents id instead. Checked
     // against whichever table the binding's own resource_type says, not one fixed table.
     const RESOURCE_TABLE_BY_TYPE: Record<string, string> = { career_stage_resource: "career_stage_resources", document: "curriculum_documents" };
-    const bindingsByType = new Map<string, Set<string>>();
+    const bindingsByType = new Map<string, typeof resourceBindings>();
     for (const binding of resourceBindings) {
-      const set = bindingsByType.get(binding.resourceType) ?? new Set<string>();
-      set.add(binding.resourceId);
-      bindingsByType.set(binding.resourceType, set);
+      const list = bindingsByType.get(binding.resourceType) ?? [];
+      list.push(binding);
+      bindingsByType.set(binding.resourceType, list);
     }
-    for (const [resourceType, ids] of bindingsByType) {
+    for (const [resourceType, bindings] of bindingsByType) {
       const table = RESOURCE_TABLE_BY_TYPE[resourceType];
-      if (!table) { warnings.push(`Resource binding có resource_type chưa hỗ trợ kiểm tra tồn tại: ${resourceType}`); continue; }
-      const { data } = await admin.from(table).select("id").eq("organization_id", organizationId).in("id", [...ids]);
+      const ids = [...new Set(bindings.map((b) => b.resourceId))];
+      if (!table) { add("warning", "other", `Resource binding có resource_type chưa hỗ trợ kiểm tra tồn tại: ${resourceType}`); continue; }
+      const { data } = await admin.from(table).select("id").eq("organization_id", organizationId).in("id", ids);
       const found = new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
-      for (const id of ids) if (!found.has(id)) blockers.push(`Resource binding (${resourceType}) trỏ tới id không tồn tại trong tổ chức: ${id}`);
+      for (const binding of bindings) if (!found.has(binding.resourceId)) add("blocker", "broken_reference", `Resource binding (${resourceType}) trỏ tới id không tồn tại: ${binding.resourceId}`, missionByBindingResource.get(binding.id));
     }
     if (assignmentBindings.length) {
       const ids = [...new Set(assignmentBindings.map((b) => b.assignmentId))];
       const { data } = await admin.from("assignment_definitions").select("id").eq("organization_id", organizationId).in("id", ids);
       const found = new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
-      for (const id of ids) if (!found.has(id)) blockers.push(`Assignment binding trỏ tới id không tồn tại trong tổ chức: ${id}`);
+      for (const binding of assignmentBindings) if (!found.has(binding.assignmentId)) add("blocker", "broken_reference", `Assignment binding trỏ tới id không tồn tại: ${binding.assignmentId}`, missionByAssignmentBinding.get(binding.id));
     }
   }
 
-  return { ok: blockers.length === 0, blockers, warnings };
+  const blockers = findings.filter((f) => f.severity === "blocker").map((f) => f.missionTitle ? `Mission "${f.missionTitle}": ${f.message}` : f.message);
+  const warnings = findings.filter((f) => f.severity === "warning").map((f) => f.missionTitle ? `Mission "${f.missionTitle}": ${f.message}` : f.message);
+  return { ok: blockers.length === 0, blockers, warnings, findings };
 }
 
 /**
