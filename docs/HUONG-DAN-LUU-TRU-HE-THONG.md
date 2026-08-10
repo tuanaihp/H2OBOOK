@@ -6,6 +6,27 @@
 
 ---
 
+**2026-08-10 — 🚀 Đã merge + deploy: Learn Outcome OS — Release B — vertical slice thật cho Stage 1 ("Nền tảng nghề Makeup") — ⚠️ CẦN CHẠY MIGRATION 0051.**
+
+**Đã có Journey Map thật cho Stage 1** — không phải demo. Vào `/academy-admin/journey`, chọn "Nền tảng nghề Makeup" sẽ thấy: 4 Outcome, 4 Milestone, 14 Mission — tất cả gắn vào tài liệu thật đã có (20/20 gắn kết resolve đúng, không cái nào gãy), đã Publish (Preflight 0 blocker).
+
+**`/student/courses` ("Hành trình của tôi") đã đổi** — không còn là danh sách khóa học, giờ là Journey Map thật: học viên bấm vào Mission → mở Drawer thấy mục tiêu, tài liệu cần học, kế hoạch hành động, nút Start Mission. Khóa học video cũ vẫn còn, chuyển xuống "Khóa học bổ trợ".
+
+**Đã tự kiểm thử trực tiếp trên 1 tài khoản học viên thật** (không qua trình duyệt — mô phỏng đúng logic ghi/đọc, đã dọn sạch dữ liệu test sau khi xong):
+- Start Mission tạo action thật ✓, bấm lại không tạo trùng ✓ (nhờ đúng ràng buộc unique của database).
+- Mission có điều kiện tiên quyết: khóa đúng, mở đúng khi hoàn thành mission trước ✓.
+- % tiến độ Journey tính đúng theo mission đã hoàn thành ✓.
+
+**Phát hiện + tự sửa 1 lỗ hổng bảo mật trước khi deploy:** ban đầu học viên có thể tự khai "loại hoàn thành" khi nộp evidence để tự xác nhận bài Before/After thay vì chờ giáo viên duyệt. Đã sửa: hệ thống tự tra loại hoàn thành thật từ database, không tin dữ liệu học viên gửi lên.
+
+**⚠️ CẦN BẠN LÀM:** chạy `supabase/_RUN-0051-ONLY.sql` (thêm cột lưu evidence + quyền giáo viên xác nhận). Sau khi chạy, báo tôi để tôi test nốt phần Nộp evidence + Giáo viên duyệt bài — 2 phần này chưa test được vì migration chưa chạy.
+
+**Báo cáo đầy đủ (số liệu thật, quyết định, 16 test):** `docs/learn-outcome-os/RELEASE_B_STAGE1_REPORT.md`.
+
+**Chưa làm, nói thật:** chưa tự vào trình duyệt bấm thử được (tôi không có trình duyệt) — mọi xác nhận ở trên là qua dữ liệu thật, không phải qua giao diện. Bạn nên tự vào `/student/courses` bằng 1 tài khoản học viên để xem trực tiếp.
+
+---
+
 **2026-08-10 — ✨ Đã merge + deploy: Learn Outcome OS V1 — Release A (folder 28, phần bạn chọn "xây đầy đủ") — ⚠️ CẦN CHẠY MIGRATION 0050.**
 
 Bạn chọn xây đầy đủ Outcome Graph. Vì khối lượng quá lớn (10 bảng mới + Admin Builder có versioning + 4 tab học viên viết lại + cron), tôi làm theo đúng lộ trình chia đợt mà chính gói nguồn đề xuất (Release A→E), bắt đầu từ Release A — **chưa cho học viên thấy gì cả, chỉ xây nền + màn hình Admin**.
