@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { loadVersionGraph } from "./service";
+import { getWorkspaceConfigsForVersion } from "@/lib/mission-workspace/service";
 import type { MissionBindingRole, MissionInput, PreflightFinding, PreflightResult } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -87,6 +88,23 @@ export async function duplicateVersion(access: AcademyAdminAccess, blueprintId: 
     const newId = missionIdMap.get(mission.id);
     const newPrereqId = missionIdMap.get(mission.prerequisiteMissionId);
     if (newId && newPrereqId) await supabase.from("learning_journey_missions").update({ prerequisite_mission_id: newPrereqId }).eq("id", newId);
+  }
+
+  // Mission Workspace configs (migration 0052) are keyed by (journey_version_id, mission_id) — a
+  // config that isn't copied here would simply not exist for any mission in the new draft, silently
+  // dropping every block Admin configured in the source version. bindingId inside each block still
+  // refers to a *binding id* (learning_mission_resource_bindings.id etc.), which was NOT remapped
+  // above (bindings are inserted fresh per mission, not id-preserving) — copied through as-is here
+  // since fixing stale bindingIds is exactly what re-opening the mission in the Builder does, the
+  // same as any other draft edit.
+  const oldConfigs = await getWorkspaceConfigsForVersion(org, sourceVersionId);
+  for (const [oldMissionId, config] of oldConfigs) {
+    const newMissionId = missionIdMap.get(oldMissionId);
+    if (!newMissionId || !config.blocks.length) continue;
+    await supabase.from("learning_mission_workspace_configs").insert({
+      organization_id: org, journey_version_id: version.id, mission_id: newMissionId,
+      schema_version: config.schemaVersion, blocks: config.blocks, created_by: access.userId
+    });
   }
 
   return { ok: true, data: { versionId: version.id } };
@@ -278,6 +296,22 @@ export async function preflightVersion(organizationId: string, versionId: string
       const { data } = await admin.from("assignment_definitions").select("id").eq("organization_id", organizationId).in("id", ids);
       const found = new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
       for (const binding of assignmentBindings) if (!found.has(binding.assignmentId)) add("blocker", "broken_reference", `Assignment binding trỏ tới id không tồn tại: ${binding.assignmentId}`, missionByAssignmentBinding.get(binding.id));
+    }
+  }
+
+  // Mission Workspace checks (docs/30 §17): duplicate block ids and a reference block (resource/
+  // tool/assignment) with no bindingId are blockers — everything else about a missing/empty
+  // workspace is a warning, not a blocker, since a Mission with only "Hiểu nhiệm vụ" content is
+  // still a valid, publishable Mission in Release 1 (the "Làm việc" tab renderer is Release 2).
+  const workspaceConfigs = await getWorkspaceConfigsForVersion(organizationId, versionId);
+  for (const mission of missions) {
+    const config = workspaceConfigs.get(mission.id);
+    if (!config || !config.blocks.length) { add("warning", "other", "Mission chưa có Workspace config", mission); continue; }
+    const seenBlockIds = new Set<string>();
+    for (const block of config.blocks) {
+      if (seenBlockIds.has(block.id)) add("blocker", "structure", `Workspace có block id trùng lặp: ${block.id}`, mission);
+      seenBlockIds.add(block.id);
+      if (["resource", "tool", "assignment"].includes(block.type) && !block.bindingId) add("blocker", "missing_binding", `Block "${block.label}" (${block.type}) chưa gắn canonical binding`, mission);
     }
   }
 
