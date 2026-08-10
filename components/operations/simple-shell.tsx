@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Bell, LayoutDashboard, Sparkles } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ArrowLeft, Bell, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import styles from "./operations.module.css";
 
@@ -10,20 +10,14 @@ export type SimpleShellRoute = { href: string; label: string; icon: LucideIcon }
 
 export function SimpleOperationsShell({ title, subtitle, homeHref, routes, children, accentLabel }: { title: string; subtitle: string; homeHref: string; routes: SimpleShellRoute[]; children: React.ReactNode; accentLabel: string }) {
   const pathname = usePathname();
-  const router = useRouter();
   return <div className={styles.shell}>
     <aside className={styles.sidebar}>
-      {/* Every SimpleOperationsShell caller sets homeHref to its own sub-app's root — /academy-admin,
-          /instructor, /platform-admin, /system — never to the main workspace. So the brand link
-          above already returns to "home" in one sense, but there was no way out of the sub-app
-          back to /dashboard itself, which is the gap this row closes. Browser back and "về
-          Dashboard" are offered together because they answer different questions: back undoes the
-          last click (useful mid-flow, e.g. after opening a program's detail page), while Dashboard
-          is a fixed escape hatch that works even as the very first click after landing here from an
-          external link, when there is no in-app history to go back to. */}
+      {/* Was router.back() + a separate "Dashboard" link: browser back stepped through whatever the
+          user had clicked inside this sub-app, which read as "quay lại lịch sử" (stepping back
+          through history) rather than "leaving" it — the user wants one click out to the main
+          workspace regardless of how deep they navigated in here. One fixed link now, not two. */}
       <div className={styles.shellBackRow}>
-        <button type="button" onClick={() => router.back()} aria-label="Quay lại trang trước"><ArrowLeft size={14}/>Quay lại</button>
-        <Link href="/dashboard" aria-label="Về Dashboard chính"><LayoutDashboard size={14}/>Dashboard</Link>
+        <Link href="/dashboard" aria-label="Về Dashboard chính"><ArrowLeft size={14}/>Quay lại</Link>
       </div>
       <Link href={homeHref} className={styles.brand}><span className={styles.brandMark}>H₂</span><div><strong>{title}</strong><small>{subtitle}</small></div></Link>
       <span className={styles.navTitle}>{accentLabel}</span>
