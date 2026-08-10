@@ -5,7 +5,7 @@ import { configuredAcademyOrganizationId } from "@/lib/academy/service";
 import { getSkillMastery } from "@/lib/student/mastery";
 import { buildTodayPlanForUser } from "@/lib/student/planner";
 import { getUnlockedStageIds } from "@/lib/student/stage-access";
-import { studentCareerStages } from "@/lib/student/experience";
+import { loadCareerStages } from "@/lib/career-stages/service";
 
 export async function GET() {
   const auth = await requireApiUser();
@@ -19,10 +19,23 @@ export async function GET() {
 
   // Learn Mastery Engine V1: real skill mastery + a real, deep-linked Today Plan — both empty
   // arrays (not fabricated) when Supabase/organization aren't configured, e.g. demo mode.
+  //
+  // `stages` (real career_stages, keyed by slug) rides alongside unlockedStageIds so the Smart
+  // Home roadmap widget can render real stage titles instead of its own hardcoded fallback list —
+  // unlockedStageIds is keyed by slug (lib/student/stage-access.ts) and has nothing to match
+  // against without the real stage rows to go with it.
   const organizationId = auth.user!.demo ? undefined : await configuredAcademyOrganizationId();
-  const [skillMastery, todayTasks, unlockedStageIds] = organizationId
-    ? await (async () => { const m = await getSkillMastery(auth.user!.id, organizationId); return [m, await buildTodayPlanForUser(auth.user!.id, organizationId, m), await getUnlockedStageIds(auth.user!.id, organizationId)] as const; })()
-    : [[], [], new Set([studentCareerStages[0]?.id])];
+  const [skillMastery, todayTasks, unlockedStageIds, stages] = organizationId
+    ? await (async () => {
+        const m = await getSkillMastery(auth.user!.id, organizationId);
+        const [today, unlocked, careerStages] = await Promise.all([
+          buildTodayPlanForUser(auth.user!.id, organizationId, m),
+          getUnlockedStageIds(auth.user!.id, organizationId),
+          loadCareerStages(organizationId)
+        ]);
+        return [m, today, unlocked, careerStages] as const;
+      })()
+    : [[], [], new Set<string>(), []];
 
   return NextResponse.json({
     user: { name: auth.user!.name, email: auth.user!.email },
@@ -35,6 +48,7 @@ export async function GET() {
     skillMastery,
     todayTasks,
     unlockedStageIds: [...unlockedStageIds],
+    stages: [...stages].sort((a, b) => a.position - b.position).map((stage) => ({ slug: stage.slug, title: stage.title, description: stage.description || stage.subtitle })),
     mode: auth.user!.demo ? "demo" : "production"
   });
 }
