@@ -4,7 +4,7 @@ import { ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react";
 import styles from "@/components/operations/operations.module.css";
 
 type MissionBlockType = string;
-type MissionBlock = { id: string; type: MissionBlockType; label: string; required: boolean; position: number; bindingId?: string };
+type MissionBlock = { id: string; type: MissionBlockType; label: string; required: boolean; position: number; bindingId?: string; options?: Record<string, unknown> };
 type WorkspaceConfig = { blocks: MissionBlock[] } | null;
 type BindingOption = { id: string; label: string };
 
@@ -17,6 +17,13 @@ const GROUPS: { label: string; types: MissionBlockType[] }[] = [
   { label: "Kết quả", types: ["result_summary", "result_metric", "result_card"] }
 ];
 const REFERENCE_TYPES = new Set(["resource", "tool", "assignment"]);
+// Mirrors lib/mission-workspace/types.ts's ITEMS_CONFIG_TYPES — kept as a literal copy since this
+// component only imports types, not runtime values, from a server-only module.
+const ITEMS_CONFIG_TYPES = new Set(["select", "multi_select", "checklist", "table", "kpi", "action_plan", "kanban", "calculator"]);
+const ITEMS_HINT: Record<string, string> = {
+  select: "Các lựa chọn", multi_select: "Các lựa chọn", checklist: "Các việc cần làm", table: "Tên cột",
+  kpi: "Tên chỉ số", action_plan: "Các bước", kanban: "Tên cột (VD: Cần làm / Đang làm / Xong)", calculator: "Tên trường số liệu"
+};
 const field = { padding: 8, borderRadius: 8, border: "1px solid #dfe3e8", fontSize: 12, width: "100%" } as const;
 
 /**
@@ -35,6 +42,8 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
   const [newType, setNewType] = useState<MissionBlockType>("text");
   const [newLabel, setNewLabel] = useState("");
   const [newBindingId, setNewBindingId] = useState("");
+  const [newItemsText, setNewItemsText] = useState("");
+  const [newNoteText, setNewNoteText] = useState("");
 
   async function load() {
     setLoading(true);
@@ -65,6 +74,8 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
         <span style={{ flex: 1 }}>
           <strong>{block.label}</strong> <span style={{ color: "#94a3b8" }}>({block.type}{block.required ? " · bắt buộc" : ""})</span>
           {REFERENCE_TYPES.has(block.type) && <div style={{ color: block.bindingId ? "#16a34a" : "#b42318" }}>{block.bindingId ? `Đã gắn: ${bindingOptionsFor(block.type).find((b) => b.id === block.bindingId)?.label ?? block.bindingId}` : "⚠ Chưa gắn binding"}</div>}
+          {ITEMS_CONFIG_TYPES.has(block.type) && <div style={{ color: "#6b7a89" }}>{(block.options?.items as string[] | undefined)?.length ? (block.options!.items as string[]).join(" · ") : "⚠ Chưa cấu hình danh sách"}</div>}
+          {block.type === "note" && <div style={{ color: "#6b7a89" }}>{(block.options?.text as string | undefined) || "⚠ Chưa có nội dung ghi chú"}</div>}
         </span>
         {isDraft && <>
           <button disabled={busy || index === 0} onClick={() => call({ action: "reorder", orderedBlockIds: [...blocks.map((b) => b.id).slice(0, index - 1), block.id, blocks[index - 1]?.id, ...blocks.map((b) => b.id).slice(index + 1)].filter(Boolean) })} style={{ border: "none", background: "none", cursor: "pointer" }}><ChevronUp size={13} /></button>
@@ -74,16 +85,27 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
       </div>)}
     </div>
 
-    {isDraft && <form onSubmit={(e) => { e.preventDefault(); if (!newLabel.trim()) return; call({ action: "addBlock", block: { type: newType, label: newLabel.trim(), bindingId: newBindingId || undefined } }); setNewLabel(""); setNewBindingId(""); }} style={{ display: "grid", gap: 6, gridTemplateColumns: REFERENCE_TYPES.has(newType) ? "1fr 1fr 1fr auto" : "1fr 1fr auto", marginTop: 6 }}>
-      <select value={newType} onChange={(e) => { setNewType(e.target.value); setNewBindingId(""); }} style={field}>
-        {GROUPS.map((g) => <optgroup key={g.label} label={g.label}>{g.types.map((t) => <option key={t} value={t}>{t}</option>)}</optgroup>)}
-      </select>
-      <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Nhãn block" style={field} />
-      {REFERENCE_TYPES.has(newType) && <select value={newBindingId} onChange={(e) => setNewBindingId(e.target.value)} style={field}>
-        <option value="">— chọn binding —</option>
-        {bindingOptionsFor(newType).map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-      </select>}
-      <button type="submit" disabled={busy} className={styles.button} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Thêm block</button>
+    {isDraft && <form onSubmit={(e) => {
+      e.preventDefault(); if (!newLabel.trim()) return;
+      const options = ITEMS_CONFIG_TYPES.has(newType)
+        ? { items: newItemsText.split("\n").map((s) => s.trim()).filter(Boolean) }
+        : newType === "note" ? { text: newNoteText.trim() } : undefined;
+      call({ action: "addBlock", block: { type: newType, label: newLabel.trim(), bindingId: newBindingId || undefined, options } });
+      setNewLabel(""); setNewBindingId(""); setNewItemsText(""); setNewNoteText("");
+    }} style={{ display: "grid", gap: 6, marginTop: 6 }}>
+      <div style={{ display: "grid", gap: 6, gridTemplateColumns: REFERENCE_TYPES.has(newType) ? "1fr 1fr 1fr auto" : "1fr 1fr auto" }}>
+        <select value={newType} onChange={(e) => { setNewType(e.target.value); setNewBindingId(""); }} style={field}>
+          {GROUPS.map((g) => <optgroup key={g.label} label={g.label}>{g.types.map((t) => <option key={t} value={t}>{t}</option>)}</optgroup>)}
+        </select>
+        <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Nhãn block" style={field} />
+        {REFERENCE_TYPES.has(newType) && <select value={newBindingId} onChange={(e) => setNewBindingId(e.target.value)} style={field}>
+          <option value="">— chọn binding —</option>
+          {bindingOptionsFor(newType).map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+        </select>}
+        <button type="submit" disabled={busy} className={styles.button} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Thêm block</button>
+      </div>
+      {ITEMS_CONFIG_TYPES.has(newType) && <textarea value={newItemsText} onChange={(e) => setNewItemsText(e.target.value)} placeholder={`${ITEMS_HINT[newType] ?? "Danh sách"} — mỗi dòng một mục`} style={{ ...field, minHeight: 50 }} />}
+      {newType === "note" && <textarea value={newNoteText} onChange={(e) => setNewNoteText(e.target.value)} placeholder="Nội dung ghi chú hiển thị cho học viên" style={{ ...field, minHeight: 50 }} />}
     </form>}
   </div>;
 }
