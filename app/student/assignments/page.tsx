@@ -6,6 +6,7 @@ import { useAppStore } from "@/store/app-store";
 import { useStudentData } from "@/components/student/student-data";
 import { canSubmit } from "@/lib/student/assignment-rules";
 import type { StudentAssignment, SubmissionAttempt, SubmissionStatus } from "@/lib/student/assignment-rules";
+import { JourneyActionsSection } from "@/components/student/journey-actions-section";
 
 // The student side of the assignment transaction. What was here before was seed data behind inert
 // buttons: the headline counts were literals, card status came from array position, and nothing
@@ -80,10 +81,11 @@ export default function StudentAssignmentsPage() {
     </>;
   }
 
-  if (assignments === null) return <>{head}<p style={{ color: "#718092", fontSize: 13 }}>Đang tải bài tập…</p></>;
+  if (assignments === null) return <>{head}<JourneyActionsSection /><p style={{ color: "#718092", fontSize: 13 }}>Đang tải bài tập…</p></>;
 
   if (assignments.length === 0) {
     return <>{head}
+      <JourneyActionsSection />
       <section className="h2o-student-card"><div style={{ padding: 20, display: "grid", gap: 10 }}>
         <strong style={{ fontSize: 15 }}>Chưa có bài tập nào được giao cho bạn.</strong>
         <p style={{ margin: 0, color: "#718092", fontSize: 13, lineHeight: 1.7 }}>Khi giảng viên giao bài, bài tập sẽ xuất hiện ở đây kèm yêu cầu và tiêu chí chấm.</p>
@@ -99,6 +101,7 @@ export default function StudentAssignmentsPage() {
   };
 
   return <>{head}
+    <JourneyActionsSection />
     <section className="h2o-student-assignment-metrics">
       <article><strong>{counts.todo}</strong><span>Cần nộp</span></article>
       <article><strong>{counts.waiting}</strong><span>Chờ giảng viên</span></article>

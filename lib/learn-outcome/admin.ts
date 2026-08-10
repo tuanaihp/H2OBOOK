@@ -248,11 +248,23 @@ export async function preflightVersion(organizationId: string, versionId: string
   if (admin) {
     const resourceBindings = missions.flatMap((m) => m.resourceBindings);
     const assignmentBindings = missions.flatMap((m) => m.assignmentBindings);
-    if (resourceBindings.length) {
-      const ids = [...new Set(resourceBindings.map((b) => b.resourceId))];
-      const { data } = await admin.from("career_stage_resources").select("id").eq("organization_id", organizationId).in("id", ids);
+    // resource_type names which real table resource_id points into — a mission resource binding is
+    // not always a career_stage_resources placement row; when it names the stage-agnostic content
+    // directly (resource_type='document') resource_id is a curriculum_documents id instead. Checked
+    // against whichever table the binding's own resource_type says, not one fixed table.
+    const RESOURCE_TABLE_BY_TYPE: Record<string, string> = { career_stage_resource: "career_stage_resources", document: "curriculum_documents" };
+    const bindingsByType = new Map<string, Set<string>>();
+    for (const binding of resourceBindings) {
+      const set = bindingsByType.get(binding.resourceType) ?? new Set<string>();
+      set.add(binding.resourceId);
+      bindingsByType.set(binding.resourceType, set);
+    }
+    for (const [resourceType, ids] of bindingsByType) {
+      const table = RESOURCE_TABLE_BY_TYPE[resourceType];
+      if (!table) { warnings.push(`Resource binding có resource_type chưa hỗ trợ kiểm tra tồn tại: ${resourceType}`); continue; }
+      const { data } = await admin.from(table).select("id").eq("organization_id", organizationId).in("id", [...ids]);
       const found = new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
-      for (const id of ids) if (!found.has(id)) blockers.push(`Resource binding trỏ tới id không tồn tại trong tổ chức: ${id}`);
+      for (const id of ids) if (!found.has(id)) blockers.push(`Resource binding (${resourceType}) trỏ tới id không tồn tại trong tổ chức: ${id}`);
     }
     if (assignmentBindings.length) {
       const ids = [...new Set(assignmentBindings.map((b) => b.assignmentId))];

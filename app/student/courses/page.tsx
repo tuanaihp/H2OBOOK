@@ -1,6 +1,15 @@
-import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, CirclePlay, Clock3, GraduationCap, LockKeyhole, Search } from "lucide-react";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { getStudentCourseSummaries } from "@/lib/academy/student-course";
+import { StudentJourneyMap } from "@/components/student/journey-map";
 
-export default async function StudentCoursesPage(){const user=await requireCurrentUser();const courses=await getStudentCourseSummaries(user);const active=courses.filter(course=>course.access);const recommended=courses.filter(course=>!course.access);const featured=active[0];return <><section className="h2o-student-page-head"><div><span>MY LEARNING</span><h1>Khóa học của tôi</h1><p>Tiếp tục hành trình, xem tiến độ và mở khóa kỹ năng tiếp theo.</p></div><div className="h2o-student-page-search"><Search/><input placeholder="Tìm khóa học hoặc bài học..."/></div></section>{featured&&<div className="h2o-student-course-featured"><div style={{background:featured.accent}}><small>KHÓA HỌC CHÍNH</small><GraduationCap/></div><div><span>{featured.progressPercent}% HOÀN THÀNH</span><h2>{featured.title}</h2><p>{featured.subtitle}</p><div><i style={{width:`${featured.progressPercent}%`}}/></div><ul><li><CheckCircle2/>{featured.completedLessons}/{featured.totalLessons} bài hoàn thành</li><li><Clock3/>Tiến độ được lưu trên cloud</li><li><BookOpen/>Skill Map cập nhật theo bài</li></ul><Link href={`/student/courses/${featured.slug}`}><CirclePlay/>{featured.progressPercent?"Tiếp tục học":"Bắt đầu khóa học"} <ArrowRight/></Link></div></div>}<section className="h2o-student-section"><header><div><span>ACTIVE COURSES</span><h2>Đang học</h2></div></header><div className="h2o-student-course-grid">{active.slice(featured?1:0).map(course=><article key={course.slug}><div style={{background:course.accent}}><span>{course.category}</span><strong>{course.progressPercent}%</strong></div><h3>{course.title}</h3><p>{course.subtitle}</p><div><span><i style={{width:`${course.progressPercent}%`}}/></span><small>{course.completedLessons}/{course.totalLessons} bài</small></div><Link href={`/student/courses/${course.slug}`}>Mở khóa học <ArrowRight/></Link></article>)}</div>{!active.length&&<div className="table-empty">Bạn chưa có khóa học. Hãy đăng ký hoặc chọn membership để bắt đầu.</div>}</section>{recommended.length>0&&<section className="h2o-student-section"><header><div><span>RECOMMENDED NEXT</span><h2>Gợi ý theo lộ trình</h2></div></header><div className="h2o-student-course-grid recommended">{recommended.map(course=><article key={course.slug}><div style={{background:course.accent}}><LockKeyhole/><span>{course.category}</span></div><h3>{course.title}</h3><p>{course.subtitle}</p><small>Mở sau khi đăng ký hoặc nâng cấp membership</small><Link href={`/academy/courses/${course.slug}`}>Xem thông tin <ArrowRight/></Link></article>)}</div></section>}</>}
+// "Hành trình của tôi" (LEARN tab 1). Was a course catalog; the primary view is now the real Journey
+// Map (Outcome -> Milestone -> Mission), read from a published Journey Blueprint
+// (lib/learn-outcome/*). Route kept as /student/courses so the sidebar link
+// (lib/student/compact-navigation.ts) and every existing deep link into it keep working — only the
+// content changes. The old course catalog is not deleted: it renders underneath as "Khóa học bổ
+// trợ" (docs/learn-outcome-os's Release B spec §9 — supplementary, not primary).
+export default async function StudentCoursesPage() {
+  const user = await requireCurrentUser();
+  const courses = await getStudentCourseSummaries(user);
+  return <StudentJourneyMap supplementaryCourses={courses} />;
+}
