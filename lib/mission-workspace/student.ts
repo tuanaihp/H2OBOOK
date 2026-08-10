@@ -2,7 +2,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getJourneyForStudent } from "@/lib/learn-outcome/student";
-import type { MissionWithProgress } from "@/lib/learn-outcome/student";
+import type { MissionDisplayState, MissionWithProgress } from "@/lib/learn-outcome/student";
 import { loadCareerStages } from "@/lib/career-stages/service";
 import { getWorkspaceConfig, getStudentBlockValues } from "./service";
 import type { MissionBlock, StudentBlockValue } from "./types";
@@ -34,6 +34,8 @@ async function findMissionStage(organizationId: string, missionId: string): Prom
   return stage ? { id: stage.id, title: stage.title, indexLabel: stage.indexLabel } : null;
 }
 
+export interface MissionSibling { id: string; title: string; displayState: MissionDisplayState; lockedReason: string | null; outcomeTitle: string }
+
 export interface MissionContext {
   stage: { id: string; title: string; indexLabel: string };
   outcome: { id: string; title: string };
@@ -42,6 +44,12 @@ export interface MissionContext {
   versionId: string;
   blueprintTitle: string | null;
   journeyProgressPercent: number;
+  /** Every mission in this stage's journey, in order — the Workspace's left "Journey Context" rail. Comes from the graph already loaded above, so it costs no extra query. */
+  siblings: MissionSibling[];
+  /** Title of the mission this one unlocks, if any — powers the honest, non-AI "Roadmap Impact" line. */
+  unlocksMissionTitle: string | null;
+  /** Progress of the outcome this mission belongs to (share of its missions that reached result_achieved). */
+  outcomeProgressPercent: number;
 }
 
 /**
@@ -58,15 +66,27 @@ export async function resolveMissionContext(userId: string, organizationId: stri
   if (!stage) return null;
   const journey = await getJourneyForStudent(userId, organizationId, stage.id);
   if (!journey?.versionId) return null;
+
+  const siblings: MissionSibling[] = journey.outcomes.flatMap((outcome) =>
+    outcome.milestones.flatMap((milestone) => milestone.missions.map((m) => ({
+      id: m.id, title: m.title, displayState: m.displayState, lockedReason: m.lockedReason, outcomeTitle: outcome.title
+    })))
+  );
+  const allMissions = journey.outcomes.flatMap((o) => o.milestones.flatMap((m) => m.missions));
+  const unlocks = allMissions.find((m) => m.prerequisiteMissionId === missionId);
+
   for (const outcome of journey.outcomes) {
     for (const milestone of outcome.milestones) {
       const mission = milestone.missions.find((m) => m.id === missionId);
-      if (mission) {
-        return {
-          stage, outcome: { id: outcome.id, title: outcome.title }, milestone: { id: milestone.id, title: milestone.title },
-          mission, versionId: journey.versionId, blueprintTitle: journey.blueprintTitle, journeyProgressPercent: journey.progressPercent
-        };
-      }
+      if (!mission) continue;
+      const outcomeMissions = outcome.milestones.flatMap((ms) => ms.missions);
+      const achieved = outcomeMissions.filter((m) => m.displayState === "result_achieved" || m.displayState === "verified").length;
+      return {
+        stage, outcome: { id: outcome.id, title: outcome.title }, milestone: { id: milestone.id, title: milestone.title },
+        mission, versionId: journey.versionId, blueprintTitle: journey.blueprintTitle, journeyProgressPercent: journey.progressPercent,
+        siblings, unlocksMissionTitle: unlocks?.title ?? null,
+        outcomeProgressPercent: outcomeMissions.length ? Math.round((achieved / outcomeMissions.length) * 100) : 0
+      };
     }
   }
   return null;
