@@ -6,6 +6,22 @@
 
 ---
 
+**2026-08-10 — 🧩 Đã merge + deploy: Smart Roadmap + Universal Mission OS — Release 1 (folder 30) — ⚠️ CẦN CHẠY MIGRATION 0052.**
+
+**Đây là gói lớn nhất từ trước tới giờ** — chính gói nguồn tự chia làm 4 đợt. Lượt này **chỉ làm Release 1**: nền dữ liệu + màn hình Admin cấu hình nội dung Mission. **Học viên chưa thấy gì thay đổi** — đây là quyết định phạm vi có chủ đích, không phải làm dở dang.
+
+**Đã có thật:** vào `/academy-admin/journey`, chọn 1 Mission (ở version Draft) → phần "Mission Workspace" mới trong Inspector — thêm/xóa/sắp xếp lại 27 loại "block" nội dung (văn bản, checklist, KPI, tài liệu, công cụ, bài tập, bằng chứng...) cho phần "Làm việc" của Mission đó. Gắn tài liệu/công cụ/bài tập bằng cách **chọn từ danh sách đã có sẵn của Mission**, không gõ tay mã số.
+
+**Đã sửa 1 lỗi thật phát hiện khi làm:** trước đây bấm "Nhân bản phiên bản" (Clone Version) sẽ copy Outcome/Mission nhưng **làm mất sạch mọi block Admin vừa cấu hình** — đã sửa để clone luôn cả phần này.
+
+**Đã audit kỹ trước khi tạo bảng mới:** repo đã có 1 hệ thống block gần giống (`learning_blocks`, dùng cho Khóa học/Knowledge Space) — kiểm tra kỹ thấy nó thuộc về một hệ thống version hoàn toàn khác (không phải Journey), nên không dùng lại được mà không làm rối cả 2 hệ thống. Giải thích đầy đủ trong `docs/smart-learning/01_PRODUCTION_AUDIT.md`.
+
+**⚠️ Việc cần bạn làm:** chạy `supabase/_RUN-0052-ONLY.sql` (chỉ thêm 2 bảng mới, an toàn).
+
+**Quyết định lớn cần bạn:** có làm tiếp **Release 2** không — đây là màn hình học viên hoàn toàn mới (mở Mission ra làm bài trực tiếp), khối lượng tương đương 1 đợt riêng. Báo cáo đầy đủ: `docs/smart-learning/FINAL_SMART_ROADMAP_MISSION_OS_REPORT.md`.
+
+---
+
 **2026-08-10 — ✨ Đã merge + deploy: Journey Map V2 (folder 29) — nâng UX Admin/Student, KHÔNG cần migration.**
 
 **Không đổi cấu trúc dữ liệu** — chỉ nâng cách hiển thị, vì bảng đã đủ từ Release A/B.
