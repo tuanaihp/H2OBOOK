@@ -51,14 +51,23 @@ Gói nguồn tự chia 4 đợt (§20 trong file lệnh). Đây là gói lớn n
 
 Các test còn lại (#3–9, 14–21) thuộc phạm vi Release 2 (route học viên, readiness, sync Roadmap↔Workspace) — chưa áp dụng được.
 
-## 6. NOT VERIFIED
+## 6. Xác nhận trên dữ liệu thật production (2026-08-10, sau khi migration 0052 đã chạy)
 
-- Chưa test bằng trình duyệt thật (thêm/xóa/sắp xếp block trong Admin UI).
-- Chưa test clone version có block thật (cần Admin tự thêm ít nhất 1 block rồi Clone Version để xác nhận).
-- Migration 0052 **chưa chạy trên production** tại thời điểm viết báo cáo này — sẽ xác nhận bằng dữ liệu thật ngay sau khi bạn chạy.
+Migration 0052 đã chạy production. Đã kiểm tra trực tiếp bằng REST (mô phỏng đúng logic `lib/mission-workspace/admin.ts` và `duplicateVersion()`), dùng Mission thật ở Journey Stage 1 draft v2, dọn sạch dữ liệu test ngay sau mỗi bước:
+
+| Kiểm tra | Kết quả |
+|---|---|
+| 2 bảng mới tồn tại, query được | ✅ `learning_mission_workspace_configs`, `student_mission_workspace_values` — 200 OK |
+| Thêm block (addBlock) | ✅ Insert đúng cấu trúc, `position` đúng |
+| Sắp xếp lại block (reorderBlocks) | ✅ `position` cập nhật đúng thứ tự mới |
+| Xóa block (removeBlock) | ✅ Block bị xóa, `position` các block còn lại được tính lại |
+| Preflight — block id trùng lặp | ✅ Bắt đúng, trả blocker |
+| Preflight — block resource/tool/assignment thiếu bindingId | ✅ Bắt đúng, trả blocker |
+| Clone Version copy Workspace config | ✅ Clone v2 (draft, có 1 block test) → v3 mới: block được copy nguyên vẹn sang Mission tương ứng ở v3 |
+| Dọn dẹp sau test | ✅ Xóa v3 (cascade toàn bộ outcome/milestone/mission/binding/workspace config), xóa config test còn lại ở v2 — xác nhận 0 dòng `learning_mission_workspace_configs` còn sót trong org |
+
+Chưa test: thao tác thật qua trình duyệt (UI Admin Mission Workspace Builder) — mới xác nhận đúng ở tầng dữ liệu/logic.
 
 ## 7. Việc cần bạn làm
 
-1. Chạy `supabase/_RUN-0052-ONLY.sql`.
-2. Báo tôi — tôi sẽ kiểm chứng bằng dữ liệu thật (thêm 1 block test, xác nhận Preflight bắt lỗi đúng, dọn dẹp).
-3. **Quyết định có làm Release 2 hay không** — đây là route học viên hoàn toàn mới (`/student/missions/[missionId]`) + renderer cho 27 loại block, khối lượng lớn tương đương 1 đợt riêng.
+**Quyết định có làm Release 2 hay không** — đây là route học viên hoàn toàn mới (`/student/missions/[missionId]`) + renderer cho 27 loại block, khối lượng lớn tương đương 1 đợt riêng.
