@@ -6,6 +6,27 @@
 
 ---
 
+**2026-08-10 — ✨ Đã merge + deploy: Journey Map V2 (folder 29) — nâng UX Admin/Student, KHÔNG cần migration.**
+
+**Không đổi cấu trúc dữ liệu** — chỉ nâng cách hiển thị, vì bảng đã đủ từ Release A/B.
+
+**Admin `/academy-admin/journey` (nhãn mới: "Bản đồ kết quả học viên"):**
+- **Hết hiện UUID** — tài liệu gắn vào Mission giờ hiện đúng tên thật ("Business & Skill Check-up Giai đoạn 1" thay vì 1 chuỗi mã).
+- **Tìm tài liệu thật** thay vì dán UUID — gõ tên, hệ thống tự tìm trong kho tài liệu đã có.
+- **Preflight gọn hơn** — thay vì liệt kê hàng chục dòng lỗi, giờ gộp theo nhóm (Thiếu KPI, Thiếu thời lượng, Tham chiếu gãy...), bấm vào nhóm để lọc đúng mission bị lỗi.
+
+**Đã tạo sẵn phiên bản nháp v2 cho Stage 1** — nhân bản từ v1 đang publish (v1 không hề bị đụng, đã xác nhận), thêm "thời lượng ước tính" + "tiêu chí thành công" thật cho toàn bộ 14 mission (khớp 14/14, không thiếu, không trùng tên). **Chưa publish** — bạn tự vào xem, đồng ý thì bấm Publish.
+
+**Học viên:** mission bị khóa giờ hiện rõ lý do ("Cần hoàn thành: {tên mission trước đó}") thay vì chỉ icon khóa im lặng.
+
+**Không xây được, báo thật:** Tool Picker và Assignment Picker — không có nguồn dữ liệu thật (bảng "tools" không tồn tại, `assignment_definitions` rỗng). Không tạo giả để cho đẹp.
+
+**Phát hiện phụ trong lúc audit:** có 1 dòng tiến độ thật của học viên "Max Crypto" (mission "Xác định hướng nghề Makeup" đã hoàn thành) — có vẻ là bạn hoặc ai đó đã tự bấm thử qua trình duyệt sau lần tôi dọn dữ liệu test. **Không đụng vào** — giữ nguyên.
+
+Báo cáo đầy đủ: `docs/journey-v2/FINAL_JOURNEY_MAP_V2_REPORT.md`.
+
+---
+
 **2026-08-10 — 🚀 Đã merge + deploy: Learn Outcome OS — Release B — vertical slice thật cho Stage 1 ("Nền tảng nghề Makeup") — ⚠️ CẦN CHẠY MIGRATION 0051.**
 
 **Đã có Journey Map thật cho Stage 1** — không phải demo. Vào `/academy-admin/journey`, chọn "Nền tảng nghề Makeup" sẽ thấy: 4 Outcome, 4 Milestone, 14 Mission — tất cả gắn vào tài liệu thật đã có (20/20 gắn kết resolve đúng, không cái nào gãy), đã Publish (Preflight 0 blocker).
