@@ -104,6 +104,70 @@ export async function loadVersionGraph(organizationId: string, versionId: string
   }));
 }
 
+/**
+ * Resolves resource_id -> real title for a batch of bindings in two queries total (one per
+ * resource_type present), not one per binding — the same batching shape as loadVersionGraph. Used
+ * by both the student read model and the Admin Journey Builder so "no UUID as the primary label" is
+ * one implementation, not two that could drift.
+ */
+export async function resolveResourceTitles(organizationId: string, bindings: { resourceType: string; resourceId: string }[]): Promise<Map<string, string>> {
+  const admin = createSupabaseAdminClient();
+  const titleById = new Map<string, string>();
+  if (!admin || !bindings.length) return titleById;
+  const documentIds = [...new Set(bindings.filter((b) => b.resourceType === "document").map((b) => b.resourceId))];
+  const placementIds = [...new Set(bindings.filter((b) => b.resourceType === "career_stage_resource").map((b) => b.resourceId))];
+  const [{ data: documentRows }, { data: placementRows }] = await Promise.all([
+    documentIds.length ? admin.from("curriculum_documents").select("id,title").eq("organization_id", organizationId).in("id", documentIds) : Promise.resolve({ data: [] }),
+    placementIds.length ? admin.from("career_stage_resources").select("id,title_override").eq("organization_id", organizationId).in("id", placementIds) : Promise.resolve({ data: [] })
+  ]);
+  for (const row of (documentRows ?? []) as { id: string; title: string }[]) titleById.set(row.id, row.title);
+  for (const row of (placementRows ?? []) as { id: string; title_override: string | null }[]) if (row.title_override) titleById.set(row.id, row.title_override);
+  return titleById;
+}
+
+export interface ResourceSearchResult { resourceType: "document" | "career_stage_resource"; resourceId: string; title: string; summary: string; sourceLabel: string; stageTitle: string }
+
+/**
+ * Server-side search for the Journey V2 Resource Picker — title/summary, not resource_id. Searches
+ * curriculum_documents directly (the real content) joined against which stage(s) placed it, so the
+ * picker can show "Nền tảng nghề Makeup" as a source label the way docs/29's spec asks for, without
+ * a resource ever needing to be looked up by id first. Same organization_id scope as every other
+ * read here — a picker result can never point outside the caller's own tenant.
+ */
+export async function searchResourcesForPicker(organizationId: string, query: string, limit = 20): Promise<ResourceSearchResult[]> {
+  const admin = createSupabaseAdminClient();
+  if (!admin || !query.trim()) return [];
+  const { data: documents } = await admin
+    .from("curriculum_documents")
+    .select("id,title,summary,doc_type")
+    .eq("organization_id", organizationId)
+    .neq("status", "archived")
+    .or(`title.ilike.%${query}%,summary.ilike.%${query}%`)
+    .limit(limit);
+  const docs = (documents ?? []) as { id: string; title: string; summary: string; doc_type: string }[];
+  if (!docs.length) return [];
+
+  const docIds = docs.map((d) => d.id);
+  const { data: placements } = await admin
+    .from("career_stage_resources")
+    .select("resource_id,stage_id")
+    .eq("organization_id", organizationId)
+    .eq("resource_type", "document")
+    .in("resource_id", docIds);
+  const stageIds = [...new Set(((placements ?? []) as { stage_id: string }[]).map((p) => p.stage_id))];
+  const { data: stages } = stageIds.length ? await admin.from("career_stages").select("id,title").in("id", stageIds) : { data: [] };
+  const stageTitleById = new Map(((stages ?? []) as { id: string; title: string }[]).map((s) => [s.id, s.title]));
+  const stageTitleByDocId = new Map<string, string>();
+  for (const p of (placements ?? []) as { resource_id: string; stage_id: string }[]) {
+    if (!stageTitleByDocId.has(p.resource_id)) stageTitleByDocId.set(p.resource_id, stageTitleById.get(p.stage_id) ?? "");
+  }
+
+  return docs.map((d): ResourceSearchResult => ({
+    resourceType: "document", resourceId: d.id, title: d.title, summary: d.summary,
+    sourceLabel: d.doc_type, stageTitle: stageTitleByDocId.get(d.id) ?? "Chưa đặt vào giai đoạn nào"
+  }));
+}
+
 /** The published journey for a stage, if any — what a student's Tab 1 (Release B) will read. */
 export async function getPublishedJourneyForStage(organizationId: string, stageId: string): Promise<{ blueprint: JourneyBlueprint; version: JourneyBlueprintVersion; outcomes: JourneyOutcome[] } | null> {
   const blueprint = await loadBlueprintForStage(organizationId, stageId);

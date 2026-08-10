@@ -7,7 +7,7 @@ import type { StudentCourseSummary } from "@/lib/academy/student-course";
 type MissionDisplayState = "locked" | "available" | "not_started" | "learning" | "planning" | "doing" | "evidence_pending" | "review_pending" | "verified" | "result_achieved" | "blocked";
 type Mission = {
   id: string; title: string; description: string; expectedResult: string; completionPolicy: string;
-  successCriteria: string[]; displayState: MissionDisplayState; estimatedDays: number | null;
+  successCriteria: string[]; displayState: MissionDisplayState; lockedReason: string | null; estimatedDays: number | null;
   resourceBindings: { id: string; title: string; role: string }[];
   toolBindings: { id: string; toolType: string; toolId: string; role: string }[];
   actionTemplates: { id: string; title: string; required: boolean; evidenceRequired: boolean }[];
@@ -94,12 +94,12 @@ export function StudentJourneyMap({ supplementaryCourses }: { supplementaryCours
           {data!.journey!.outcomes.map((outcome) => <div key={outcome.id} className={view === "list" ? "h2o-student-card" : undefined} style={view === "list" ? { padding: 16 } : { width: "100%" }}>
             {view === "list" && <><strong style={{ fontSize: 14 }}>{outcome.title}</strong>{outcome.description && <p style={{ fontSize: 12, color: "#6b7a89", margin: "2px 0 10px" }}>{outcome.description}</p>}</>}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {outcome.milestones.flatMap((m) => m.missions).map((mission) => <button key={mission.id} onClick={() => setSelectedMissionId(mission.id)} disabled={mission.displayState === "locked"}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, border: "1px solid #e5e9ee", background: "#fff", cursor: mission.displayState === "locked" ? "not-allowed" : "pointer", opacity: mission.displayState === "locked" ? 0.6 : 1, minWidth: view === "list" ? "100%" : 220, textAlign: "left" }}>
+              {outcome.milestones.flatMap((m) => m.missions).map((mission) => <button key={mission.id} onClick={() => setSelectedMissionId(mission.id)}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, border: "1px solid #e5e9ee", background: "#fff", cursor: "pointer", opacity: mission.displayState === "locked" ? 0.6 : 1, minWidth: view === "list" ? "100%" : 220, textAlign: "left" }}>
                 {mission.displayState === "locked" ? <Lock size={14} color="#94a3b8" /> : mission.displayState === "result_achieved" || mission.displayState === "verified" ? <CheckCircle2 size={14} color="#16a34a" /> : <PlayCircle size={14} color={STATE_COLOR[mission.displayState]} />}
                 <span style={{ flex: 1 }}>
                   <strong style={{ fontSize: 12, display: "block" }}>{mission.title}</strong>
-                  <small style={{ fontSize: 10, color: STATE_COLOR[mission.displayState] }}>{STATE_LABEL[mission.displayState]}</small>
+                  <small style={{ fontSize: 10, color: STATE_COLOR[mission.displayState] }}>{mission.displayState === "locked" && mission.lockedReason ? mission.lockedReason : STATE_LABEL[mission.displayState]}</small>
                 </span>
                 <ChevronRight size={14} color="#94a3b8" />
               </button>)}
@@ -141,6 +141,8 @@ function MissionDrawer({ mission, busy, onClose, onStart, onCompleteSelf, onTogg
       <button onClick={onClose} style={{ float: "right", border: "none", background: "none", cursor: "pointer" }}><X size={18} /></button>
       <span style={{ fontSize: 11, color: STATE_COLOR[mission.displayState], fontWeight: 600 }}>{STATE_LABEL[mission.displayState]}</span>
       <h2 style={{ margin: "4px 0 12px", fontSize: 18 }}>{mission.title}</h2>
+
+      {mission.displayState === "locked" && mission.lockedReason && <div style={{ background: "#f1f5f9", borderRadius: 8, padding: "8px 10px", marginBottom: 12, fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}><Lock size={13} color="#64748b" /><span>{mission.lockedReason}</span></div>}
 
       <p style={{ fontSize: 12, fontWeight: 600, margin: "0 0 2px" }}>Expected result</p>
       <p style={{ fontSize: 13, margin: "0 0 12px" }}>{mission.expectedResult || "—"}</p>

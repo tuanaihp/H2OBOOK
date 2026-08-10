@@ -72,7 +72,7 @@ export default function CareerStagesAdminPage() {
   const totalResources = stages.reduce((sum, stage) => sum + stage.resources.length, 0);
   const totalWarnings = Object.values(health).reduce((sum, item) => sum + item.issues.filter((issue) => issue.severity !== "info").length, 0);
 
-  return <SimpleOperationsShell title="Academy Control Center" subtitle="Giai đoạn & lộ trình" homeHref="/academy-admin" routes={academyAdminRoutes} accentLabel="Academy Admin">
+  return <SimpleOperationsShell title="Academy Control Center" subtitle="Giai đoạn & Nội dung đào tạo" homeHref="/academy-admin" routes={academyAdminRoutes} accentLabel="Academy Admin">
     <header className={styles.header}>
       <div>
         <span className={styles.eyebrow}>BẢN ĐỒ GIAI ĐOẠN NGHỀ</span>

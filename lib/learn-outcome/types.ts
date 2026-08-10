@@ -83,8 +83,13 @@ export interface MissionInput {
   position?: number;
 }
 
+export type PreflightCategory = "structure" | "missing_kpi" | "missing_duration" | "missing_binding" | "circular" | "broken_reference" | "other";
+export interface PreflightFinding { severity: "blocker" | "warning"; category: PreflightCategory; missionId: string | null; missionTitle: string | null; message: string }
+
 export interface PreflightResult {
   ok: boolean;
   blockers: string[];
   warnings: string[];
+  /** Same findings as blockers/warnings, structured for the V2 UI's group-and-filter view (docs/journey-v2 §10) instead of a flat dump. */
+  findings: PreflightFinding[];
 }
