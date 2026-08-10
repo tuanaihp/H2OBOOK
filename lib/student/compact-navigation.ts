@@ -61,7 +61,11 @@ function learnerGroups(context: UserAccessContext): CompactNavGroup[] {
       items: [
         { id: "studio", label: "Studio", href: "/student/create" },
         { id: "my-projects", label: "Dự án của tôi", href: "/student/create/projects" },
-        { id: "my-tools", label: "Công cụ của tôi", href: "/student/mentor" }
+        // Used to point at /student/mentor — a leftover from before Design Library existed, so
+        // "My Tools" opened the AI chat instead of any tool. Design Library (cover/profile/card/
+        // certificate templates a student fills in and saves) is real and was reachable only by
+        // typing the URL directly; this is the one place it belongs in nav.
+        { id: "my-tools", label: "Công cụ của tôi", href: "/student/design-library" }
       ]
     });
   }
