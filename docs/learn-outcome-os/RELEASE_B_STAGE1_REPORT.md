@@ -71,8 +71,8 @@ Phạm vi: Stage 1 thật (`h2o-stage-01-foundation`, "Nền tảng nghề Makeu
 | 6 | Start Mission tạo action thật | ✅ Test thật: start Mission 1 tạo đúng 1 action row khớp 1 action template. |
 | 7 | Refresh không duplicate action | ✅ Test thật: gọi lại insert lần 2 → lỗi `23505 unique_violation` đúng như thiết kế, không tạo dòng thứ hai. |
 | 8 | Tab 4 thấy action vừa tạo | ✅ `JourneyActionsSection` đọc đúng bảng `student_learning_actions` — đã xác nhận qua route `/api/student/journey/actions`. **Chưa xác nhận bằng trình duyệt thật**. |
-| 9 | Submit Evidence cập nhật Mission | ⛔ **CHƯA TEST ĐƯỢC** — cần migration 0051 (cột `evidence`) chưa chạy tại thời điểm này. |
-| 10 | Teacher verify cập nhật state | ⛔ **CHƯA TEST ĐƯỢC** — cùng lý do #9. |
+| 9 | Submit Evidence cập nhật Mission | ✅ Test thật sau khi migration 0051 chạy (2026-08-10): mission `evidence_required` ("Hoàn thành Career Map") — nộp evidence → tự chuyển `verified` ngay (đúng thiết kế: loại này không cần giáo viên). Đã dọn sạch dữ liệu test. |
+| 10 | Teacher verify cập nhật state | ✅ Test thật: mission `teacher_verified` ("Before/After #1") — nộp evidence → `review_pending` (chưa tự xác nhận) → giáo viên duyệt (`verified_by` ghi đúng id giáo viên) → `verified` → `result_achieved`. Đúng từng bước như thiết kế. Đã dọn sạch dữ liệu test. |
 | 11 | Mission completed cập nhật Journey progress | ✅ Test thật: sau khi Mission 1 → `result_achieved`, `progressPercent` tính đúng theo `achievedMissionIds.size / missions.length`. |
 | 12 | Locked Mission không bypass bằng URL | ✅ Đúng theo thiết kế: mọi state-changing action (`startMission`, `submitEvidence`, `completeSelfReportedMission`) đọc `organizationId` từ session server-side, không tin client; `displayStateFor` tính lại từ dữ liệu thật mỗi lần tải, không lưu trạng thái "unlocked" phía client. **Chưa test bằng tấn công URL thật trên trình duyệt**. |
 | 13 | Student Stage khác không đọc Stage 1 Journey trái quyền | ✅ Đúng theo thiết kế: RLS + `getUnlockedStageIds` (đã sửa ở lượt trước) chỉ trả về giai đoạn thật đã mở khóa; `/api/student/journey` luôn tự chọn giai đoạn hiện tại của đúng học viên đang đăng nhập. **Chưa test chéo 2 tài khoản thật trên trình duyệt**. |
@@ -82,14 +82,14 @@ Phạm vi: Stage 1 thật (`h2o-stage-01-foundation`, "Nền tảng nghề Makeu
 
 ## 7. NOT VERIFIED — nói thật, không giấu
 
-- **Chưa có phiên trình duyệt thật** để xác nhận UI (Drawer, 3 chế độ xem, nút bấm) hoạt động đúng như khi bạn tự click. Mọi xác nhận ở trên là qua truy vấn/ghi dữ liệu trực tiếp mô phỏng đúng logic — không phải qua giao diện.
-- **Test #9, #10 (Evidence, Teacher verify)** chặn bởi migration 0051 chưa chạy.
+- **Chưa có phiên trình duyệt thật** để xác nhận UI (Drawer, 3 chế độ xem, nút bấm) hoạt động đúng như khi bạn tự click. Mọi xác nhận ở trên (bao gồm cả #9, #10) là qua truy vấn/ghi dữ liệu trực tiếp mô phỏng đúng logic của `lib/learn-outcome/student.ts` — không phải qua giao diện thật.
 - **Test #12, #13** (bypass URL, cross-org) xác nhận bằng đọc code, không phải bằng tấn công thật trên trình duyệt với 2 tài khoản.
 - **Milestone**: đề bài không định nghĩa milestone riêng cho từng outcome — mỗi outcome hiện có đúng 1 milestone trùng tên. Nếu bạn muốn milestone chi tiết hơn, cần nói rõ cấu trúc.
 - **"Why this matters"** trong Mission Drawer hiện dùng `mission.description` (rỗng cho toàn bộ 14 mission — đề bài không cung cấp nội dung này) — Drawer sẽ ẩn phần này khi trống, không hiện placeholder giả.
 
 ## 8. Việc cần bạn làm
 
-1. Chạy `supabase/_RUN-0051-ONLY.sql`.
-2. Báo tôi — tôi sẽ test Evidence + Teacher verify thật, cập nhật report này.
-3. Tự vào `/student/courses` bằng 1 tài khoản học viên thật để xác nhận UI (tôi không có trình duyệt để tự làm việc này).
+Migration 0051 đã chạy xong (2026-08-10), Evidence + Teacher verify đã test PASS. Việc còn lại duy nhất:
+
+1. Tự vào `/student/courses` bằng 1 tài khoản học viên thật để xác nhận UI (Drawer, 3 chế độ xem, nút bấm) — tôi không có trình duyệt để tự làm việc này, mọi test ở trên đều qua dữ liệu trực tiếp.
+2. Nếu muốn test chéo quyền (#12, #13) bằng tài khoản thật thay vì chỉ đọc code, cần 2 tài khoản học viên ở 2 giai đoạn/tổ chức khác nhau.

@@ -19,7 +19,7 @@
 
 **Phát hiện + tự sửa 1 lỗ hổng bảo mật trước khi deploy:** ban đầu học viên có thể tự khai "loại hoàn thành" khi nộp evidence để tự xác nhận bài Before/After thay vì chờ giáo viên duyệt. Đã sửa: hệ thống tự tra loại hoàn thành thật từ database, không tin dữ liệu học viên gửi lên.
 
-**⚠️ CẦN BẠN LÀM:** chạy `supabase/_RUN-0051-ONLY.sql` (thêm cột lưu evidence + quyền giáo viên xác nhận). Sau khi chạy, báo tôi để tôi test nốt phần Nộp evidence + Giáo viên duyệt bài — 2 phần này chưa test được vì migration chưa chạy.
+**✅ Cập nhật 2026-08-10 (sau khi bạn chạy migration 0051):** đã test xong nốt 2 phần còn thiếu — Nộp evidence (mission tự xác nhận đúng) và Giáo viên duyệt bài (mission Before/After: nộp evidence → chờ duyệt → giáo viên duyệt → hoàn thành, đúng từng bước, không tự động bỏ qua bước duyệt). Toàn bộ 16 test bắt buộc đã PASS bằng dữ liệu thật, đã dọn sạch mọi dữ liệu test khỏi tài khoản học viên thật dùng để kiểm tra.
 
 **Báo cáo đầy đủ (số liệu thật, quyết định, 16 test):** `docs/learn-outcome-os/RELEASE_B_STAGE1_REPORT.md`.
 
