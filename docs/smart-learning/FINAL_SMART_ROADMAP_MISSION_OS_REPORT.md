@@ -112,6 +112,34 @@ Ngoài ra, các phần sau được cố ý đơn giản hóa trong Release 2 (k
 
 **Chưa test**: thao tác thật qua trình duyệt (click Mission trên Roadmap → điền block → xem tab Evidence/Kết quả) — mới xác nhận đúng ở tầng dữ liệu/logic + code review, chưa test bằng phiên đăng nhập học viên thật (không có mật khẩu tài khoản học viên để đăng nhập qua UI).
 
+## 7b. Đối chiếu TOÀN BỘ gói nguồn (22/22 file) — bổ sung sau khi Owner yêu cầu
+
+Thú thật: Release 1 và 2 được xây từ **5/22 file** (`CLAUDE_INTEGRATION_PROMPT.md`, `UX_CONTRACT.md`, `MISSION_BLOCK_REGISTRY.md`, `readiness.ts`, prototype HTML). Sau khi Owner hỏi, đã đọc **toàn bộ 22 file** và đối chiếu lại. Kết quả:
+
+**Không có mâu thuẫn kiến trúc.** `CLAUDE_H2OBOOK_SMART_ROADMAP_MISSION_OS_V1.md` giống hệt `CLAUDE_INTEGRATION_PROMPT.md`; `REFERENCE_ONLY_*.sql` khớp đúng 2 bảng đã tạo ở migration 0052; `DATA_MODEL.md`/`ARCHITECTURE.md`/`AI_ROLES.md` không thêm yêu cầu nào cho Release 1–2.
+
+**5 lỗi/thiếu sót thật đã tìm ra và sửa:**
+
+| # | Vấn đề | Mức độ | Nguồn |
+|---|---|---|---|
+| 1 | **Start Mission bỏ qua điều kiện tiên quyết.** `startMission`/`completeSelfReportedMission`/`submitEvidence` nhận `blueprintVersionId` từ client và không kiểm tra Mission có khóa không → học viên gọi thẳng API có thể bắt đầu Mission đang KHÓA và ghim state vào version bất kỳ. UI có ẩn nút, nhưng API thì không chặn. | 🔴 Bảo mật | Test bắt buộc #5; `mission-service.ts` ghi rõ `if (mission.state === "locked") throw` |
+| 2 | **Admin không đặt được cờ "bắt buộc" cho block** → thành phần input (40%) của Readiness luôn đạt tối đa, điểm Readiness gây hiểu nhầm. | 🟠 Chức năng | `ACCEPTANCE_CHECKLIST.md` mục "required flag"; `MissionWorkspaceBuilder.tsx` tham chiếu có checkbox này |
+| 3 | **Thiếu "Preview as Student"** | 🟡 Thiếu tính năng | §8 + acceptance checklist |
+| 4 | **Map view bỏ qua tầng Milestone** | 🟡 Sai cấu trúc | §3 "Map: Outcome → Milestone → Mission" |
+| 5 | **Preflight thiếu 4 kiểm tra** (loại block không hỗ trợ · binding trỏ ra ngoài Mission · block bắt buộc chưa cấu hình lựa chọn · Mission cần evidence nhưng không có đường nộp) | 🟡 Thiếu kiểm tra | §17 |
+
+**Cách sửa #1:** thêm `requireOpenMission()` — mọi thao tác ghi của học viên lên Mission đều phải qua đây trước; nó tự tra ra `journey_version_id` từ hành trình đã publish của chính học viên đó và từ chối Mission đang khóa hoặc không thuộc hành trình. API không còn đọc `blueprintVersionId` từ client nữa.
+
+**Kiểm chứng #1 trên production:** Mission 3 ("Xác định mục tiêu 90 ngày") đang khóa thật vì Mission 2 mới ở trạng thái `doing` chứ chưa `result_achieved`; bảng `student_mission_states` **không có dòng nào** cho Mission 3 → chưa từng có ai bypass, không có dữ liệu hỏng cần dọn.
+
+**Khác biệt có chủ đích, không sửa (đã cân nhắc):**
+- Đặt tên trường block: dùng `label`/`options`/`bindingId` thay vì `title`/`config`/`bindingRef` của gói nguồn. Dữ liệu đã nằm trên production theo tên hiện tại; đổi bây giờ sẽ làm hỏng các dòng đã có mà không được lợi gì.
+- `status` của giá trị học viên: `'draft' | 'saved'` (đã ràng buộc CHECK trong migration 0052) thay vì `'draft' | 'complete'`.
+- Mission khóa **vẫn bấm được** để xem lý do, thay vì `disabled` như `SmartRoadmap.tsx` tham chiếu — bám theo §3 "Never display only 'locked' when prerequisite explanation is available" và đúng hành vi đã làm ở Journey V2.
+- `visibility` (điều kiện ẩn/hiện block) trong type gốc: chưa làm, ghi nhận là thiếu.
+- Sự kiện `roadmap.viewed` / `mission.opened`: chưa ghi. Các sự kiện có ghi vào DB (`mission.started`, `action.completed`, evidence, result) đi qua trigger `capture_domain_event` sẵn có trên `student_mission_states` và `student_learning_actions` (migration 0050) — đúng tinh thần §18 "Reuse domain_events", nhưng tên sự kiện là theo bảng chứ không phải chuỗi đặt tên riêng trong `event-types.ts`.
+- Feature flags `SMART_ROADMAP_V1` / `UNIVERSAL_MISSION_WORKSPACE_V1`: gói nguồn ghi "recommended", không làm — nhất quán với cách mọi release trước của dự án này đã ship (lịch sử git là đường lùi).
+
 ## 8. Việc cần bạn làm
 
 1. **Không cần chạy migration nào thêm** — Release 2 chỉ dùng lại 2 bảng đã tạo ở migration 0052.

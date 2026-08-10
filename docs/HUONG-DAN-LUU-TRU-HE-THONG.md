@@ -6,6 +6,18 @@
 
 ---
 
+**2026-08-10 — 🔒 Đã merge + deploy: đối chiếu lại TOÀN BỘ gói nguồn folder 30 — tìm ra và vá 1 lỗ hổng bảo mật thật.**
+
+Bạn hỏi tôi đã kiểm tra đúng với toàn bộ prompt và bộ code chưa. **Thú thật là chưa** — hai đợt trước tôi mới đọc 5/22 file. Đã đọc hết 22 file và đối chiếu lại. Kết quả: kiến trúc không sai chỗ nào, nhưng có **5 lỗi/thiếu sót thật**, đã sửa hết:
+
+1. **🔴 Lỗ hổng bảo mật:** nút "Bắt đầu Mission" bị ẩn với Mission đang khóa, nhưng **API thì không chặn** — người biết kỹ thuật có thể gọi thẳng API để bắt đầu một Mission chưa mở, và tự chọn phiên bản hành trình để ghim vào. Đã bịt: mọi thao tác ghi của học viên giờ đều phải qua một cửa kiểm tra ở máy chủ, tự tra phiên bản đúng và từ chối Mission đang khóa. **Đã kiểm tra dữ liệu thật: chưa từng có ai lợi dụng, không có dữ liệu hỏng cần dọn.**
+2. **Admin không đặt được cờ "bắt buộc" cho ô nhập** → khiến điểm "Sẵn sàng" của học viên luôn tính đủ điểm phần nhập liệu, tức là con số gây hiểu nhầm. Đã thêm ô tick "Bắt buộc".
+3. **Thiếu nút "Xem như học viên"** trong màn Admin — đã thêm (xem trước bản nháp đúng như học viên sẽ thấy, chế độ chỉ đọc).
+4. **Bản đồ bỏ mất tầng "Chặng" (Milestone)** — đã hiện lại đúng cấu trúc Outcome → Chặng → Mission.
+5. **Preflight thiếu 4 kiểm tra** trước khi publish — đã bổ sung.
+
+---
+
 **2026-08-10 — 🎨 Đã merge + deploy: dựng lại giao diện Smart Roadmap + Mission Workspace đúng bản thiết kế.**
 
 Bản Release 2 đầu tiên đúng luồng dữ liệu nhưng **giao diện đơn giản hơn hẳn bản thiết kế** bạn đã duyệt. Bạn đối chiếu và chỉ ra — tôi đã dựng lại bám đúng file prototype:
