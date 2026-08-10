@@ -31,7 +31,9 @@ export default async function StudentRoadmapPage() {
     .map((stage) => ({
       id: stage.id, title: stage.title, description: stage.description || stage.subtitle,
       requirements: stage.skills,
-      status: unlockedStageIds.has(stage.id) ? "active" as const : "locked" as const
+      // Unlock set is keyed by slug (lib/student/stage-access.ts), matching every other consumer
+      // of getUnlockedStageIds (lib/content-access/facts.ts, /api/student/library) — not id.
+      status: unlockedStageIds.has(stage.slug) ? "active" as const : "locked" as const
     }));
   const currentStage = [...stages].reverse().find((stage) => stage.status === "active") ?? stages[0];
 

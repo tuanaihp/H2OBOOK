@@ -29,9 +29,9 @@ export async function GET() {
   ]);
 
   const payload = stages.map((stage) => {
-    // A stage counts as unlocked when the unlock set names it. That set is keyed by the ids in
-    // lib/student/experience.ts, so a stage whose slug matches one of those lines up automatically;
-    // any stage added later is locked until it is wired into the unlock rules or granted directly.
+    // A stage counts as unlocked when the unlock set names it — both keyed by real career_stages.slug
+    // (lib/student/stage-access.ts): first stage free, every stage once membership is active, or an
+    // explicit manual grant.
     const stageUnlocked = unlocked.has(stage.slug);
     return {
       slug: stage.slug,
