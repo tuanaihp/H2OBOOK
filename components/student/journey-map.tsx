@@ -166,14 +166,21 @@ export function StudentJourneyMap({ supplementaryCourses }: { supplementaryCours
                     <div><h3>{outcome.title}</h3><small>Outcome progress {progress}%</small></div>
                     <span className={`h2o-sr-chip${progress > 0 && progress < 100 ? " good" : ""}`}>{progress === 100 ? "Hoàn thành" : progress > 0 ? "Đang học" : `${list.length} Mission`}</span>
                   </div>
-                  <div className="h2o-sr-lane">
-                    {list.map((mission) => <button key={mission.id} className={`h2o-sr-mission ${stateClass(mission)}`} onClick={() => router.push(`/student/missions/${mission.id}`)}>
-                      <div className="state">{stateLabel(mission)}</div>
-                      <b>{mission.title}</b>
-                      <p>{mission.displayState === "locked" ? (mission.lockedReason ?? "Mở sau mission trước.") : (mission.description || mission.expectedResult || "Mở để xem chi tiết.")}</p>
-                      {mission.displayState !== "locked" && <div className="h2o-sr-minibar"><i style={{ width: `${missionProgress(mission)}%` }} /></div>}
-                    </button>)}
-                  </div>
+                  {/* Outcome → Milestone → Mission (§3). Tiêu đề Milestone chỉ hiện khi nó thật sự
+                      thêm thông tin — Stage 1 hiện có Outcome và Milestone trùng tên 1-1, hiện cả
+                      hai chỉ làm nhiễu chứ không giúp học viên định vị. */}
+                  {outcome.milestones.map((milestone) => <div key={milestone.id}>
+                    {(outcome.milestones.length > 1 || milestone.title !== outcome.title) &&
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: "#8d1d50", margin: "10px 0 6px" }}>{milestone.title}</div>}
+                    <div className="h2o-sr-lane">
+                      {milestone.missions.map((mission) => <button key={mission.id} className={`h2o-sr-mission ${stateClass(mission)}`} onClick={() => router.push(`/student/missions/${mission.id}`)}>
+                        <div className="state">{stateLabel(mission)}</div>
+                        <b>{mission.title}</b>
+                        <p>{mission.displayState === "locked" ? (mission.lockedReason ?? "Mở sau mission trước.") : (mission.description || mission.expectedResult || "Mở để xem chi tiết.")}</p>
+                        {mission.displayState !== "locked" && <div className="h2o-sr-minibar"><i style={{ width: `${missionProgress(mission)}%` }} /></div>}
+                      </button>)}
+                    </div>
+                  </div>)}
                 </div>;
               })}
 

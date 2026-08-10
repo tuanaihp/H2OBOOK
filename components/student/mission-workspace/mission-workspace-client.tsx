@@ -194,14 +194,14 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
               : <p style={{ fontSize: 12, color: "#718092", margin: "8px 0 0" }}>Chưa có tiêu chí thành công cho mission này.</p>}
           </div>
 
-          {!started && <div className="h2o-sr-cta"><button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "start", missionId, blueprintVersionId: view.versionId })}>Bắt đầu Mission</button></div>}
+          {!started && <div className="h2o-sr-cta"><button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "start", missionId })}>Bắt đầu Mission</button></div>}
         </div>}
 
         {tab === "work" && <div className="h2o-sr-pane">
           {!started
             ? <div className="h2o-sr-section" style={{ textAlign: "center" }}>
                 <p style={{ fontSize: 13, margin: "0 0 10px" }}>Bắt đầu Mission trước khi làm việc.</p>
-                <button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "start", missionId, blueprintVersionId: view.versionId })}>Bắt đầu Mission</button>
+                <button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "start", missionId })}>Bắt đầu Mission</button>
               </div>
             : <>
                 {view.blocks.length === 0
@@ -215,7 +215,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
                 <div className="h2o-sr-cta">
                   {needsEvidence
                     ? <button className="h2o-sr-btn primary" onClick={() => setTab("evidence")}>Tiếp tục → Evidence</button>
-                    : !DONE_STATES.includes(mission.displayState) && <button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "completeSelf", missionId, blueprintVersionId: view.versionId })}>Đánh dấu hoàn thành</button>}
+                    : !DONE_STATES.includes(mission.displayState) && <button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "completeSelf", missionId })}>Đánh dấu hoàn thành</button>}
                 </div>
               </>}
         </div>}
@@ -236,7 +236,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
                 <button className="h2o-sr-btn primary" disabled={busy || (!evidenceNote.trim() && !evidenceLink.trim())}
                   onClick={async () => {
                     const note = [evidenceNote.trim(), evidenceLink.trim()].filter(Boolean).join(" · ");
-                    const ok = await post("/api/student/journey/evidence", { missionId, blueprintVersionId: view.versionId, note });
+                    const ok = await post("/api/student/journey/evidence", { missionId, note });
                     if (ok) { setEvidenceNote(""); setEvidenceLink(""); setTab("result"); }
                   }}>Nộp Evidence</button>
               </div>

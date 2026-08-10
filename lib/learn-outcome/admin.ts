@@ -4,9 +4,15 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { loadVersionGraph } from "./service";
 import { getWorkspaceConfigsForVersion } from "@/lib/mission-workspace/service";
+import { ITEMS_CONFIG_TYPES, MISSION_BLOCK_LABEL } from "@/lib/mission-workspace/types";
 import type { MissionBindingRole, MissionInput, PreflightFinding, PreflightResult } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+
+/** Every block type this build can render — anything else in a config is a publish blocker (§17). */
+const MISSION_BLOCK_TYPES = new Set(Object.keys(MISSION_BLOCK_LABEL));
+/** Types whose config is a list of choices/columns — required + empty list means the student is stuck. */
+const ITEMS_REQUIRED_TYPES = ITEMS_CONFIG_TYPES;
 
 async function nextPosition(supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>, table: string, column: string, value: string): Promise<number> {
   const { data } = await supabase.from(table).select("position").eq(column, value).order("position", { ascending: false }).limit(1).maybeSingle();
@@ -305,13 +311,44 @@ export async function preflightVersion(organizationId: string, versionId: string
   // still a valid, publishable Mission in Release 1 (the "Làm việc" tab renderer is Release 2).
   const workspaceConfigs = await getWorkspaceConfigsForVersion(organizationId, versionId);
   for (const mission of missions) {
+    // "evidence-required Mission has no evidence path" / "result-required Mission has no valid
+    // result path" (§17). In this schema evidence is submitted against the mission state itself
+    // (migration 0051), so the real failure mode is a mission that demands evidence or teacher
+    // review while telling the student nothing about what to submit — no evidence/result block and
+    // no action marked evidence_required.
+    const needsEvidence = mission.completionPolicy === "evidence_required" || mission.completionPolicy === "teacher_verified";
     const config = workspaceConfigs.get(mission.id);
-    if (!config || !config.blocks.length) { add("warning", "other", "Mission chưa có Workspace config", mission); continue; }
+    const blocks = config?.blocks ?? [];
+    if (needsEvidence && !blocks.some((b) => ["evidence", "file", "image", "video", "link", "result_summary", "result_card"].includes(b.type)) && !mission.actionTemplates.some((t) => t.evidenceRequired)) {
+      add("warning", "other", `Mission cần Evidence (${mission.completionPolicy}) nhưng không có block bằng chứng/kết quả nào và không action nào đánh dấu cần evidence`, mission);
+    }
+
+    if (!blocks.length) { add("warning", "other", "Mission chưa có Workspace config", mission); continue; }
     const seenBlockIds = new Set<string>();
-    for (const block of config.blocks) {
+    for (const block of blocks) {
       if (seenBlockIds.has(block.id)) add("blocker", "structure", `Workspace có block id trùng lặp: ${block.id}`, mission);
       seenBlockIds.add(block.id);
-      if (["resource", "tool", "assignment"].includes(block.type) && !block.bindingId) add("blocker", "missing_binding", `Block "${block.label}" (${block.type}) chưa gắn canonical binding`, mission);
+      // "published definition contains unsupported block type" (§17) — a config written by an older
+      // or hand-edited payload could carry a type this build cannot render, which would silently
+      // show the student nothing.
+      if (!MISSION_BLOCK_TYPES.has(block.type)) add("blocker", "structure", `Block "${block.label}" dùng loại không hỗ trợ: ${block.type}`, mission);
+      if (["resource", "tool", "assignment"].includes(block.type)) {
+        if (!block.bindingId) add("blocker", "missing_binding", `Block "${block.label}" (${block.type}) chưa gắn canonical binding`, mission);
+        // "cross-org reference" (§17): a bindingId must point at a binding of THIS mission — the
+        // Admin picker only offers those, but a hand-written payload could name another mission's
+        // (or another org's) binding id, which would resolve to nothing or leak a title.
+        else {
+          const owned = mission.resourceBindings.some((b) => b.id === block.bindingId)
+            || mission.toolBindings.some((b) => b.id === block.bindingId)
+            || mission.assignmentBindings.some((b) => b.id === block.bindingId);
+          if (!owned) add("blocker", "broken_reference", `Block "${block.label}" trỏ tới binding không thuộc Mission này: ${block.bindingId}`, mission);
+        }
+      }
+      // "required block has invalid config" (§17): a required block the student cannot actually
+      // answer — a choice/list block with no options configured.
+      if (block.required && ITEMS_REQUIRED_TYPES.has(block.type) && !((block.options?.items as unknown[] | undefined)?.length)) {
+        add("blocker", "structure", `Block bắt buộc "${block.label}" (${block.type}) chưa cấu hình danh sách lựa chọn`, mission);
+      }
     }
   }
 

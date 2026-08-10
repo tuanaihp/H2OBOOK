@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react";
+import { ChevronUp, ChevronDown, Trash2, Plus, Eye, EyeOff } from "lucide-react";
 import styles from "@/components/operations/operations.module.css";
+import { MissionBlockField } from "@/components/student/mission-workspace/mission-block-field";
 
 type MissionBlockType = string;
 type MissionBlock = { id: string; type: MissionBlockType; label: string; required: boolean; position: number; bindingId?: string; options?: Record<string, unknown> };
@@ -44,6 +45,8 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
   const [newBindingId, setNewBindingId] = useState("");
   const [newItemsText, setNewItemsText] = useState("");
   const [newNoteText, setNewNoteText] = useState("");
+  const [newRequired, setNewRequired] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -66,8 +69,28 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
   if (loading) return <p style={{ fontSize: 12, color: "#6b7a89" }}>Đang tải Workspace...</p>;
   const blocks = (config?.blocks ?? []).sort((a, b) => a.position - b.position);
 
+  // "Preview as Student" (§8). Không mở route học viên thật vì route đó chỉ đọc bản đã publish —
+  // bản nháp đang sửa sẽ không hiện ra. Thay vào đó dựng đúng khối học viên sẽ thấy, ở chế độ
+  // chỉ-đọc, ngay trong Inspector.
+  if (preview) return <div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+      <strong style={{ fontSize: 12 }}>Xem như học viên</strong>
+      <button onClick={() => setPreview(false)} className={styles.button} style={{ whiteSpace: "nowrap" }}><EyeOff size={12} /> Thoát xem trước</button>
+    </div>
+    {blocks.length === 0
+      ? <p style={{ fontSize: 11, color: "#6b7a89" }}>Chưa có block nào — học viên sẽ thấy tab &ldquo;Làm việc&rdquo; trống.</p>
+      : <div style={{ pointerEvents: "none", opacity: 0.95 }}>
+          {blocks.map((block) => <MissionBlockField key={block.id} block={block} value={undefined} onSave={() => {}} onNavigate={() => {}}
+            resourceBindings={resourceBindings.map((b) => ({ id: b.id, title: b.label }))}
+            toolBindings={toolBindings.map((b) => ({ id: b.id, title: b.label }))} disabled />)}
+        </div>}
+  </div>;
+
   return <div>
-    <strong style={{ fontSize: 12 }}>Mission Workspace (tab &quot;Làm việc&quot;)</strong>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <strong style={{ fontSize: 12 }}>Mission Workspace (tab &quot;Làm việc&quot;)</strong>
+      <button onClick={() => setPreview(true)} className={styles.button} style={{ whiteSpace: "nowrap" }}><Eye size={12} /> Xem như học viên</button>
+    </div>
     <div style={{ display: "grid", gap: 6, margin: "6px 0" }}>
       {blocks.length === 0 && <p style={{ fontSize: 11, color: "#6b7a89" }}>Chưa có block nào — học viên sẽ chỉ thấy Tab 1/3/4, chưa có nội dung &ldquo;Làm việc&rdquo;.</p>}
       {blocks.map((block, index) => <div key={block.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", border: "1px solid #eef1f4", borderRadius: 8, fontSize: 11 }}>
@@ -78,6 +101,12 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
           {block.type === "note" && <div style={{ color: "#6b7a89" }}>{(block.options?.text as string | undefined) || "⚠ Chưa có nội dung ghi chú"}</div>}
         </span>
         {isDraft && <>
+          {/* Cờ "bắt buộc" quyết định điểm Readiness của học viên (lib/mission-workspace/student.ts):
+              không có ô này thì mọi block đều tùy chọn và thành phần "input" của Readiness luôn = 100%. */}
+          <label style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap", fontSize: 10 }}>
+            <input type="checkbox" checked={block.required} disabled={busy} onChange={(e) => call({ action: "updateBlock", blockId: block.id, block: { required: e.target.checked } })} />
+            Bắt buộc
+          </label>
           <button disabled={busy || index === 0} onClick={() => call({ action: "reorder", orderedBlockIds: [...blocks.map((b) => b.id).slice(0, index - 1), block.id, blocks[index - 1]?.id, ...blocks.map((b) => b.id).slice(index + 1)].filter(Boolean) })} style={{ border: "none", background: "none", cursor: "pointer" }}><ChevronUp size={13} /></button>
           <button disabled={busy || index === blocks.length - 1} onClick={() => call({ action: "reorder", orderedBlockIds: [...blocks.map((b) => b.id).slice(0, index), blocks[index + 1]?.id, block.id, ...blocks.map((b) => b.id).slice(index + 2)].filter(Boolean) })} style={{ border: "none", background: "none", cursor: "pointer" }}><ChevronDown size={13} /></button>
           <button disabled={busy} onClick={() => call({ action: "removeBlock", blockId: block.id })} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={13} /></button>
@@ -90,8 +119,8 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
       const options = ITEMS_CONFIG_TYPES.has(newType)
         ? { items: newItemsText.split("\n").map((s) => s.trim()).filter(Boolean) }
         : newType === "note" ? { text: newNoteText.trim() } : undefined;
-      call({ action: "addBlock", block: { type: newType, label: newLabel.trim(), bindingId: newBindingId || undefined, options } });
-      setNewLabel(""); setNewBindingId(""); setNewItemsText(""); setNewNoteText("");
+      call({ action: "addBlock", block: { type: newType, label: newLabel.trim(), required: newRequired, bindingId: newBindingId || undefined, options } });
+      setNewLabel(""); setNewBindingId(""); setNewItemsText(""); setNewNoteText(""); setNewRequired(false);
     }} style={{ display: "grid", gap: 6, marginTop: 6 }}>
       <div style={{ display: "grid", gap: 6, gridTemplateColumns: REFERENCE_TYPES.has(newType) ? "1fr 1fr 1fr auto" : "1fr 1fr auto" }}>
         <select value={newType} onChange={(e) => { setNewType(e.target.value); setNewBindingId(""); }} style={field}>
@@ -104,6 +133,10 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
         </select>}
         <button type="submit" disabled={busy} className={styles.button} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Thêm block</button>
       </div>
+      <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+        <input type="checkbox" checked={newRequired} onChange={(e) => setNewRequired(e.target.checked)} />
+        Bắt buộc — học viên phải điền thì Readiness mới đủ
+      </label>
       {ITEMS_CONFIG_TYPES.has(newType) && <textarea value={newItemsText} onChange={(e) => setNewItemsText(e.target.value)} placeholder={`${ITEMS_HINT[newType] ?? "Danh sách"} — mỗi dòng một mục`} style={{ ...field, minHeight: 50 }} />}
       {newType === "note" && <textarea value={newNoteText} onChange={(e) => setNewNoteText(e.target.value)} placeholder="Nội dung ghi chú hiển thị cho học viên" style={{ ...field, minHeight: 50 }} />}
     </form>}

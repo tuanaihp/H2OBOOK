@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getJourneyForStudent } from "@/lib/learn-outcome/student";
+import { completeSelfReportedMission, getJourneyForStudent, startMission, submitEvidence } from "@/lib/learn-outcome/student";
 import type { MissionDisplayState, MissionWithProgress } from "@/lib/learn-outcome/student";
 import { loadCareerStages } from "@/lib/career-stages/service";
 import { getWorkspaceConfig, getStudentBlockValues } from "./service";
@@ -90,6 +90,43 @@ export async function resolveMissionContext(userId: string, organizationId: stri
     }
   }
   return null;
+}
+
+/**
+ * Every student write against a Mission goes through here first.
+ *
+ * The underlying writers in lib/learn-outcome/student.ts take a caller-supplied
+ * blueprintVersionId and never check whether the Mission is actually reachable — which meant a
+ * student could POST a *locked* mission's id straight to /api/student/journey/mission and start it,
+ * or pin their state row to any version id they chose, bypassing the prerequisite chain the UI
+ * enforces (mandatory test #5, and the behaviour the source package's own mission-service.ts
+ * spells out: "if (mission.state === 'locked') throw"). Resolving the context server-side closes
+ * both holes at once: the version comes from the published journey, and a locked or unreachable
+ * mission never reaches the writer.
+ */
+async function requireOpenMission(userId: string, organizationId: string, missionId: string): Promise<Result<MissionContext>> {
+  const context = await resolveMissionContext(userId, organizationId, missionId);
+  if (!context) return { ok: false, error: "MISSION_NOT_ACCESSIBLE" };
+  if (context.mission.displayState === "locked") return { ok: false, error: "MISSION_LOCKED" };
+  return { ok: true, data: context };
+}
+
+export async function startMissionForStudent(userId: string, organizationId: string, missionId: string): Promise<Result<{ created: boolean }>> {
+  const guard = await requireOpenMission(userId, organizationId, missionId);
+  if (!guard.ok) return guard;
+  return startMission(userId, organizationId, missionId, guard.data.versionId);
+}
+
+export async function completeSelfReportedMissionForStudent(userId: string, organizationId: string, missionId: string): Promise<Result<null>> {
+  const guard = await requireOpenMission(userId, organizationId, missionId);
+  if (!guard.ok) return guard;
+  return completeSelfReportedMission(userId, organizationId, missionId, guard.data.versionId);
+}
+
+export async function submitEvidenceForStudent(userId: string, organizationId: string, missionId: string, evidence: { note?: string; assetId?: string }): Promise<Result<null>> {
+  const guard = await requireOpenMission(userId, organizationId, missionId);
+  if (!guard.ok) return guard;
+  return submitEvidence(userId, organizationId, missionId, guard.data.versionId, evidence);
 }
 
 function isPresent(value: unknown): boolean {
