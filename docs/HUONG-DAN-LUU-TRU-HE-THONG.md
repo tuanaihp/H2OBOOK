@@ -6,6 +6,19 @@
 
 ---
 
+**2026-08-10 — 🎨 Đã merge + deploy: dựng lại giao diện Smart Roadmap + Mission Workspace đúng bản thiết kế.**
+
+Bản Release 2 đầu tiên đúng luồng dữ liệu nhưng **giao diện đơn giản hơn hẳn bản thiết kế** bạn đã duyệt. Bạn đối chiếu và chỉ ra — tôi đã dựng lại bám đúng file prototype:
+
+- **Roadmap**: 4 thẻ tổng quan trên cùng · Outcome đánh số 01–04 có đường nối dọc và % tiến độ riêng · thẻ Mission 3 cột có mô tả + thanh tiến độ · panel "H2O Journey AI" bên phải · và **3 view giờ khác nhau thật**: Map (bản đồ), Roadmap (dòng thời gian), Danh sách (bảng có cột Readiness/Thời lượng).
+- **Mission Workspace**: cột trái liệt kê toàn bộ Mission anh em (bấm chuyển qua lại được) · ô "Expected Result" cạnh ô Readiness nền đậm · tab đánh số 01–04 · "Kiến thức cần dùng" dạng thẻ tài liệu bấm vào mở thẳng tài liệu thật · Result Card nền gradient · footer dính "Tự động lưu".
+
+**Cam kết không bịa số:** mọi con số đều từ dữ liệu thật. Chỗ nào chưa có dữ liệu thì hiện **"—"** chứ không tự đoán (ví dụ "Dự kiến còn lại" sẽ là "—" cho tới khi Admin đặt thời lượng ước tính cho Mission — hiện bản v1 đang publish chưa có, bản nháp v2 thì đã có).
+
+**Các ô do AI viết trong bản thiết kế thì không giả lập** (AI là Release 4 chưa xây): ô "H2O Mentor Insight" đổi nhãn thật thành "Mission hiện tại", "Predicted Finish" đổi thành "Dự kiến còn lại" tính từ thời lượng thật, "Adaptive Path"/"Smart Signals"/"AI tạo 3 task" hiện đúng thông báo "H2O Mentor tạm thời không khả dụng".
+
+---
+
 **2026-08-10 — 🚀 Đã merge + deploy: Smart Roadmap + Universal Mission OS — Release 2 (folder 30) — học viên đã thấy thay đổi thật, KHÔNG cần migration mới.**
 
 **Release 1 (bên dưới) chỉ là nền dữ liệu + màn Admin. Release 2 là phần học viên nhìn thấy được:**

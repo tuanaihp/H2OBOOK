@@ -32,6 +32,27 @@ Migration 0052 — 2 bảng:
 - **Bấm Mission trên Roadmap giờ mở thẳng Workspace** thay vì drawer trượt cũ — drawer cũ đã bị xóa (không dùng feature flag; lịch sử git là đường lùi nếu cần, giống mọi release trước trong dự án này).
 - **Vá lỗ hổng thật của Release 1**: Admin Builder trước đó cho phép thêm block `select/checklist/table/kpi/kanban/calculator` nhưng KHÔNG có ô nhập danh sách lựa chọn/cột/chỉ số — học viên sẽ luôn thấy các block này rỗng. Đã thêm ô nhập (`options.items`, mỗi dòng một mục) và ô nội dung ghi chú cho block `note` (`options.text`) vào Admin Builder.
 
+### 4b. Dựng lại giao diện đúng visual contract (bổ sung sau khi Owner đối chiếu prototype)
+
+Bản Release 2 đầu tiên đúng **luồng dữ liệu** nhưng giao diện đơn giản hơn hẳn prototype đã duyệt (`prototype/H2OBOOK_SMART_ROADMAP_MISSION_SYNC.html`). Đã dựng lại bám đúng prototype, dùng lại token `--student-*` sẵn có thay vì nhập bảng màu thứ hai:
+
+| Thành phần | Trạng thái |
+|---|---|
+| 4 thẻ smart strip trên cùng | ✅ Đã có |
+| Panel "H2O Journey AI" bên phải Roadmap | ✅ Đã có (nội dung là dữ liệu thật, xem bên dưới) |
+| Outcome đánh số 01–04 + đường nối dọc + % từng Outcome | ✅ Đã có |
+| Thẻ Mission 3 cột: nhãn trạng thái, mô tả, thanh tiến độ | ✅ Đã có |
+| 3 view **khác nhau thật**: Map / Roadmap (timeline) / Danh sách (bảng) | ✅ Đã có |
+| Workspace: cột trái liệt kê Mission anh em, chips, ô Expected Result + ô Readiness nền đậm | ✅ Đã có |
+| Tab đánh số `01 · 02 · 03 · 04`, gạch chân màu wine | ✅ Đã có |
+| "Kiến thức cần dùng" dạng thẻ tài liệu có icon, link thẳng tới trình đọc tài liệu thật | ✅ Đã có |
+| Result Card nền gradient | ✅ Đã có |
+| Footer dính "● Tự động lưu · Roadmap cập nhật theo thời gian thực" | ✅ Đã có |
+
+**Nguyên tắc: không bịa số.** Mọi con số hiển thị đều suy ra từ dữ liệu thật — tiến độ Outcome/Mission tính từ hành động đã hoàn thành, Readiness dùng đúng công thức xác định ở mục 4, "Dự kiến còn lại" cộng `estimated_days` (hiện **"—"** nếu Admin chưa đặt, không tự đoán), "Roadmap Impact" đọc từ chuỗi prerequisite thật.
+
+**Các ô do AI viết trong prototype thì KHÔNG giả lập** (AI là Release 4): ô "H2O Mentor Insight" đổi nhãn thật thành "Mission hiện tại" và hiện mission đang làm; "Predicted Finish 28/08" đổi thành "Dự kiến còn lại" tính từ thời lượng thật; "Adaptive Path", "Smart Signals", "AI tạo 3 task" thay bằng dữ liệu suy ra thật hoặc đúng thông báo bắt buộc "H2O Mentor tạm thời không khả dụng" theo §16.
+
 ## 5. KHÔNG xây trong lượt này — vì sao
 
 | Đợt | Nội dung | Trạng thái |
