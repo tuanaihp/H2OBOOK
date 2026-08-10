@@ -6,6 +6,26 @@
 
 ---
 
+**2026-08-10 — ✨ Đã merge + deploy: Learn Outcome OS V1 — Release A (folder 28, phần bạn chọn "xây đầy đủ") — ⚠️ CẦN CHẠY MIGRATION 0050.**
+
+Bạn chọn xây đầy đủ Outcome Graph. Vì khối lượng quá lớn (10 bảng mới + Admin Builder có versioning + 4 tab học viên viết lại + cron), tôi làm theo đúng lộ trình chia đợt mà chính gói nguồn đề xuất (Release A→E), bắt đầu từ Release A — **chưa cho học viên thấy gì cả, chỉ xây nền + màn hình Admin**.
+
+**Đã xây trong Release A:**
+- 10 bảng mới: Journey Blueprint (1 cái/giai đoạn) → Version (nháp/đã publish/lưu trữ) → Outcome → Milestone → Mission → Action, cùng các bảng gắn kết (mission gắn vào tài liệu/công cụ/bài tập **có sẵn**, không copy nội dung).
+- Trang Admin mới: **`/academy-admin/journey`** — chọn giai đoạn, tạo Journey Map, thêm Outcome/Milestone/Mission, gắn tài liệu/bài tập vào Mission, chạy "Kiểm tra trước khi publish" (báo đủ loại lỗi: thiếu expected result, mission tham chiếu vòng lặp, gắn nhầm tài liệu không tồn tại...), rồi Publish.
+- Nhân bản phiên bản (Duplicate Version) để sửa mà không đụng vào bản đang publish.
+
+**Cố tình CHƯA làm trong đợt này:**
+- Học viên **chưa thấy gì thay đổi** — tab "Hành trình của tôi" vẫn y như cũ. Đây là đúng theo kế hoạch (Release B mới đến lượt học viên).
+- Chưa có tạo Mission tự động cho học viên, chưa có luồng "Bắt đầu Mission".
+- Chưa có tổng kết ngày/tuần (cron) — hệ thống hiện chưa có cơ chế lập lịch nào, cần hạ tầng mới, sẽ bàn riêng khi tới Release D.
+
+**⚠️ Việc cần bạn làm:** chạy `supabase/_RUN-0050-ONLY.sql`. An toàn chạy lại nhiều lần, chỉ thêm bảng mới, không đụng dữ liệu cũ.
+
+Muốn tiếp tục Release B (cho học viên thấy Journey Map thật) thì báo tôi.
+
+---
+
 **2026-08-10 — 🛠 Đã merge + deploy: sửa bug thật nghiêm trọng — bộ giải mã quyền truy cập giai đoạn đang so khớp với ID giả, không khớp được với 6 giai đoạn thật.**
 
 **Bạn yêu cầu sửa bug tab CREATE (mọi học viên thấy đúng 1 trạng thái mở khóa công thức giống hệt nhau) — khi sửa, phát hiện gốc rễ nghiêm trọng hơn nhiều.**
