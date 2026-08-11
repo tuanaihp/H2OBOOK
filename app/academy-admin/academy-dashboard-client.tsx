@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, BookOpenCheck, Brain, Compass, FileQuestion, GraduationCap, LibraryBig, School, UserRoundPlus, UsersRound, Workflow } from "lucide-react";
+import { BadgeCheck, BookOpenCheck, Compass, GraduationCap, LibraryBig, UserRoundPlus, UsersRound } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { OperationsMetric } from "@/components/operations/metric-card";
 import { academyAdminRoutes } from "@/lib/operations/routes";
@@ -13,23 +13,6 @@ type Summary = {
   totalStages: number; publishedStages: number; stageResources: number;
 };
 
-/**
- * Learning Control Center IA (v5/32-.../CLAUDE_INTEGRATION_PROMPT.md §9): the 7 modules Admin
- * should see, mapped onto what is actually real in this repo rather than 7 fresh pages. 5/7 are
- * real, DB-backed pages (2 of them — Classes & Cohorts, Assignment & Review — already existed
- * under /instructor/*, just not linked from here). "Smart Review" and "Quiz & Assessment" have no
- * admin-facing surface anywhere in the app today (confirmed by search, not assumed) — shown
- * honestly as not built rather than pointed at something unrelated.
- */
-const LEARNING_CONTROL_MODULES: { icon: typeof Compass; title: string; purpose: string; href: string | null }[] = [
-  { icon: Compass, title: "Tổng quan đào tạo", purpose: "Sức khỏe hệ đào tạo, tiến độ và cảnh báo.", href: "/academy-admin" },
-  { icon: Workflow, title: "Journey & Outcomes", purpose: "Stage, Outcome, Mission, unlock và Result.", href: "/academy-admin/journey" },
-  { icon: LibraryBig, title: "Knowledge & Library", purpose: "Tài liệu, Resource Mapping và quyền truy cập.", href: "/academy-admin/content" },
-  { icon: Brain, title: "Smart Review", purpose: "Flashcard, spaced repetition, review rules.", href: null },
-  { icon: School, title: "Classes & Cohorts", purpose: "Lớp học, cohort, lịch học và giảng viên.", href: "/instructor/classes" },
-  { icon: BookOpenCheck, title: "Assignment & Review", purpose: "Bài tập, submission, teacher review, rubric.", href: "/instructor/assessments" },
-  { icon: FileQuestion, title: "Quiz & Assessment", purpose: "Question bank, quiz, test và assessment.", href: null }
-];
 
 export function AcademyDashboardClient() {
   const [data, setData] = useState<Summary | null>(null);
@@ -62,29 +45,6 @@ export function AcademyDashboardClient() {
       <OperationsMetric icon={GraduationCap} value={loading ? "…" : `${data?.activeCourses ?? 0}/${data?.totalCourses ?? 0}`} label="Khóa học video hoạt động" />
       <OperationsMetric icon={BookOpenCheck} value={loading ? "…" : `${data?.publishedLessons ?? 0}/${data?.totalLessons ?? 0}`} label="Bài học đã xuất bản" />
     </section>
-
-    {/* Learning Control Center — same domains Student LEARN uses, admin semantics
-        (CONFIGURE/MANAGE/REVIEW/ANALYZE/PUBLISH) instead of a student-facing mirror. */}
-    <section style={{ marginTop: 24, marginBottom: 8 }}>
-      <div className={styles.cardHead} style={{ padding: 0, border: 0 }}><div><span className={styles.eyebrow}>LEARNING CONTROL CENTER</span><h2 style={{ margin: "4px 0 0" }}>7 module đào tạo</h2></div></div>
-    </section>
-    <div className={styles.grid} style={{ marginBottom: 8 }}>
-      {LEARNING_CONTROL_MODULES.map((module) => {
-        const Icon = module.icon;
-        const card = <>
-          <div className={styles.listItemIcon}><Icon size={16} /></div>
-          <div style={{ flex: 1 }}><strong>{module.title}</strong><br /><small style={{ color: "var(--muted, #6b7a89)" }}>{module.purpose}</small></div>
-        </>;
-        return <section key={module.title} className={`${styles.card} ${styles.span4}`}>
-          <div className={styles.cardBody} style={{ padding: 16 }}>
-            {module.href
-              ? <Link href={module.href} style={{ display: "flex", gap: 10, alignItems: "flex-start", textDecoration: "none", color: "inherit" }}>{card}</Link>
-              : <div style={{ display: "flex", gap: 10, alignItems: "flex-start", opacity: 0.55 }}>{card}</div>}
-            {!module.href && <small style={{ display: "block", marginTop: 8, fontSize: 11, color: "#b7791f" }}>Chưa có trang quản trị — cần quyết định phạm vi riêng</small>}
-          </div>
-        </section>;
-      })}
-    </div>
 
     <div className={styles.grid}>
       <section className={`${styles.card} ${styles.span6}`}>
