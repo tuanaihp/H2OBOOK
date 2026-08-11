@@ -10,7 +10,7 @@ type VersionRow = { id: string; blueprint_id: string; version_number: number; st
 type OutcomeRow = { id: string; version_id: string; title: string; description: string | null; position: number };
 type MilestoneRow = { id: string; outcome_id: string; title: string; description: string | null; position: number };
 type MissionRow = {
-  id: string; milestone_id: string; title: string; description: string | null; expected_result: string;
+  id: string; root_mission_id: string | null; milestone_id: string; title: string; description: string | null; expected_result: string;
   estimated_days: number | null; prerequisite_mission_id: string | null; completion_policy: string;
   success_criteria: string[] | null; evidence_policy: Record<string, unknown> | null; position: number;
 };
@@ -62,7 +62,7 @@ export async function loadVersionGraph(organizationId: string, versionId: string
 
   const [{ data: missionRows }, { data: resourceRows }, { data: toolRows }, { data: assignmentRows }, { data: actionRows }] = milestoneIds.length
     ? await Promise.all([
-        admin.from("learning_journey_missions").select("id,milestone_id,title,description,expected_result,estimated_days,prerequisite_mission_id,completion_policy,success_criteria,evidence_policy,position").eq("organization_id", organizationId).in("milestone_id", milestoneIds).order("position", { ascending: true }),
+        admin.from("learning_journey_missions").select("id,root_mission_id,milestone_id,title,description,expected_result,estimated_days,prerequisite_mission_id,completion_policy,success_criteria,evidence_policy,position").eq("organization_id", organizationId).in("milestone_id", milestoneIds).order("position", { ascending: true }),
         admin.from("learning_mission_resource_bindings").select("id,mission_id,resource_type,resource_id,role,position").eq("organization_id", organizationId),
         admin.from("learning_mission_tool_bindings").select("id,mission_id,tool_type,tool_id,role,position").eq("organization_id", organizationId),
         admin.from("learning_mission_assignment_bindings").select("id,mission_id,assignment_id,role,position").eq("organization_id", organizationId),
@@ -78,7 +78,7 @@ export async function loadVersionGraph(organizationId: string, versionId: string
   const actionTemplates = ((actionRows ?? []) as ActionTemplateRow[]).filter((r) => missionIds.has(r.mission_id));
 
   const mapMission = (row: MissionRow): JourneyMission => ({
-    id: row.id, milestoneId: row.milestone_id, title: row.title, description: row.description ?? "",
+    id: row.id, rootMissionId: row.root_mission_id, milestoneId: row.milestone_id, title: row.title, description: row.description ?? "",
     expectedResult: row.expected_result, estimatedDays: row.estimated_days, prerequisiteMissionId: row.prerequisite_mission_id,
     completionPolicy: row.completion_policy as JourneyMission["completionPolicy"],
     successCriteria: Array.isArray(row.success_criteria) ? row.success_criteria : [],

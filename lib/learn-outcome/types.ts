@@ -50,6 +50,8 @@ export interface JourneyMilestone {
 
 export interface JourneyMission {
   id: string;
+  /** Self-referencing identity anchor that survives cloning (migration 0054) — see lib/learn-outcome/admin.ts's publishVersion for why this exists: without it, publishing a new version over an already-published one would silently orphan real students' progress. */
+  rootMissionId: string | null;
   milestoneId: string;
   title: string;
   description: string;

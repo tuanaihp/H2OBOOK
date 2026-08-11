@@ -5,9 +5,15 @@ import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { loadVersionGraph } from "./service";
 import { getWorkspaceConfigsForVersion } from "@/lib/mission-workspace/service";
 import { ITEMS_CONFIG_TYPES, MISSION_BLOCK_LABEL } from "@/lib/mission-workspace/types";
+import { emitDomainEvent } from "@/lib/domain/events";
 import type { MissionBindingRole, MissionInput, PreflightFinding, PreflightResult } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+
+/** journey.version_* events (§17) layered on top of the generic domain_events insert trigger — best-effort, never blocks the caller's actual mutation. */
+async function emitJourneyEvent(organizationId: string, actorId: string, eventName: string, resourceId: string, payload: Record<string, unknown> = {}): Promise<void> {
+  try { await emitDomainEvent({ organizationId, actorId, resourceType: "learning_journey_versions", resourceId, eventName, payload }); } catch { /* best-effort analytics, never fail the caller's write */ }
+}
 
 /** Every block type this build can render — anything else in a config is a publish blocker (§17). */
 const MISSION_BLOCK_TYPES = new Set(Object.keys(MISSION_BLOCK_LABEL));
@@ -46,12 +52,87 @@ export async function getOrCreateBlueprint(access: AcademyAdminAccess, stageId: 
   return { ok: true, data: { blueprintId: blueprint.id, versionId: version.id, created: true } };
 }
 
+export interface CloneGraphOptions { copyResources: boolean; copyActions: boolean; copyWorkspaceBlocks: boolean; copyPrerequisites: boolean }
+const DEFAULT_CLONE_OPTIONS: CloneGraphOptions = { copyResources: true, copyActions: true, copyWorkspaceBlocks: true, copyPrerequisites: true };
+
+/**
+ * Copies the full outcome/milestone/mission graph from `sourceVersionId` into an already-created
+ * `targetVersionId` (draft, on any blueprint in this org — same one for duplicateVersion, a
+ * different Stage's for bulkCloneToStages). Shared so the two callers cannot drift on what "clone"
+ * actually copies.
+ *
+ * Every cloned Mission's root_mission_id (migration 0054) inherits the source Mission's root
+ * (falling back to the source's own id for a first-generation clone) — this is what lets
+ * publishVersion() later recognize "this is the same Mission, just a newer version" and preserve
+ * student progress across a publish, instead of Mission ids resetting identity on every clone.
+ */
+async function cloneGraphIntoVersion(supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>, org: string, actorId: string, sourceVersionId: string, targetVersionId: string, options: CloneGraphOptions = DEFAULT_CLONE_OPTIONS): Promise<Result<{ missionIdMap: Map<string, string> }>> {
+  const outcomes = await loadVersionGraph(org, sourceVersionId);
+  const missionIdMap = new Map<string, string>();
+
+  for (const outcome of outcomes) {
+    const { data: newOutcome, error: outcomeError } = await supabase.from("learning_journey_outcomes").insert({ organization_id: org, version_id: targetVersionId, title: outcome.title, description: outcome.description, position: outcome.position }).select("id").single();
+    if (outcomeError || !newOutcome) return { ok: false, error: outcomeError?.message ?? "OUTCOME_COPY_FAILED" };
+    for (const milestone of outcome.milestones) {
+      const { data: newMilestone, error: milestoneError } = await supabase.from("learning_journey_milestones").insert({ organization_id: org, outcome_id: newOutcome.id, title: milestone.title, description: milestone.description, position: milestone.position }).select("id").single();
+      if (milestoneError || !newMilestone) return { ok: false, error: milestoneError?.message ?? "MILESTONE_COPY_FAILED" };
+      for (const mission of milestone.missions) {
+        const { data: newMission, error: missionError } = await supabase.from("learning_journey_missions").insert({
+          organization_id: org, milestone_id: newMilestone.id, title: mission.title, description: mission.description,
+          expected_result: mission.expectedResult, estimated_days: mission.estimatedDays, completion_policy: mission.completionPolicy,
+          success_criteria: mission.successCriteria, evidence_policy: mission.evidencePolicy, position: mission.position,
+          root_mission_id: mission.rootMissionId ?? mission.id
+          // prerequisite_mission_id set in a second pass below, once every mission in this version has a new id.
+        }).select("id").single();
+        if (missionError || !newMission) return { ok: false, error: missionError?.message ?? "MISSION_COPY_FAILED" };
+        missionIdMap.set(mission.id, newMission.id);
+        if (options.copyResources) {
+          for (const binding of mission.resourceBindings) await supabase.from("learning_mission_resource_bindings").insert({ organization_id: org, mission_id: newMission.id, resource_type: binding.resourceType, resource_id: binding.resourceId, role: binding.role, position: binding.position });
+          for (const binding of mission.toolBindings) await supabase.from("learning_mission_tool_bindings").insert({ organization_id: org, mission_id: newMission.id, tool_type: binding.toolType, tool_id: binding.toolId, role: binding.role, position: binding.position });
+          for (const binding of mission.assignmentBindings) await supabase.from("learning_mission_assignment_bindings").insert({ organization_id: org, mission_id: newMission.id, assignment_id: binding.assignmentId, role: binding.role, position: binding.position });
+        }
+        if (options.copyActions) {
+          for (const template of mission.actionTemplates) await supabase.from("learning_mission_action_templates").insert({ organization_id: org, mission_id: newMission.id, title: template.title, description: template.description, required: template.required, day_offset: template.dayOffset, evidence_required: template.evidenceRequired, position: template.position });
+        }
+      }
+    }
+  }
+
+  if (options.copyPrerequisites) {
+    for (const outcome of outcomes) for (const milestone of outcome.milestones) for (const mission of milestone.missions) {
+      if (!mission.prerequisiteMissionId) continue;
+      const newId = missionIdMap.get(mission.id);
+      const newPrereqId = missionIdMap.get(mission.prerequisiteMissionId);
+      if (newId && newPrereqId) await supabase.from("learning_journey_missions").update({ prerequisite_mission_id: newPrereqId }).eq("id", newId);
+    }
+  }
+
+  // Mission Workspace configs (migration 0052) are keyed by (journey_version_id, mission_id) — a
+  // config that isn't copied here would simply not exist for any mission in the new draft, silently
+  // dropping every block Admin configured in the source version. bindingId inside each block still
+  // refers to a *binding id* (learning_mission_resource_bindings.id etc.), which was NOT remapped
+  // above (bindings are inserted fresh per mission, not id-preserving) — copied through as-is here
+  // since fixing stale bindingIds is exactly what re-opening the mission in the Builder does, the
+  // same as any other draft edit.
+  if (options.copyWorkspaceBlocks) {
+    const oldConfigs = await getWorkspaceConfigsForVersion(org, sourceVersionId);
+    for (const [oldMissionId, config] of oldConfigs) {
+      const newMissionId = missionIdMap.get(oldMissionId);
+      if (!newMissionId || !config.blocks.length) continue;
+      await supabase.from("learning_mission_workspace_configs").insert({
+        organization_id: org, journey_version_id: targetVersionId, mission_id: newMissionId,
+        schema_version: config.schemaVersion, blocks: config.blocks, created_by: actorId
+      });
+    }
+  }
+
+  return { ok: true, data: { missionIdMap } };
+}
+
 /**
  * "Duplicate Version": copies the full outcome/milestone/mission graph (including bindings and
- * action templates) from `sourceVersionId` into a brand new draft version — Admin edits the copy,
- * the source (likely the currently published one) is untouched. Mission ids change on copy, so
- * prerequisite_mission_id links are remapped through an old-id -> new-id map built during the copy
- * rather than reused verbatim.
+ * action templates) from `sourceVersionId` into a brand new draft version on the SAME blueprint —
+ * Admin edits the copy, the source (likely the currently published one) is untouched.
  */
 export async function duplicateVersion(access: AcademyAdminAccess, blueprintId: string, sourceVersionId: string): Promise<Result<{ versionId: string }>> {
   const supabase = await createSupabaseServerClient();
@@ -63,57 +144,57 @@ export async function duplicateVersion(access: AcademyAdminAccess, blueprintId: 
   const { data: version, error: versionError } = await supabase.from("learning_journey_versions").insert({ organization_id: org, blueprint_id: blueprintId, version_number: nextNumber, status: "draft", created_by: access.userId }).select("id").single();
   if (versionError || !version) return { ok: false, error: versionError?.message ?? "VERSION_CREATE_FAILED" };
 
-  const outcomes = await loadVersionGraph(org, sourceVersionId);
-  const missionIdMap = new Map<string, string>();
+  const cloned = await cloneGraphIntoVersion(supabase, org, access.userId, sourceVersionId, version.id);
+  if (!cloned.ok) return cloned;
 
-  for (const outcome of outcomes) {
-    const { data: newOutcome, error: outcomeError } = await supabase.from("learning_journey_outcomes").insert({ organization_id: org, version_id: version.id, title: outcome.title, description: outcome.description, position: outcome.position }).select("id").single();
-    if (outcomeError || !newOutcome) return { ok: false, error: outcomeError?.message ?? "OUTCOME_COPY_FAILED" };
-    for (const milestone of outcome.milestones) {
-      const { data: newMilestone, error: milestoneError } = await supabase.from("learning_journey_milestones").insert({ organization_id: org, outcome_id: newOutcome.id, title: milestone.title, description: milestone.description, position: milestone.position }).select("id").single();
-      if (milestoneError || !newMilestone) return { ok: false, error: milestoneError?.message ?? "MILESTONE_COPY_FAILED" };
-      for (const mission of milestone.missions) {
-        const { data: newMission, error: missionError } = await supabase.from("learning_journey_missions").insert({
-          organization_id: org, milestone_id: newMilestone.id, title: mission.title, description: mission.description,
-          expected_result: mission.expectedResult, estimated_days: mission.estimatedDays, completion_policy: mission.completionPolicy,
-          success_criteria: mission.successCriteria, evidence_policy: mission.evidencePolicy, position: mission.position
-          // prerequisite_mission_id set in a second pass below, once every mission in this version has a new id.
-        }).select("id").single();
-        if (missionError || !newMission) return { ok: false, error: missionError?.message ?? "MISSION_COPY_FAILED" };
-        missionIdMap.set(mission.id, newMission.id);
-        for (const binding of mission.resourceBindings) await supabase.from("learning_mission_resource_bindings").insert({ organization_id: org, mission_id: newMission.id, resource_type: binding.resourceType, resource_id: binding.resourceId, role: binding.role, position: binding.position });
-        for (const binding of mission.toolBindings) await supabase.from("learning_mission_tool_bindings").insert({ organization_id: org, mission_id: newMission.id, tool_type: binding.toolType, tool_id: binding.toolId, role: binding.role, position: binding.position });
-        for (const binding of mission.assignmentBindings) await supabase.from("learning_mission_assignment_bindings").insert({ organization_id: org, mission_id: newMission.id, assignment_id: binding.assignmentId, role: binding.role, position: binding.position });
-        for (const template of mission.actionTemplates) await supabase.from("learning_mission_action_templates").insert({ organization_id: org, mission_id: newMission.id, title: template.title, description: template.description, required: template.required, day_offset: template.dayOffset, evidence_required: template.evidenceRequired, position: template.position });
-      }
-    }
-  }
-
-  for (const outcome of outcomes) for (const milestone of outcome.milestones) for (const mission of milestone.missions) {
-    if (!mission.prerequisiteMissionId) continue;
-    const newId = missionIdMap.get(mission.id);
-    const newPrereqId = missionIdMap.get(mission.prerequisiteMissionId);
-    if (newId && newPrereqId) await supabase.from("learning_journey_missions").update({ prerequisite_mission_id: newPrereqId }).eq("id", newId);
-  }
-
-  // Mission Workspace configs (migration 0052) are keyed by (journey_version_id, mission_id) — a
-  // config that isn't copied here would simply not exist for any mission in the new draft, silently
-  // dropping every block Admin configured in the source version. bindingId inside each block still
-  // refers to a *binding id* (learning_mission_resource_bindings.id etc.), which was NOT remapped
-  // above (bindings are inserted fresh per mission, not id-preserving) — copied through as-is here
-  // since fixing stale bindingIds is exactly what re-opening the mission in the Builder does, the
-  // same as any other draft edit.
-  const oldConfigs = await getWorkspaceConfigsForVersion(org, sourceVersionId);
-  for (const [oldMissionId, config] of oldConfigs) {
-    const newMissionId = missionIdMap.get(oldMissionId);
-    if (!newMissionId || !config.blocks.length) continue;
-    await supabase.from("learning_mission_workspace_configs").insert({
-      organization_id: org, journey_version_id: version.id, mission_id: newMissionId,
-      schema_version: config.schemaVersion, blocks: config.blocks, created_by: access.userId
-    });
-  }
-
+  await emitJourneyEvent(org, access.userId, "journey.version_cloned", version.id, { sourceVersionId, blueprintId });
   return { ok: true, data: { versionId: version.id } };
+}
+
+/**
+ * "Nhân bản sang nhiều giai đoạn" (v5/33-.../CLAUDE_INTEGRATION_PROMPT.md §10): clones one source
+ * version's Mission graph into a brand NEW draft version on each target Stage's blueprint (creating
+ * the blueprint first if that Stage has none yet). Every target gets its own independent draft —
+ * this never touches a Published version, and never copies student progress/evidence/results
+ * (those tables are never read here at all, not merely filtered out).
+ */
+export async function bulkCloneToStages(access: AcademyAdminAccess, input: { sourceVersionId: string; targetStageIds: string[]; options: CloneGraphOptions }): Promise<Result<{ stageId: string; versionId: string; versionNumber: number }[]>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const org = access.organizationId;
+  const targets = [...new Set(input.targetStageIds)];
+  if (!targets.length) return { ok: false, error: "NO_TARGET_STAGES" };
+
+  const { data: sourceVersionRow } = await supabase.from("learning_journey_versions").select("blueprint_id").eq("organization_id", org).eq("id", input.sourceVersionId).maybeSingle();
+  if (!sourceVersionRow) return { ok: false, error: "SOURCE_VERSION_NOT_FOUND" };
+  const { data: sourceBlueprint } = await supabase.from("learning_journey_blueprints").select("stage_id, title").eq("organization_id", org).eq("id", (sourceVersionRow as { blueprint_id: string }).blueprint_id).maybeSingle();
+  const sourceStageId = (sourceBlueprint as { stage_id: string } | null)?.stage_id;
+
+  const results: { stageId: string; versionId: string; versionNumber: number }[] = [];
+  for (const stageId of targets) {
+    if (stageId === sourceStageId) continue; // never clone a Stage onto itself
+    const { data: stageRow } = await supabase.from("career_stages").select("title").eq("organization_id", org).eq("id", stageId).maybeSingle();
+    const blueprintResult = await getOrCreateBlueprint(access, stageId, (stageRow as { title: string } | null)?.title ?? "Bản đồ kết quả học viên");
+    if (!blueprintResult.ok) return { ok: false, error: `${stageId}: ${blueprintResult.error}` };
+
+    // getOrCreateBlueprint returns the latest existing version (draft or otherwise) when the
+    // blueprint already exists — bulk clone always wants a FRESH draft, so a new version is created
+    // here rather than overwriting whatever that latest version was (§10 "nếu đã có Draft, tạo
+    // version tiếp theo theo rule hiện tại").
+    const latest = await supabase.from("learning_journey_versions").select("version_number").eq("organization_id", org).eq("blueprint_id", blueprintResult.data.blueprintId).order("version_number", { ascending: false }).limit(1).maybeSingle();
+    const nextNumber = latest.data ? Number((latest.data as { version_number: number }).version_number) + 1 : 1;
+    const { data: newVersion, error: versionError } = await supabase.from("learning_journey_versions").insert({ organization_id: org, blueprint_id: blueprintResult.data.blueprintId, version_number: nextNumber, status: "draft", created_by: access.userId }).select("id").single();
+    if (versionError || !newVersion) return { ok: false, error: versionError?.message ?? `${stageId}: VERSION_CREATE_FAILED` };
+
+    const cloned = await cloneGraphIntoVersion(supabase, org, access.userId, input.sourceVersionId, newVersion.id, input.options);
+    if (!cloned.ok) return { ok: false, error: `${stageId}: ${cloned.error}` };
+
+    results.push({ stageId, versionId: newVersion.id, versionNumber: nextNumber });
+  }
+
+  if (!results.length) return { ok: false, error: "NO_VALID_TARGET_STAGES" };
+  await emitJourneyEvent(org, access.userId, "journey.version_bulk_cloned", input.sourceVersionId, { targetStageIds: results.map((r) => r.stageId) });
+  return { ok: true, data: results };
 }
 
 export async function createOutcome(access: AcademyAdminAccess, versionId: string, input: { title: string; description?: string }): Promise<Result<{ id: string }>> {
@@ -154,6 +235,9 @@ export async function createMission(access: AcademyAdminAccess, milestoneId: str
     success_criteria: input.successCriteria ?? [], evidence_policy: input.evidencePolicy ?? {}, position
   }).select("id").single();
   if (error || !data) return { ok: false, error: error?.message ?? "MISSION_CREATE_FAILED" };
+  // A freshly created Mission is its own identity root (migration 0054) — cloning inherits from
+  // here, never overwrites it, so a mission's root always points at where the lineage began.
+  await supabase.from("learning_journey_missions").update({ root_mission_id: data.id }).eq("id", data.id);
   return { ok: true, data: { id: data.id } };
 }
 
@@ -366,12 +450,40 @@ export async function preflightVersion(organizationId: string, versionId: string
 }
 
 /**
- * Publishes a draft version: archives the blueprint's currently-published version (if any) and
- * points current_published_version_id at this one. Not wrapped in a single database transaction —
+ * Repoints every student_mission_states row still pinned to `oldVersionId` onto its equivalent
+ * Mission in `newVersionId` — matched by root_mission_id (migration 0054), not by title or
+ * position, since those can legitimately change between versions. This is what makes publish
+ * "Safe" per §13: a row whose Mission has no equivalent in the new version (removed Mission) is
+ * left exactly as-is — never deleted, never blanked — so it stays as historical record; it simply
+ * stops appearing under the now-current version. Evidence/verified_at/state all live as columns on
+ * this same row (migration 0051), so repointing mission_id + blueprint_version_id carries them
+ * along untouched.
+ */
+async function repointStudentProgress(supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>, org: string, oldVersionId: string, newVersionId: string): Promise<void> {
+  const [oldGraph, newGraph] = await Promise.all([loadVersionGraph(org, oldVersionId), loadVersionGraph(org, newVersionId)]);
+
+  const oldMissionRoot = new Map<string, string>();
+  for (const outcome of oldGraph) for (const milestone of outcome.milestones) for (const mission of milestone.missions) oldMissionRoot.set(mission.id, mission.rootMissionId ?? mission.id);
+
+  const newMissionByRoot = new Map<string, string>();
+  for (const outcome of newGraph) for (const milestone of outcome.milestones) for (const mission of milestone.missions) newMissionByRoot.set(mission.rootMissionId ?? mission.id, mission.id);
+
+  const { data: states } = await supabase.from("student_mission_states").select("id, mission_id").eq("organization_id", org).eq("blueprint_version_id", oldVersionId);
+  for (const state of (states ?? []) as { id: string; mission_id: string }[]) {
+    const root = oldMissionRoot.get(state.mission_id);
+    const newMissionId = root ? newMissionByRoot.get(root) : undefined;
+    if (!newMissionId) continue; // Mission removed in the new version — row stays pinned to the old (archived) version as history.
+    await supabase.from("student_mission_states").update({ blueprint_version_id: newVersionId, mission_id: newMissionId }).eq("id", state.id);
+  }
+}
+
+/**
+ * Publishes a draft version: repoints real student progress off the outgoing published version onto
+ * this one (see repointStudentProgress), archives the outgoing version, and points
+ * current_published_version_id at this one. Not wrapped in a single database transaction —
  * supabase-js issues each statement as its own request — so a failure between steps could in theory
- * leave the blueprint briefly without a current published version. Accepted for Release A (no
- * student cutover reads current_published_version_id yet); worth a real transaction (an RPC) before
- * Release B puts a student-facing read behind this.
+ * leave the blueprint briefly without a current published version. Accepted for Release A; worth a
+ * real transaction (an RPC) before a higher-stakes cutover depends on atomicity here.
  */
 export async function publishVersion(access: AcademyAdminAccess, blueprintId: string, versionId: string): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
@@ -381,6 +493,11 @@ export async function publishVersion(access: AcademyAdminAccess, blueprintId: st
 
   const preflight = await preflightVersion(access.organizationId, versionId);
   if (!preflight.ok) return { ok: false, error: `PREFLIGHT_FAILED: ${preflight.blockers.join("; ")}` };
+
+  const { data: outgoing } = await supabase.from("learning_journey_versions").select("id").eq("organization_id", access.organizationId).eq("blueprint_id", blueprintId).eq("status", "published").maybeSingle();
+  const outgoingVersionId = (outgoing as { id: string } | null)?.id ?? null;
+
+  if (outgoingVersionId) await repointStudentProgress(supabase, access.organizationId, outgoingVersionId, versionId);
 
   const { error: archiveError } = await supabase.from("learning_journey_versions").update({ status: "archived" }).eq("organization_id", access.organizationId).eq("blueprint_id", blueprintId).eq("status", "published");
   if (archiveError) return { ok: false, error: archiveError.message };
@@ -392,6 +509,7 @@ export async function publishVersion(access: AcademyAdminAccess, blueprintId: st
   const { error: pointerError } = await supabase.from("learning_journey_blueprints").update({ current_published_version_id: versionId, updated_at: publishedAt }).eq("organization_id", access.organizationId).eq("id", blueprintId);
   if (pointerError) return { ok: false, error: pointerError.message };
 
+  await emitJourneyEvent(access.organizationId, access.userId, "journey.version_published", versionId, { blueprintId, outgoingVersionId });
   return { ok: true, data: null };
 }
 
@@ -400,5 +518,49 @@ export async function archiveVersion(access: AcademyAdminAccess, versionId: stri
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
   const { error } = await supabase.from("learning_journey_versions").update({ status: "archived" }).eq("organization_id", access.organizationId).eq("id", versionId);
   if (error) return { ok: false, error: error.message };
+  await emitJourneyEvent(access.organizationId, access.userId, "journey.version_archived", versionId, {});
+  return { ok: true, data: null };
+}
+
+/**
+ * "Xóa bản nháp" (§11): only ever a Draft — Published/current is never hard-deleted (Archive is the
+ * only removal path for those, handled by archiveVersion above). Re-checks status at delete time
+ * (not just trusting the caller's UI state) and blocks with the exact reason when the draft is
+ * referenced, per the source package's explicit rule.
+ */
+export async function deleteDraftVersion(access: AcademyAdminAccess, versionId: string): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const org = access.organizationId;
+
+  const { data: version } = await supabase.from("learning_journey_versions").select("id, status, blueprint_id").eq("organization_id", org).eq("id", versionId).maybeSingle();
+  if (!version) return { ok: false, error: "VERSION_NOT_FOUND" };
+  const row = version as { id: string; status: string; blueprint_id: string };
+  if (row.status !== "draft") return { ok: false, error: "VERSION_NOT_DRAFT" };
+
+  const { data: blueprint } = await supabase.from("learning_journey_blueprints").select("current_published_version_id").eq("organization_id", org).eq("id", row.blueprint_id).maybeSingle();
+  if ((blueprint as { current_published_version_id: string | null } | null)?.current_published_version_id === versionId) return { ok: false, error: "VERSION_IS_CURRENT_PUBLISHED" };
+
+  const { count } = await supabase.from("student_mission_states").select("id", { count: "exact", head: true }).eq("organization_id", org).eq("blueprint_version_id", versionId);
+  if (count && count > 0) return { ok: false, error: "VERSION_HAS_STUDENT_PROGRESS" };
+
+  // Delete order follows the same graph shape everything else here uses: outcomes -> milestones ->
+  // missions -> (bindings/action templates cascade via on delete cascade from migration 0050) ->
+  // workspace configs (migration 0052, not FK-cascaded from missions since it's keyed by
+  // journey_version_id + mission_id, so it needs its own explicit delete).
+  const { data: outcomeRows } = await supabase.from("learning_journey_outcomes").select("id").eq("organization_id", org).eq("version_id", versionId);
+  const outcomeIds = (outcomeRows ?? []).map((o) => (o as { id: string }).id);
+  if (outcomeIds.length) {
+    const { data: milestoneRows } = await supabase.from("learning_journey_milestones").select("id").eq("organization_id", org).in("outcome_id", outcomeIds);
+    const milestoneIds = (milestoneRows ?? []).map((m) => (m as { id: string }).id);
+    if (milestoneIds.length) await supabase.from("learning_journey_missions").delete().eq("organization_id", org).in("milestone_id", milestoneIds);
+    await supabase.from("learning_journey_milestones").delete().eq("organization_id", org).in("outcome_id", outcomeIds);
+  }
+  await supabase.from("learning_journey_outcomes").delete().eq("organization_id", org).eq("version_id", versionId);
+  await supabase.from("learning_mission_workspace_configs").delete().eq("organization_id", org).eq("journey_version_id", versionId);
+  const { error: deleteError } = await supabase.from("learning_journey_versions").delete().eq("organization_id", org).eq("id", versionId);
+  if (deleteError) return { ok: false, error: deleteError.message };
+
+  await emitJourneyEvent(org, access.userId, "journey.version_deleted", versionId, { blueprintId: row.blueprint_id });
   return { ok: true, data: null };
 }
