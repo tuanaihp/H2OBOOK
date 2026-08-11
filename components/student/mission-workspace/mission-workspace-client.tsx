@@ -84,6 +84,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
   const valueByBlock = useMemo(() => new Map(view.values.map((v) => [v.blockId, v.value])), [view.values]);
   const resourceBindingsForBlocks = mission.resourceBindings.map((b) => ({ id: b.id, title: b.title, resourceType: b.resourceType, resourceId: b.resourceId }));
   const toolBindingsForBlocks = mission.toolBindings.map((b) => ({ id: b.id, title: b.toolType ?? "" }));
+  const missionProgressPercent = DONE_STATES.includes(mission.displayState) ? 100 : mission.actions.length ? Math.round((mission.actions.filter((a) => a.status === "completed").length / mission.actions.length) * 100) : 0;
   const requiredActions = mission.actions.filter((a) => a.required);
   const requiredDone = requiredActions.filter((a) => a.status === "completed").length;
 
@@ -96,23 +97,24 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
     </section>
   </>;
 
+  // Compact sticky header (v5/32-.../CLAUDE_INTEGRATION_PROMPT.md §2): back to Journey, Mission
+  // title, progress, autosave and status/readiness together in one bar that stays visible while
+  // scrolling the tabs below — not spread across a page head and a separate footer.
   return <>
-    <Link href="/student/courses" className="h2o-sr-back">← Quay lại Roadmap</Link>
-
-    <section className="h2o-student-page-head">
-      <div>
-        <span>UNIVERSAL MISSION WORKSPACE</span>
-        <h1>{mission.title}</h1>
-        <p>Không gian làm việc đồng bộ trực tiếp với Roadmap.</p>
+    <div className="h2o-sr-stickyhead">
+      <Link href="/student/courses" className="h2o-sr-back" style={{ margin: 0 }}>← Hành trình</Link>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ fontSize: 10, color: "var(--student-wine)", fontWeight: 800, letterSpacing: ".08em" }}>MISSION FOCUS WORKSPACE</span>
+        <h1 style={{ fontSize: 16, margin: "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mission.title}</h1>
       </div>
-      <div className="h2o-sr-chips">
-        <span className={`h2o-sr-chip${DONE_STATES.includes(mission.displayState) ? " good" : mission.displayState === "review_pending" ? " warn" : ""}`}>● {STATE_LABEL[mission.displayState]}</span>
-        {mission.estimatedDays != null && <span className="h2o-sr-chip">Ước tính {mission.estimatedDays} ngày</span>}
-        <span className="h2o-sr-chip">{POLICY_LABEL[mission.completionPolicy] ?? mission.completionPolicy}</span>
-      </div>
-    </section>
+      <span className="h2o-sr-chip">{missionProgressPercent}%</span>
+      <span className="h2o-sr-chip">Sẵn sàng {view.readiness.score}/100</span>
+      <span className={`h2o-sr-chip${DONE_STATES.includes(mission.displayState) ? " good" : mission.displayState === "review_pending" ? " warn" : ""}`}>● {STATE_LABEL[mission.displayState]}</span>
+      <span className="h2o-sr-chip">{POLICY_LABEL[mission.completionPolicy] ?? mission.completionPolicy}</span>
+      <span className="h2o-sr-chip good">{saving ? "● Đang lưu..." : "● Tự động lưu"}</span>
+    </div>
 
-    {message && <div className="h2o-sr-panel" style={{ padding: 10, fontSize: 12, marginBottom: 12 }}>{message}</div>}
+    {message && <div className="h2o-sr-panel" style={{ padding: 10, fontSize: 12, margin: "12px 0" }}>{message}</div>}
 
     <div className="h2o-sr-shell">
       <aside className="h2o-sr-panel h2o-sr-context">
@@ -134,13 +136,13 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
 
       <section className="h2o-sr-panel h2o-sr-work">
         <div className="h2o-sr-missionhead">
-          <div className="h2o-sr-eyebrow">Mission Workspace</div>
-          <h2>{mission.title}</h2>
-          {mission.description && <p className="sub">{mission.description}</p>}
+          <div className="h2o-sr-eyebrow">Mission Goal</div>
+          {mission.description && <p className="sub" style={{ margin: "6px 0 0" }}>{mission.description}</p>}
           <div className="h2o-sr-meta">
             {mission.expectedResult && <span className="h2o-sr-chip">🎯 {mission.expectedResult}</span>}
             {mission.resourceBindings.length > 0 && <span className="h2o-sr-chip">📎 {mission.resourceBindings.length} tài liệu</span>}
             {mission.actionTemplates.length > 0 && <span className="h2o-sr-chip">✓ {mission.actionTemplates.length} bước</span>}
+            {mission.estimatedDays != null && <span className="h2o-sr-chip">⏱ Ước tính {mission.estimatedDays} ngày</span>}
           </div>
           <div className="h2o-sr-objective">
             <div className="box">

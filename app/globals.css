@@ -1211,6 +1211,11 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
 .h2o-sr-table th{color:var(--student-muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
 .h2o-sr-table tbody tr{cursor:pointer}.h2o-sr-table tbody tr:hover{background:#f8fafc}
 .h2o-sr-back{border:1px solid var(--student-line);background:#fff;border-radius:11px;padding:9px 12px;margin-bottom:12px;display:inline-block;text-decoration:none;color:var(--student-ink);font-size:13px}
+/* Mission Focus Workspace compact sticky header (v5/32-.../CLAUDE_INTEGRATION_PROMPT.md §2): back +
+   title + progress + readiness + status + autosave together, pinned just under the site topbar
+   (--student-topbar-h) instead of scrolling away with the page. */
+.h2o-sr-stickyhead{position:sticky;top:76px;z-index:30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(243,247,251,.92);backdrop-filter:blur(14px);border:1px solid var(--student-line);border-radius:14px;padding:10px 14px;margin:12px 0}
+@media(max-width:900px){.h2o-sr-stickyhead{top:65px}}
 .h2o-sr-shell{display:grid;grid-template-columns:280px minmax(0,1fr) 330px;gap:16px;margin-top:16px;align-items:start}
 .h2o-sr-context{padding:13px;position:sticky;top:16px}
 .h2o-sr-ctxitem{border:1px solid var(--student-line);border-radius:13px;padding:11px;margin:8px 0;display:block;width:100%;text-align:left;background:#fff;cursor:pointer;font:inherit;color:inherit;text-decoration:none}
