@@ -20,7 +20,9 @@ const domains = [
   // surface that actually administers that domain. The old demo routes are preserved (not deleted)
   // per §9's "preserve routes if necessary; change labels/navigation first" — they are simply no
   // longer the way an admin reaches these domains.
-  { id: "learn", label: "Learning Control", icon: GraduationCap, href: "/learn", links: [
+  // Group label stays the short "Learn" — the sidebar rail is narrow and the admin semantics are
+  // carried by the item labels and the page itself, not by a longer group name.
+  { id: "learn", label: "Learn", icon: GraduationCap, href: "/learn", links: [
     { href: "/learn", label: "Tổng quan đào tạo", icon: GraduationCap },
     { href: "/academy-admin/journey", label: "Journey & Outcomes", icon: Workflow },
     { href: "/academy-admin/content", label: "Knowledge & Library", icon: LibraryBig },
