@@ -82,7 +82,7 @@ export function MissionWorkspaceBuilder({ journeyVersionId, missionId, isDraft, 
       : <div style={{ pointerEvents: "none", opacity: 0.95 }}>
           {blocks.map((block) => <MissionBlockField key={block.id} block={block} value={undefined} onSave={() => {}} onNavigate={() => {}}
             resourceBindings={resourceBindings.map((b) => ({ id: b.id, title: b.label }))}
-            toolBindings={toolBindings.map((b) => ({ id: b.id, title: b.label }))} disabled />)}
+            toolBindings={toolBindings.map((b) => ({ id: b.id, title: b.label }))} missionId={missionId} disabled />)}
         </div>}
   </div>;
 

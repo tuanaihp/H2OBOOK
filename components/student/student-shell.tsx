@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Bell, BookOpen, Bot, Brain, Briefcase, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
@@ -29,11 +29,12 @@ export function StudentShell({ children, currentUser }: { children: React.ReactN
 
 function StudentShellBody({ children, currentUser }: { children: React.ReactNode; currentUser?: { name: string; email: string; role: string; demo: boolean } }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const studentName = useStudentName("H2O Student");
   const progressPercent = useStudentProgress();
   const groups = buildCompactNavigation({ role: toAccountRole(currentUser?.role ?? "student"), subscription: "basic" });
   const flatItems = groups.flatMap((group) => group.items);
-  const { itemId: activeItemId, groupId: activeGroupId } = resolveActiveItem(groups, pathname);
+  const { itemId: activeItemId, groupId: activeGroupId } = resolveActiveItem(groups, pathname, { source: searchParams.get("from") });
 
   // Undefined means "not decided by the user yet" and falls back to: open when this is the group
   // you are currently in, collapsed otherwise. Keeping the first render free of any stored value

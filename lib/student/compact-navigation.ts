@@ -118,7 +118,25 @@ export function buildCompactNavigation(context: UserAccessContext): CompactNavGr
  * once. The longest matching href wins here, so /student/business/customers resolves to that item
  * rather than to its ancestors. Returns nulls for a path outside the navigation entirely.
  */
-export function resolveActiveItem(groups: CompactNavGroup[], pathname: string): { itemId: string | null; groupId: string | null } {
+function findItem(groups: CompactNavGroup[], itemId: string): { itemId: string | null; groupId: string | null } {
+  for (const group of groups) if (group.items.some((item) => item.id === itemId)) return { itemId, groupId: group.id };
+  return { itemId: null, groupId: null };
+}
+
+/**
+ * `/student/missions/[missionId]` and `/student/document/[id]` are not in the nav item list at
+ * all (they aren't standalone destinations), so the length-matching loop below would leave both
+ * dark. Resolved explicitly first, using the launch context where the caller has it rather than
+ * guessing from the path alone (v5/32-.../CLAUDE_H2OBOOK_LEARN_OUTCOME_OS_V4.md §5): a Mission
+ * always lights up "Hành trình của tôi"; a Reader opened `from=mission` does too (so leaving to
+ * read a bound resource doesn't look like you left the Journey), while any other Reader launch
+ * (library, unspecified) lights up "Thư viện của tôi" — the same page it linked back to before this
+ * context existed.
+ */
+export function resolveActiveItem(groups: CompactNavGroup[], pathname: string, context?: { source?: string | null }): { itemId: string | null; groupId: string | null } {
+  if (pathname.startsWith("/student/missions/")) return findItem(groups, "journey");
+  if (pathname.startsWith("/student/document/")) return findItem(groups, context?.source === "mission" ? "journey" : "library");
+
   let itemId: string | null = null;
   let groupId: string | null = null;
   let matchedLength = -1;

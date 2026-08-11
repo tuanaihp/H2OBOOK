@@ -67,11 +67,6 @@ export async function resolveMissionContext(userId: string, organizationId: stri
   const journey = await getJourneyForStudent(userId, organizationId, stage.id);
   if (!journey?.versionId) return null;
 
-  const siblings: MissionSibling[] = journey.outcomes.flatMap((outcome) =>
-    outcome.milestones.flatMap((milestone) => milestone.missions.map((m) => ({
-      id: m.id, title: m.title, displayState: m.displayState, lockedReason: m.lockedReason, outcomeTitle: outcome.title
-    })))
-  );
   const allMissions = journey.outcomes.flatMap((o) => o.milestones.flatMap((m) => m.missions));
   const unlocks = allMissions.find((m) => m.prerequisiteMissionId === missionId);
 
@@ -81,6 +76,12 @@ export async function resolveMissionContext(userId: string, organizationId: stri
       if (!mission) continue;
       const outcomeMissions = outcome.milestones.flatMap((ms) => ms.missions);
       const achieved = outcomeMissions.filter((m) => m.displayState === "result_achieved" || m.displayState === "verified").length;
+      // Local Outcome path only — previous/current/next Mission within THIS Outcome, not every
+      // Mission in the Stage (v5/32-.../CLAUDE_H2OBOOK_LEARN_OUTCOME_OS_V4.md §2: "Do not render
+      // all Stage Missions"). Reversing the folder-30 Workspace, which showed the full sibling list.
+      const indexInOutcome = outcomeMissions.findIndex((m) => m.id === missionId);
+      const siblings: MissionSibling[] = outcomeMissions.slice(Math.max(0, indexInOutcome - 1), indexInOutcome + 2)
+        .map((m) => ({ id: m.id, title: m.title, displayState: m.displayState, lockedReason: m.lockedReason, outcomeTitle: outcome.title }));
       return {
         stage, outcome: { id: outcome.id, title: outcome.title }, milestone: { id: milestone.id, title: milestone.title },
         mission, versionId: journey.versionId, blueprintTitle: journey.blueprintTitle, journeyProgressPercent: journey.progressPercent,
