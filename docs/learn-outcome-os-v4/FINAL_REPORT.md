@@ -118,6 +118,30 @@ Migration 0053:
 
 Gói nguồn gợi ý 6 feature flag. Không dùng — nhất quán với mọi release trước của dự án này (lịch sử git là đường lùi, không thêm hạ tầng feature-flag).
 
+## 11b. Đối chiếu lại sau khi Owner chỉ ra thiếu 2 file (bổ sung 2026-08-11)
+
+Gói thật có **22 file**, báo cáo trước ghi nhầm "20/20". Đã đọc bổ sung `CLAUDE_INTEGRATION_PROMPT.md` (giống hệt file đã đọc, không có yêu cầu mới) và **file prototype HTML** (trước đó bỏ sót — đúng loại lỗi đã xảy ra ở folder 30).
+
+Đối chiếu prototype với code thật, tìm ra 1 khoảng cách thật:
+
+- **§2 yêu cầu "compact sticky header"** (back/title/progress/autosave/status cùng một chỗ, dính khi cuộn) — bản trước đó có đủ nội dung nhưng **rải ra 3 chỗ khác nhau và không dính**: một page-head tĩnh, một tiêu đề Mission lặp lại giữa canvas, một footer dính riêng. Đã gộp thành 1 thanh `.h2o-sr-stickyhead` duy nhất (quay lại · tiêu đề · % tiến độ · điểm sẵn sàng · trạng thái · chính sách hoàn thành · tự động lưu), dính ngay dưới thanh topbar của site, bỏ tiêu đề lặp trong canvas.
+- **Panel AI trong prototype tô toàn bộ nền tối** — code hiện tại chỉ tô tối phần đầu, phần thân nền trắng. Đã cân nhắc và **giữ nguyên**: đây là cách trình bày panel AI đã dùng nhất quán ở Smart Roadmap, Today và chính Mission Workspace (xây từ prototype folder 30 phong phú hơn, đã được Owner duyệt) — đổi riêng ở đây sẽ phá vỡ ngôn ngữ thiết kế chung của cả app để khớp một bản phác thảo 7 dòng đơn giản hơn nhiều.
+
+Đối chiếu lại đúng 10 điểm khóa Owner liệt kê:
+
+| # | Điểm khóa | Trạng thái |
+|---|---|---|
+| 1 | Click Mission vào thẳng Focus Workspace | ✅ |
+| 2 | Reader mở từ Mission có "Quay lại Mission", không về thư viện | ✅ |
+| 3 | "Kiến thức cần dùng" lấy từ resource binding thật | ✅ Không đổi từ trước |
+| 4 | 4 Outcome song song; Mission đầu mở, Mission sau khóa tuần tự trong Outcome | ✅ Trên draft v2, đã kiểm chứng 0 blocker — **chưa publish** |
+| 5 | Không tạo unlock engine mới; sửa prerequisite trên Draft version mới | ✅ Chỉ sửa `prerequisite_mission_id` có sẵn, qua script trên bản nháp |
+| 6 | Không sửa trực tiếp Published Journey | ✅ v1 không bị đụng, đã xác nhận |
+| 7 | "Khóa học bổ trợ" → Growth Recommendations | ⛔ Hoãn có chủ đích (mục 7) |
+| 8 | Admin LEARN → Learning Control Center | ⛔ Hoãn có chủ đích (mục 7) |
+| 9 | Preflight blocker cho thiếu Expected Result/Success Criteria/Evidence path | ✅ Cả 3 đều là blocker. Riêng "Result path" không thêm check riêng — schema này mọi `completion_policy` đều có đường tới `result_achieved` sẵn theo thiết kế, không có khoảng trống tương ứng để tạo blocker mà không giả |
+| 10 | AI chỉ hỗ trợ, không tự pass/verify/unlock | ✅ Không đổi — mọi field AI luôn `null`/placeholder cho tới Release 4 |
+
 ## 12. Việc cần bạn làm
 
 1. **Quyết định có publish bản nháp v2 không** (Parallel Outcome + Success Criteria đầy đủ đã sẵn sàng, 0 blocker) — publish sẽ mở Outcome 2/3/4's Mission đầu ngay cho học viên đang học, không cần chờ xong hết Outcome 1.
