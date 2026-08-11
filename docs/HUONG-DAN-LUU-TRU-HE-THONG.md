@@ -6,6 +6,32 @@
 
 ---
 
+**2026-08-11 — 🎯 Đã merge + deploy: Learn Outcome OS V4 (folder 32) — sửa xong 4/6 quyết định, 2 quyết định còn lại cần bạn quyết trước — ⚠️ CẦN CHẠY MIGRATION 0053.**
+
+Đọc đủ 20/20 file gói nguồn trước khi làm (rút kinh nghiệm từ folder 30).
+
+**Phát hiện 2 lỗi thật khi audit (không phải do gói nguồn yêu cầu — do dữ liệu thật sai):**
+1. **Chuỗi mở khóa chạy tuần tự xuyên suốt cả 4 Outcome** của Stage 1 đang chạy thật — Outcome 2 bị khóa cho tới khi học viên xong sạch Outcome 1. Đã sửa trên bản nháp v2 (Mission đầu mỗi Outcome giờ mở song song đúng thiết kế), **chưa publish** — quyết định của bạn.
+2. **Toàn bộ 14 Mission đang publish thiếu Success Criteria.** Preflight giờ chặn (blocker) việc này cho lần publish tiếp theo — bản đang chạy không bị ảnh hưởng.
+
+**Đã làm thêm:**
+- Bấm Mission ở bất kỳ đâu giờ mở thẳng màn làm bài (trước đó phải qua khung xem nhanh trước).
+- Khung "bối cảnh hành trình" bên trái màn làm bài giờ chỉ hiện 3 Mission gần nhất trong CHÍNH Outcome đó, không còn liệt kê hết cả giai đoạn.
+- Đọc tài liệu từ trong Mission ra giờ **nhớ đường về** — nút "Quay lại Mission: [tên]" thay vì luôn về Thư viện, có thêm lưu bookmark/ghi chú/tiến độ đọc.
+- Sidebar bên trái giờ sáng đúng mục khi bạn đang ở màn Mission hoặc đang đọc tài liệu từ Mission ra (trước đây không mục nào sáng cả).
+- Màn Admin Journey Builder có thêm nút chọn "Mission nào phải học trước" (không cần biết mã kỹ thuật), kèm nhãn cảnh báo khi chọn phụ thuộc chéo sang Outcome khác.
+
+**⚠️ Việc cần bạn làm:** chạy `supabase/_RUN-0053-ONLY.sql` (bảng lưu bookmark/tiến độ đọc, mở rộng bảng ghi chú có sẵn — an toàn, không đụng dữ liệu cũ).
+
+**Quyết định cần bạn:**
+1. Có publish bản nháp v2 không (mở khóa song song 4 Outcome ngay cho học viên đang học).
+2. Growth Recommendations (thay "Khóa học bổ trợ") — cần audit hệ thống bán hàng trước, chưa làm.
+3. Admin Learning Control Center — 4/7 mục tiêu chưa có trang cho vai trò Admin (chỉ có cho Giáo viên), cần quyết định xây mới hay chỉ đổi tên.
+
+Báo cáo đầy đủ: `docs/learn-outcome-os-v4/FINAL_REPORT.md`.
+
+---
+
 **2026-08-11 — 🗺️ Đã merge + deploy: Smart Journey Shell V3 (folder 31) — hợp nhất Map/Roadmap/Danh sách/Today thành 1 shell, KHÔNG cần migration.**
 
 Lần này đọc đủ **22/22 file** ngay từ đầu (rút kinh nghiệm từ folder 30). Nâng cấp "Hành trình của tôi":
