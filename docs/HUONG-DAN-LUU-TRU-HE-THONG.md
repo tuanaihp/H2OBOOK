@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-11 — 🧩 Đã merge + deploy: Journey Admin Builder V5 (folder 33) — sửa lỗi mất tiến độ khi publish đè version, thêm Xóa bản nháp + Nhân bản nhiều giai đoạn — ⚠️ ĐÃ CHẠY MIGRATION 0054.**
+
+Đọc đủ 12/12 file gói nguồn trước khi làm. Audit ra 1 rủi ro thật đang tồn tại: `duplicateVersion()` tạo Mission mới với UUID hoàn toàn khác mỗi lần nhân bản — nếu Admin publish version mới đè lên version đang publish, tiến độ học viên thật (xác nhận 2 người: Max Crypto, Thùy H2O Makeup, đang có tiến độ thật trên v1) sẽ "biến mất" khỏi giao diện của họ (dữ liệu không mất, chỉ không còn khớp version mới).
+
+**Đã sửa bằng "nhận diện xuyên suốt version" (`root_mission_id`, migration 0054):** Mission được tạo mới thì tự trỏ về chính nó; Mission được nhân bản thì kế thừa đúng gốc từ Mission nguồn. Khi Publish, hệ thống giờ tự dò Mission tương đương ở version mới theo nhận diện này và chuyển tiến độ học viên sang đúng chỗ trước khi đổi phiên bản đang áp dụng — Mission bị bỏ ở version mới thì tiến độ cũ giữ nguyên làm lịch sử, không bị xóa.
+
+**Đã làm thêm:** "Nhân bản sang nhiều giai đoạn" (1 version tạo bản nháp mới cho nhiều giai đoạn cùng lúc, không đụng bản đang publish, không copy tiến độ/bằng chứng học viên), "Xóa bản nháp" (chỉ xóa được bản nháp, chặn nếu đang có học viên tham chiếu), dịch lại toàn bộ giao diện đúng từ điển tiếng Việt, tách Mission Inspector thành 5 tab (Tổng quan/Học liệu/Việc cần làm/Không gian làm việc/Mở khóa & đánh giá), thêm "Xem như học viên".
+
+**⚠️ Phát hiện quan trọng — đã báo cáo sai lúc đầu, xin đính chính:** lúc kiểm chứng, thấy 3 bản nháp cũ (v2/v3/v4) trên Stage "Nền tảng nghề Makeup" chưa publish. Tôi báo nhầm với bạn là "3 bản giống hệt v1, không có gì" — **sai**, vì tôi chỉ so số lượng Mission chứ chưa so nội dung. Kiểm lại đúng thì cả 3 đều mang chỉnh sửa thật từ folder 32 (mở khóa song song 4 Outcome, đã điền đủ Thời lượng dự kiến + Tiêu chí đạt). Bạn đã chọn đúng khi bấm "tự kiểm tra trước" thay vì đồng ý xóa theo đề xuất sai của tôi — không có gì bị mất. Vì 3 bản này được nhân bản TRƯỚC khi có `root_mission_id`, khi bạn sẵn sàng publy chọn 1 trong 3 bản, hãy bấm "Nhân bản phiên bản này" trên nó trước để tạo bản nháp mới mang đúng nhận diện, rồi publish bản mới đó — đảm bảo tiến độ 2 học viên thật không bị ảnh hưởng.
+
+Báo cáo đầy đủ: `docs/journey-admin-v5/FINAL_REPORT.md`.
+
+---
+
 **2026-08-11 — 🔧 Đã merge + deploy: SỬA LỖI PHẠM VI — Learning Control Center đặt đúng chỗ (tab LEARN), KHÔNG cần migration.**
 
 Bạn chỉ ra tab LEARN chưa đổi thiết kế — **bạn đúng, và tôi đã làm nhầm chỗ.** Yêu cầu gốc nói "Admin LEARN không được đóng vai học viên"; tôi hiểu nhầm thành khu Academy Control Center, trong khi thực tế là **tab "Learn" trong sidebar chính** — chính màn hình bạn chụp, hiển thị bạn (Chủ workspace) như một học viên với "55% Mastery", "Ôn ngay 3 thẻ", "Ngày duy trì nhịp học".
