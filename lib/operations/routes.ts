@@ -48,7 +48,13 @@ export const academyAdminRoutes = [
   { href: "/academy-admin/content", label: "Kho nội dung Academy", icon: LibraryBig },
   { href: "/academy-admin/brain", label: "H2O Brain", icon: Brain },
   { href: "/academy-admin/programs", label: "Khóa học video", icon: GraduationCap },
-  { href: "/academy-admin/distribution", label: "Phân phối & cấp quyền", icon: BadgeCheck }
+  { href: "/academy-admin/distribution", label: "Phân phối & cấp quyền", icon: BadgeCheck },
+  // Learning Control Center (v5/32-.../CLAUDE_INTEGRATION_PROMPT.md §9): "Classes & Cohorts" and
+  // "Assignment & Review" already exist as real, DB-backed pages — just under /instructor/*, which
+  // Owner/Admin already have permission for (lib/operations/permissions.ts) but had no link into
+  // from here. Bridged rather than rebuilt: same data, one more entry point.
+  { href: "/instructor/classes", label: "Classes & Cohorts", icon: School },
+  { href: "/instructor/assessments", label: "Assignment & Review", icon: BookOpenCheck }
 ];
 
 export const platformRoutes = [
