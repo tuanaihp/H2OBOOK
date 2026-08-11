@@ -107,6 +107,20 @@ Trong khi dữ liệu đào tạo **thật** của tổ chức nằm ở chỗ k
 - Nhóm sidebar đổi từ ngữ nghĩa học viên sang quản trị: "Tổng quan đào tạo", "Journey & Outcomes" → `/academy-admin/journey`, "Knowledge & Library" → `/academy-admin/content`, "Classes & Cohorts" → `/instructor/classes` (thật), "Assignment & Review" → `/instructor/assessments` (thật), còn "Smart Review" và "Quiz & Assessment" giữ route cũ và **ghi rõ chưa có trang quản trị**.
 - **Không xóa route demo nào** — đúng tinh thần §9 "preserve routes if necessary; change labels/navigation first".
 - Gỡ khối 7-module đã thêm nhầm ở `/academy-admin` để tránh hai "control center" cạnh tranh nhau.
+- Nhãn nhóm sidebar giữ nguyên "Learn" (ngắn gọn, hợp thanh sidebar hẹp) theo yêu cầu — ngữ nghĩa quản trị nằm ở tên từng mục con và nội dung trang, không cần đổi tên nhóm.
+
+**Xác nhận bằng dữ liệu thật (2026-08-11)** — mô phỏng đúng truy vấn của `getLearningControlSummary()` trên production:
+
+| Số liệu | Giá trị thật |
+|---|---|
+| Giai đoạn | 6/13 đang publish |
+| Tài liệu | 102 |
+| Mission đã cấu hình | 42 (tính cả bản nháp lẫn đã publish, đúng ý nghĩa "nội dung đã xây") |
+| Học viên đang hoạt động | 4 |
+| Học viên đã có tiến độ | 2/4 |
+| flashcards / knowledge_spaces / classes / assignments / quizzes | 0 / 0 / 0 / 0 / 0 (đúng thật, không bịa) |
+
+Đã xác minh 2 học viên có tiến độ là dữ liệu thật hợp lệ (Max Crypto và tài khoản chính chủ workspace "Thùy H2O Makeup"), không phải dữ liệu test còn sót — không cần dọn dẹp gì thêm vì bước này chỉ đọc, không ghi.
 
 ## 8. Schema mới — migration 0053
 

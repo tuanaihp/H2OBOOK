@@ -12,7 +12,9 @@ Bạn chỉ ra tab LEARN chưa đổi thiết kế — **bạn đúng, và tôi 
 
 **Kiểm tra kỹ 7 trang trong tab đó, phát hiện:** tất cả đều là **dữ liệu demo giả**, và **cả 7 bảng dữ liệu thật của chúng đều rỗng** (flashcard 0, lớp học 0, bài tập 0, quiz 0...). Trong khi dữ liệu đào tạo THẬT của bạn rất lớn và nằm chỗ khác: **102 tài liệu, 13 giai đoạn, 28 Mission, 4 học viên có tiến độ thật**.
 
-**Đã sửa:** tab LEARN giờ là **Learning Control Center** — hiện số liệu đào tạo thật của tổ chức (không còn tiến độ cá nhân bịa), và 7 module trỏ đúng nơi quản trị thật. Hai module chưa tồn tại (Smart Review, Quiz & Assessment) ghi rõ "chưa có trang quản trị" thay vì trỏ bừa. Không xóa trang cũ nào — chỉ đổi cách vào.
+**Đã sửa:** tab LEARN giờ là **Learning Control Center** — hiện số liệu đào tạo thật của tổ chức (không còn tiến độ cá nhân bịa), và 7 module trỏ đúng nơi quản trị thật. Hai module chưa tồn tại (Smart Review, Quiz & Assessment) ghi rõ "chưa có trang quản trị" thay vì trỏ bừa. Không xóa trang cũ nào — chỉ đổi cách vào. Nhãn nhóm sidebar giữ "Learn" ngắn gọn theo yêu cầu của bạn cho đẹp giao diện.
+
+**Đã kiểm chứng số liệu bằng dữ liệu thật:** 6/13 giai đoạn đang publish, 102 tài liệu, 42 Mission đã cấu hình, 4 học viên hoạt động (2 người đã có tiến độ thật — đã xác minh không phải dữ liệu test còn sót).
 
 ---
 
