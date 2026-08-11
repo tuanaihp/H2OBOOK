@@ -55,11 +55,36 @@ Cả hai đã xác nhận bằng truy vấn thật, không phải suy đoán.
 - **H2O Mentor trong Reader**: không giả lập AI — hiện đúng "H2O Mentor tạm thời không khả dụng" (Release 4 chưa xây, nhất quán với mọi chỗ khác trong dự án).
 - Liên kết "Kiến thức cần dùng" trong Mission Workspace (cả Tab 1 và block `resource`/`tool` trong Tab 2) giờ trỏ đúng URL có context thay vì luôn về `/student/library`.
 
-## 7. Đã hoãn — vì sao
+## 7. Growth Recommendations + Admin Learning Control Center — hoàn thành (bổ sung 2026-08-11)
 
-**Growth Recommendations (§8)**: cần audit `products`, `courses`, `membership plans`, `entitlements`, lịch sử mua hàng — chưa làm trong session này. Xây vội một hệ thống gợi ý bán hàng mà không hiểu rõ dữ liệu thương mại thật có nguy cơ tạo ra CTA sai (bán lại thứ học viên đã sở hữu, giá/ưu đãi bịa) — đúng điều gói nguồn cấm rõ ("no fake price/product data", "already-entitled item never re-sold"). Cần một lượt audit + implement riêng.
+Đã audit đầy đủ hệ thống thương mại thật (`products`, `academy_courses`, `memberships`, `entitlements`, `orders`, `career_stage_resources`) trước khi code, và audit các trang admin thật cho 7 module Learning Control Center. Kết quả:
 
-**Admin Learning Control Center (§9)**: đối chiếu nhanh, admin nav hiện tại (`lib/operations/routes.ts`) đã có 7 mục nhưng chỉ khớp lỏng lẻo với 3/7 module mong muốn (Tổng quan, Journey, một phần Knowledge/Library). "Smart Review", "Classes & Cohorts", "Assignment & Review", "Quiz & Assessment" hiện chưa thấy có trang dành cho vai trò owner/admin (chỉ có ở `/instructor/*` cho vai trò giáo viên) — nghĩa là đây không chỉ là đổi nhãn, mà có thể cần xây mới các trang admin cấp tổ chức. Đây là quyết định phạm vi lớn cần bạn xác nhận trước, không nên tôi tự ý mở rộng.
+### 7a. Growth Recommendations (§8)
+
+**Phát hiện thật (không phải giả định):**
+- **0 dòng `entitlements` và 0 dòng `memberships` tồn tại trong toàn bộ tổ chức** — 0 đơn hàng nào có `payment_status='paid'` (5 đơn hàng thật đều `pending`). Nghĩa là hiện tại **không học viên nào** có "included/đã sở hữu" thật.
+- **0 tài nguyên nào dùng `access='entitlement_only'`** trong `career_stage_resources` — không có "tài liệu cao cấp bán riêng" thật nào tồn tại. Mục "PREMIUM RESOURCE" (loại B) không hiện gì cả thay vì bịa — truy vấn thật vẫn có sẵn, sẽ tự hoạt động ngay khi Admin đánh dấu 1 tài nguyên là entitlement_only.
+- **9 sản phẩm thật** (6 khóa học giá 3.6-19.8 triệu, 3 gói membership giá 299k-1.49 triệu/tháng) — dùng trực tiếp giá/mô tả thật, không copy catalog tĩnh.
+
+`lib/growth/recommendations.ts` tái dùng đúng công thức entitlement/membership mà `lib/academy/student-course.ts` đã dùng cho "Khóa học bổ trợ" (privileged || membership || entitlement riêng khóa học), không viết lại logic truy cập mới. Đã **xóa "Khóa học bổ trợ"** khỏi `/student/courses`, thay bằng `<GrowthRecommendations>`. Membership không bao giờ chào bán lại nếu học viên đã có (test #16). Không con số/mô tả nào bịa (test #17) — mọi thứ trace về đúng 1 dòng dữ liệu thật.
+
+**Xác nhận bằng dữ liệu thật** (mô phỏng đúng logic cho học viên thật "Max Crypto" — role student, 0 entitlement): 0 mục "included", 3 khóa học gợi ý (giới hạn từ 6), 3 gói membership, 0 tài liệu cao cấp — khớp đúng dự đoán.
+
+### 7b. Admin Learning Control Center (§9)
+
+Tìm trang admin thật cho từng module trước khi quyết định xây gì:
+
+| Module | Trạng thái thật | Xử lý |
+|---|---|---|
+| Tổng quan đào tạo | Có sẵn, thật | Giữ nguyên `/academy-admin` |
+| Journey & Outcomes | Có sẵn, thật | Giữ nguyên `/academy-admin/journey` |
+| Knowledge & Library | Có sẵn, thật | Giữ nguyên `/academy-admin/content` |
+| Classes & Cohorts | **Có sẵn nhưng chưa nối** — `/instructor/classes` đã cho phép owner/admin truy cập (`lib/operations/permissions.ts`), chỉ chưa có link từ Academy Control Center | Nối link vào sidebar, không xây mới |
+| Assignment & Review | **Có sẵn nhưng chưa nối** — `/instructor/assessments` ("Feedback Studio") cũng đã cho owner/admin | Nối link vào sidebar, không xây mới |
+| Smart Review | **Không tồn tại** — grep toàn repo không thấy trang quản trị flashcard/spaced-repetition nào | Hiện thẻ "Chưa có trang quản trị" trung thực, không link giả |
+| Quiz & Assessment | **Không tồn tại** — không có question bank/quiz management nào cho admin | Hiện thẻ "Chưa có trang quản trị" trung thực, không link giả |
+
+Đã thêm khối "Learning Control Center — 7 module" ngay trên trang `/academy-admin` (Tổng quan đào tạo) thật, và 2 mục mới vào sidebar Academy Control Center trỏ tới `/instructor/classes` và `/instructor/assessments` — không tạo route mới, không phá route cũ, đúng tinh thần "Preserve routes if necessary; change labels/navigation first".
 
 ## 8. Schema mới — migration 0053
 
@@ -145,5 +170,6 @@ Gói thật có **22 file**, báo cáo trước ghi nhầm "20/20". Đã đọc 
 ## 12. Việc cần bạn làm
 
 1. **Quyết định có publish bản nháp v2 không** (Parallel Outcome + Success Criteria đầy đủ đã sẵn sàng, 0 blocker) — publish sẽ mở Outcome 2/3/4's Mission đầu ngay cho học viên đang học, không cần chờ xong hết Outcome 1.
-2. **Quyết định về Growth Recommendations** — có cần tôi audit hệ thống thương mại (products/courses/membership) trước khi xây gợi ý không.
-3. **Quyết định về Admin Learning Control Center** — 4/7 module mục tiêu (Smart Review, Classes & Cohorts, Assignment & Review, Quiz & Assessment) hiện chưa có mặt owner/admin — có cần xây mới hay chỉ đổi nhãn 3 module đã khớp?
+2. Tự vào `/student/courses` (cuộn xuống dưới Journey) để xem Growth Recommendations thật, và `/academy-admin` để xem khối Learning Control Center 7 module.
+3. **Quyết định về Smart Review và Quiz & Assessment** — 2 module này chưa có trang quản trị nào trong toàn bộ app (đã xác nhận bằng tìm kiếm, không phải chưa tìm kỹ) — cần bạn quyết định có xây mới không, và nếu có thì phạm vi ra sao (đây là 2 tính năng lớn, mỗi cái tương đương 1 module riêng).
+4. **Growth Recommendations sẽ tự động có nội dung "Đã sở hữu"** ngay khi có đơn hàng thật được đánh dấu `paid` hoặc Admin cấp entitlement thủ công — không cần sửa code thêm.

@@ -6,6 +6,14 @@
 
 ---
 
+**2026-08-11 — 🛒 Đã merge + deploy: Growth Recommendations + Learning Control Center — nốt 2 việc còn hoãn của folder 32, KHÔNG cần migration.**
+
+**Growth Recommendations** (thay "Khóa học bổ trợ"): đã audit hệ thống bán hàng thật trước khi xây. Phát hiện: **chưa có học viên nào từng mua hàng thành công** trong hệ thống (5 đơn hàng thật đều đang "chờ thanh toán") — nên mục "Đã sở hữu" hiện chưa có gì, đúng thực tế, không bịa. Có 9 sản phẩm thật (6 khóa học, 3 gói membership) với giá thật — dùng trực tiếp, không dùng giá giả. Ngay khi có đơn hàng đầu tiên được đánh dấu đã thanh toán, mục "Đã sở hữu" sẽ tự có nội dung — không cần sửa code.
+
+**Learning Control Center** (Admin LEARN): tìm ra 2 trang quản trị **đã tồn tại thật** (Classes & Cohorts, Assignment & Review — nằm dưới `/instructor/*`) nhưng chưa có link vào từ Academy Control Center — đã nối vào sidebar, không xây trùng. 2 module còn lại (Smart Review, Quiz & Assessment) xác nhận **chưa có trang quản trị nào trong toàn bộ app** — hiện thẻ "Chưa có trang quản trị" trung thực trên Tổng quan đào tạo thay vì trỏ vào chỗ không liên quan.
+
+---
+
 **2026-08-11 — ✅ Migration 0053 đã chạy — đã kiểm chứng Contextual Resource Reader bằng dữ liệu thật.**
 
 Đã test trực tiếp: lưu bookmark + tiến độ đọc + ghi chú trên 1 tài liệu thật, và cố tình thử ghi 1 ghi chú "không gắn với gì cả" để xác nhận hệ thống từ chối đúng (không cho note mồ côi). Cả 2 đều đúng như thiết kế. Đã dọn sạch dữ liệu test — không còn dấu vết nào trong production.
