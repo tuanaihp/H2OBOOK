@@ -33,3 +33,22 @@ export async function getStudentBlockValues(organizationId: string, studentId: s
   return ((data ?? []) as { block_id: string; value: unknown; status: string; updated_at: string }[])
     .map((r) => ({ blockId: r.block_id, value: r.value, status: r.status as "draft" | "saved", updatedAt: r.updated_at }));
 }
+
+/**
+ * Every one of this student's block values for a version, grouped by mission — one query for the
+ * whole Smart Journey Shell read model (docs/smart-journey-v3 §4/§12: "batch query; no N+1") instead
+ * of one query per mission when computing every mission's readiness score for Map/List views.
+ */
+export async function getStudentBlockValuesForVersion(organizationId: string, studentId: string, journeyVersionId: string): Promise<Map<string, StudentBlockValue[]>> {
+  const admin = createSupabaseAdminClient();
+  const map = new Map<string, StudentBlockValue[]>();
+  if (!admin) return map;
+  const { data } = await admin.from("student_mission_workspace_values").select("mission_id,block_id,value,status,updated_at")
+    .eq("organization_id", organizationId).eq("student_id", studentId).eq("journey_version_id", journeyVersionId);
+  for (const row of (data ?? []) as { mission_id: string; block_id: string; value: unknown; status: string; updated_at: string }[]) {
+    const list = map.get(row.mission_id) ?? [];
+    list.push({ blockId: row.block_id, value: row.value, status: row.status as "draft" | "saved", updatedAt: row.updated_at });
+    map.set(row.mission_id, list);
+  }
+  return map;
+}
