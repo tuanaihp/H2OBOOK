@@ -14,14 +14,20 @@ import { operationsFeatures } from "@/lib/operations/feature";
 
 const domains = [
   { id: "home", label: "Home", icon: LayoutDashboard, href: "/dashboard", links: [] },
-  { id: "learn", label: "Learn", icon: GraduationCap, href: "/learn", links: [
-    { href: "/learn", label: "Hành trình học", icon: GraduationCap },
-    { href: "/study", label: "Ôn tập thông minh", icon: Brain },
-    { href: "/knowledge", label: "Không gian tri thức", icon: LibraryBig },
-    { href: "/library", label: "Thư viện học", icon: BookOpen },
-    { href: "/classes", label: "Lớp học", icon: Users },
-    { href: "/assignments", label: "Bài tập", icon: ClipboardCheck },
-    { href: "/quizzes", label: "Quiz", icon: FileQuestion }
+  // Learning Control Center (v5/32-H2OBOOK_LEARN_OUTCOME_OS_V4 §9): this group used to be the
+  // learner's own LEARN menu shown to Owners/Admins — "Hành trình học", "Ôn tập thông minh" etc.
+  // over a Zustand demo store. Admin must not mirror Student LEARN, so each entry now points at the
+  // surface that actually administers that domain. The old demo routes are preserved (not deleted)
+  // per §9's "preserve routes if necessary; change labels/navigation first" — they are simply no
+  // longer the way an admin reaches these domains.
+  { id: "learn", label: "Learning Control", icon: GraduationCap, href: "/learn", links: [
+    { href: "/learn", label: "Tổng quan đào tạo", icon: GraduationCap },
+    { href: "/academy-admin/journey", label: "Journey & Outcomes", icon: Workflow },
+    { href: "/academy-admin/content", label: "Knowledge & Library", icon: LibraryBig },
+    { href: "/instructor/classes", label: "Classes & Cohorts", icon: Users },
+    { href: "/instructor/assessments", label: "Assignment & Review", icon: ClipboardCheck },
+    { href: "/study", label: "Smart Review", icon: Brain },
+    { href: "/quizzes", label: "Quiz & Assessment", icon: FileQuestion }
   ]},
   { id: "create", label: "Create", icon: WandSparkles, href: "/books", links: [
     { href: "/assets", label: "Kho tài sản", icon: FolderOpen },
