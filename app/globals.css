@@ -1259,6 +1259,28 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
 @media(max-width:1150px){.h2o-sr-strip{grid-template-columns:1fr 1fr}.h2o-sr-grid{grid-template-columns:1fr}.h2o-sr-aside{position:relative;top:auto}.h2o-sr-shell{grid-template-columns:240px minmax(0,1fr)}.h2o-sr-shell>.h2o-sr-aside{grid-column:1/-1}.h2o-sr-lane{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.h2o-sr-strip{grid-template-columns:1fr}.h2o-sr-lane{grid-template-columns:1fr}.h2o-sr-shell{grid-template-columns:1fr}.h2o-sr-context{position:relative;top:auto}.h2o-sr-objective{grid-template-columns:1fr}.h2o-sr-tlrow{grid-template-columns:80px 1fr}.h2o-sr-tlrow>span{grid-column:2}}
 
+/* Smart Journey Shell V3 (docs/smart-journey-v3) — additive to the .h2o-sr-* set above, same
+   --student-* tokens. Mode/view controls, Mission Control summary+filter row, and the Mission
+   Quick Preview drawer that every view (Map/Roadmap/List/Today) opens through. */
+.h2o-sj-hero-tag{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7d3ff2;background:#f1ecff;border-radius:999px;padding:2px 8px;margin-bottom:4px}
+.h2o-sj-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.h2o-sj-summary article{border:1px solid var(--student-line);border-radius:14px;background:#fff;padding:12px}
+.h2o-sj-summary .label{font-size:10px;text-transform:uppercase;color:var(--student-muted);letter-spacing:.08em}
+.h2o-sj-summary strong{display:block;font-size:18px;margin-top:4px}
+.h2o-sj-filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid var(--student-line);background:#fff;border-radius:14px;padding:10px}
+.h2o-sj-filterbar input[type=text],.h2o-sj-filterbar input:not([type]){flex:1;min-width:180px;border:1px solid var(--student-line);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px}
+.h2o-sj-filterbar select{border:1px solid var(--student-line);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;background:#fff}
+.h2o-sj-submode{display:flex;gap:6px;margin-left:auto}
+.h2o-sj-submode button{border:1px solid var(--student-line);background:#fff;border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer}
+.h2o-sj-submode button.active{background:#111c31;color:#fff;border-color:#111c31}
+.h2o-sj-queuerow{display:grid;grid-template-columns:36px minmax(0,1fr) 110px;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--student-line);width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.h2o-sj-queuerow:last-child{border-bottom:0}
+.h2o-sj-queuerow .num{width:32px;height:32px;border-radius:50%;background:#111c31;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:800}
+.h2o-sj-drawer-overlay{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:60;display:flex;justify-content:flex-end}
+.h2o-sj-drawer{width:min(440px,100%);height:100%;background:#fff;overflow-y:auto;padding:24px;box-shadow:-12px 0 32px rgba(15,23,42,.16)}
+.h2o-sj-drawer-close{float:right;border:1px solid var(--student-line);background:#fff;border-radius:10px;width:32px;height:32px;cursor:pointer;font-size:14px}
+@media(max-width:760px){.h2o-sj-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.h2o-sj-submode{margin-left:0;width:100%}}
+
 .academy-admin-feedback{margin:0 0 14px;padding:11px 14px;border:1px solid #d9e8e7;border-radius:10px;background:#eff9f7;color:#2c7467;font-size:10px}.academy-applications-admin{margin-bottom:18px}.academy-review-actions{display:flex;gap:6px;justify-content:flex-end}.academy-review-actions button{border:1px solid #d8c7d0;border-radius:7px;background:white;color:#6f1d46;padding:7px 9px;font:inherit;font-size:7px;font-weight:900;white-space:nowrap;cursor:pointer}.academy-review-actions button:first-child{border-color:#6f1d46;background:#6f1d46;color:white}.academy-review-actions button:disabled{opacity:.5}
 .auth-trust-inline{display:flex;align-items:center;gap:8px;margin:2px 0 18px;color:#6b7680;font-size:10px}.auth-trust-inline svg,.auth-message svg{width:16px;vertical-align:middle}
 .h2o-student-sidebar-bottom form{margin:0}.h2o-student-sidebar-bottom button{width:100%;border:0;background:transparent;color:inherit;display:flex;align-items:center;gap:9px;padding:0;font:inherit;font-size:var(--h2o-fs-label);cursor:pointer}.h2o-student-sidebar-bottom button svg{width:14px}
