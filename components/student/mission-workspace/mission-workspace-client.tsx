@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MissionBlockField, type StudentBlockValue, type StudentMissionBlock } from "./mission-block-field";
+import { buildMissionResourceHref } from "@/components/student/reader/context-url";
 
 type DisplayState = "locked" | "available" | "not_started" | "learning" | "planning" | "doing" | "evidence_pending" | "review_pending" | "verified" | "result_achieved" | "blocked";
 type Mission = {
@@ -81,7 +82,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
   const needsEvidence = mission.completionPolicy !== "self_reported" && mission.completionPolicy !== "metric_based";
   const canSubmitEvidence = needsEvidence && started && !DONE_STATES.includes(mission.displayState) && mission.displayState !== "review_pending";
   const valueByBlock = useMemo(() => new Map(view.values.map((v) => [v.blockId, v.value])), [view.values]);
-  const resourceBindingsForBlocks = mission.resourceBindings.map((b) => ({ id: b.id, title: b.title }));
+  const resourceBindingsForBlocks = mission.resourceBindings.map((b) => ({ id: b.id, title: b.title, resourceType: b.resourceType, resourceId: b.resourceId }));
   const toolBindingsForBlocks = mission.toolBindings.map((b) => ({ id: b.id, title: b.toolType ?? "" }));
   const requiredActions = mission.actions.filter((a) => a.required);
   const requiredDone = requiredActions.filter((a) => a.status === "completed").length;
@@ -116,7 +117,8 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
     <div className="h2o-sr-shell">
       <aside className="h2o-sr-panel h2o-sr-context">
         <div className="h2o-sr-eyebrow">Journey Context</div>
-        <h3 style={{ margin: "5px 0 10px", fontSize: 15 }}>{view.stage.indexLabel ? `Giai đoạn ${view.stage.indexLabel} · ` : ""}{view.stage.title}</h3>
+        <h3 style={{ margin: "5px 0 2px", fontSize: 15 }}>{view.stage.indexLabel ? `Giai đoạn ${view.stage.indexLabel} · ` : ""}{view.stage.title}</h3>
+        <p style={{ fontSize: 11, color: "#718092", margin: "0 0 10px" }}>{view.outcome.title}</p>
         {view.siblings.map((s) => {
           const isCurrent = s.id === mission.id;
           const done = DONE_STATES.includes(s.displayState);
@@ -160,7 +162,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
         {tab === "brief" && <div className="h2o-sr-pane">
           {(mission.resourceBindings.length > 0 || mission.toolBindings.length > 0) && <div className="h2o-sr-section">
             <h4>Kiến thức cần dùng</h4>
-            {mission.resourceBindings.map((r) => <Link key={r.id} href={r.resourceType === "document" ? `/student/document/${r.resourceId}` : "/student/library"} className="h2o-sr-doc">
+            {mission.resourceBindings.map((r) => <Link key={r.id} href={buildMissionResourceHref(r.resourceType, r.resourceId, mission.id)} className="h2o-sr-doc">
               <div className="h2o-sr-docicon">📘</div>
               <div><b>{r.title}</b><small>Tài liệu · {r.role === "required" ? "bắt buộc" : "đề xuất"}</small></div>
               <span>→</span>
@@ -210,7 +212,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
                       <h4>{mission.title} · Workspace</h4>
                       {view.blocks.map((block) => <MissionBlockField key={block.id} block={block} value={valueByBlock.get(block.id)} onSave={saveBlock}
                         onNavigate={(t) => setTab(t === "result" ? "result" : "evidence")}
-                        resourceBindings={resourceBindingsForBlocks} toolBindings={toolBindingsForBlocks} disabled={busy} />)}
+                        resourceBindings={resourceBindingsForBlocks} toolBindings={toolBindingsForBlocks} missionId={mission.id} disabled={busy} />)}
                     </div>}
                 <div className="h2o-sr-cta">
                   {needsEvidence

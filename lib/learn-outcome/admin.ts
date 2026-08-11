@@ -253,7 +253,15 @@ export async function preflightVersion(organizationId: string, versionId: string
     if (!mission.estimatedDays) add("warning", "missing_duration", "Chưa có estimated days", mission);
     if (!mission.resourceBindings.length && !mission.toolBindings.length) add("warning", "missing_binding", "Chưa có resource/tool gợi ý", mission);
     if (!mission.actionTemplates.length) add("warning", "other", "Chưa có action template", mission);
-    if (!mission.successCriteria.length) add("warning", "missing_kpi", "Chưa có success KPI", mission);
+    // Success Criteria was a warning through Release B/29/30 — v5/32-.../CLAUDE_H2OBOOK_LEARN_OUTCOME_OS_V4.md
+    // §10 makes it a blocker ("production Mission should not publish with empty Success Criteria").
+    // The already-published v1 is unaffected (immutable); this only gates the NEXT publish.
+    if (!mission.successCriteria.length) add("blocker", "missing_kpi", "Thiếu Success Criteria", mission);
+    // "no teacher rubric when teacher verification requires it" (§10, warning). This schema has no
+    // rubric field on a Mission directly — a rubric only exists via assignment_definitions'
+    // rubric_criteria (migration 0026/0036), reached through an assignment binding. No assignment
+    // binding means no way for a teacher to grade against a rubric when they review this Mission.
+    if (mission.completionPolicy === "teacher_verified" && !mission.assignmentBindings.length) add("warning", "other", "Yêu cầu giáo viên xác nhận nhưng chưa gắn assignment/rubric", mission);
   }
 
   // Circular prerequisite: walk each mission's prerequisite chain; a cycle means walking never

@@ -122,6 +122,9 @@ export function SmartJourneyShell({ model }: { model: SmartJourneyModel }) {
     router.push(`/student/missions/${id}`);
   }
 
+  // Decision 2 (v5/32-.../CLAUDE_H2OBOOK_LEARN_OUTCOME_OS_V4.md §0): clicking a Mission goes straight
+  // to the Focus Workspace now — Quick Preview is the secondary "eye" icon each view renders, not the
+  // primary click target it was in folder 31.
   return <>
     <JourneyHeader model={model} />
     <JourneyControls mode={mode} view={view} onModeChange={setMode} onViewChange={setView} />
@@ -129,10 +132,10 @@ export function SmartJourneyShell({ model }: { model: SmartJourneyModel }) {
     <div className="h2o-sr-grid" style={{ marginTop: 16 }}>
       <section className="h2o-sr-panel h2o-sr-map">
         {mode === "today"
-          ? <JourneyTodayView model={model} onMissionClick={openPreview} />
-          : view === "map" ? <JourneyMapView model={model} onMissionClick={openPreview} />
-          : view === "roadmap" ? <JourneyRoadmapView model={model} onMissionClick={openPreview} />
-          : <MissionControlListView model={model} onMissionClick={openPreview} onFilterChanged={() => fireJourneyEvent("journey.list_filtered")} />}
+          ? <JourneyTodayView model={model} onMissionClick={openWorkspace} />
+          : view === "map" ? <JourneyMapView model={model} onMissionClick={openWorkspace} onPreview={openPreview} />
+          : view === "roadmap" ? <JourneyRoadmapView model={model} onMissionClick={openWorkspace} onPreview={openPreview} />
+          : <MissionControlListView model={model} onMissionClick={openWorkspace} onPreview={openPreview} onFilterChanged={() => fireJourneyEvent("journey.list_filtered")} />}
       </section>
       <JourneyAiPanel model={model} onOpenMission={openWorkspace} />
     </div>

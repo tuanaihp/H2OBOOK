@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { buildMissionResourceHref } from "@/components/student/reader/context-url";
 
 export type StudentMissionBlock = { id: string; type: string; label: string; required: boolean; position: number; bindingId?: string; options?: Record<string, unknown> };
 export type StudentBlockValue = { blockId: string; value: unknown; status: "draft" | "saved"; updatedAt: string };
-type ResolvedBinding = { id: string; title: string };
+type ResolvedBinding = { id: string; title: string; resourceType?: string; resourceId?: string };
 
 const REFERENCE_TYPES = new Set(["resource", "tool", "assignment"]);
 // "evidence" and result_* blocks point students at Tab 3/4, which own the real data (mission state,
@@ -21,9 +22,9 @@ const KNOWN_DIRECT_TYPES = new Set(["text", "textarea", "number", "date", "check
  * their real data/actions live in Tab 1 (resolved bindings), Tab 3 (evidence engine) and Tab 4
  * (Result card), see mission-workspace-client.tsx.
  */
-export function MissionBlockField({ block, value, onSave, onNavigate, resourceBindings, toolBindings, disabled }: {
+export function MissionBlockField({ block, value, onSave, onNavigate, resourceBindings, toolBindings, missionId, disabled }: {
   block: StudentMissionBlock; value: unknown; onSave: (blockId: string, value: unknown) => void; onNavigate: (tab: "evidence" | "result") => void;
-  resourceBindings: ResolvedBinding[]; toolBindings: ResolvedBinding[]; disabled: boolean;
+  resourceBindings: ResolvedBinding[]; toolBindings: ResolvedBinding[]; missionId: string; disabled: boolean;
 }) {
   const [local, setLocal] = useState<unknown>(value ?? null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,7 +50,8 @@ export function MissionBlockField({ block, value, onSave, onNavigate, resourceBi
   if (REFERENCE_TYPES.has(block.type)) {
     const options = block.type === "resource" ? resourceBindings : block.type === "tool" ? toolBindings : [];
     const match = options.find((b) => b.id === block.bindingId);
-    return <Link href="/student/library" className="h2o-sr-doc">
+    const href = match?.resourceType && match.resourceId ? buildMissionResourceHref(match.resourceType, match.resourceId, missionId) : "/student/library";
+    return <Link href={href} className="h2o-sr-doc">
       <div className="h2o-sr-docicon">{block.type === "tool" ? "🧮" : block.type === "assignment" ? "📝" : "📘"}</div>
       <div><b>{match?.title || block.label}</b><small>{block.type === "tool" ? "Công cụ" : block.type === "assignment" ? "Bài tập" : "Tài liệu"}</small></div>
       <span>→</span>

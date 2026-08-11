@@ -13,7 +13,7 @@ type Binding = { id: string; role: string; resourceType?: string; resourceId?: s
 type ActionTemplate = { id: string; title: string; required: boolean; dayOffset: number | null; evidenceRequired: boolean };
 type Mission = {
   id: string; title: string; description: string; expectedResult: string; estimatedDays: number | null;
-  completionPolicy: string; successCriteria: string[]; position: number;
+  completionPolicy: string; successCriteria: string[]; position: number; prerequisiteMissionId: string | null;
   resourceBindings: Binding[]; toolBindings: Binding[]; assignmentBindings: Binding[]; actionTemplates: ActionTemplate[];
 };
 type Milestone = { id: string; title: string; missions: Mission[] };
@@ -170,8 +170,14 @@ export default function JourneyMapAdminPage() {
               <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
                 {milestone.missions.filter((mission) => !flaggedMissionIds || flaggedMissionIds.has(mission.id)).map((mission) => {
                   const missionFindings = (preflight?.findings ?? []).filter((f) => f.missionId === mission.id);
+                  // "Entry Mission" (§7): opens as soon as the Stage is accessible — no prerequisite at
+                  // all, which after the parallel-outcome fix means exactly one per Outcome (its first
+                  // Mission), not one per Stage.
+                  const isEntry = !mission.prerequisiteMissionId;
+                  const prereqOutcome = mission.prerequisiteMissionId ? outcomes.find((o) => o.milestones.some((ms) => ms.missions.some((m) => m.id === mission.prerequisiteMissionId))) : null;
+                  const isCrossOutcome = prereqOutcome && prereqOutcome.id !== outcome.id;
                   return <button key={mission.id} onClick={() => setSelectedMissionId(mission.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 8px", borderRadius: 8, border: mission.id === selectedMissionId ? "1px solid #2563eb" : "1px solid #eef1f4", background: mission.id === selectedMissionId ? "#eff6ff" : "#fff", fontSize: 12, cursor: "pointer" }}>
-                    <span>{mission.title}</span>
+                    <span>{mission.title} {isEntry && <span style={{ fontSize: 9, fontWeight: 700, color: "#1a7f37", background: "#e6f6ec", borderRadius: 999, padding: "1px 6px", marginLeft: 4 }}>ENTRY</span>}{isCrossOutcome && <span title={`Phụ thuộc Outcome khác: ${prereqOutcome!.title}`} style={{ fontSize: 9, fontWeight: 700, color: "#b7791f", background: "#fff8ec", borderRadius: 999, padding: "1px 6px", marginLeft: 4 }}>⚠ CHÉO OUTCOME</span>}</span>
                     {missionFindings.length > 0 && <span style={{ fontSize: 10, color: missionFindings.some((f) => f.severity === "blocker") ? "#b42318" : "#92400e" }}>{missionFindings.length} vấn đề</span>}
                   </button>;
                 })}
@@ -197,6 +203,27 @@ export default function JourneyMapAdminPage() {
             <label>Estimated days
               <input type="number" min={0} defaultValue={selectedMission.estimatedDays ?? ""} disabled={!isDraft} onBlur={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { estimatedDays: e.target.value ? Number(e.target.value) : null } }, "Đã cập nhật.")} style={field}/>
             </label>
+          </div>
+
+          <div>
+            {/* Prerequisite picker (§7): a Mission selector grouped by Outcome, never a raw UUID field.
+                Empty = Entry Mission (opens as soon as the Stage is accessible). Picking a Mission from
+                a different Outcome is allowed (explicit cross-outcome dependency, §6) but flagged so
+                Admin knows they are opting out of the default parallel-Outcome behavior. */}
+            <strong>Prerequisite</strong>
+            <select defaultValue={selectedMission.prerequisiteMissionId ?? ""} disabled={!isDraft} onChange={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { prerequisiteMissionId: e.target.value || null } }, "Đã cập nhật prerequisite.")} style={{ ...field, marginTop: 4 }}>
+              <option value="">— Không có (Entry Mission, mở ngay khi Stage mở) —</option>
+              {outcomes.map((outcome) => <optgroup key={outcome.id} label={outcome.title}>
+                {outcome.milestones.flatMap((ms) => ms.missions).filter((m) => m.id !== selectedMission.id).map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+              </optgroup>)}
+            </select>
+            {(() => {
+              if (!selectedMission.prerequisiteMissionId) return null;
+              const ownerOutcome = outcomes.find((o) => o.milestones.some((ms) => ms.missions.some((m) => m.id === selectedMission.id)));
+              const prereqOutcome = outcomes.find((o) => o.milestones.some((ms) => ms.missions.some((m) => m.id === selectedMission.prerequisiteMissionId)));
+              if (!ownerOutcome || !prereqOutcome || ownerOutcome.id === prereqOutcome.id) return null;
+              return <p style={{ fontSize: 11, color: "#b7791f", margin: "6px 0 0" }}>⚠ Phụ thuộc chéo Outcome — Mission này sẽ KHÔNG mở song song với các Outcome khác, chỉ mở sau khi hoàn thành Mission ở &ldquo;{prereqOutcome.title}&rdquo;. Đây phải là lựa chọn có chủ đích (§6).</p>;
+            })()}
           </div>
 
           <div><strong>Success KPI</strong>
