@@ -6,6 +6,12 @@
 
 ---
 
+**2026-08-11 — ✅ Migration 0053 đã chạy — đã kiểm chứng Contextual Resource Reader bằng dữ liệu thật.**
+
+Đã test trực tiếp: lưu bookmark + tiến độ đọc + ghi chú trên 1 tài liệu thật, và cố tình thử ghi 1 ghi chú "không gắn với gì cả" để xác nhận hệ thống từ chối đúng (không cho note mồ côi). Cả 2 đều đúng như thiết kế. Đã dọn sạch dữ liệu test — không còn dấu vết nào trong production.
+
+---
+
 **2026-08-11 — 🎯 Đã merge + deploy: Learn Outcome OS V4 (folder 32) — sửa xong 4/6 quyết định, 2 quyết định còn lại cần bạn quyết trước — ⚠️ CẦN CHẠY MIGRATION 0053.**
 
 Đọc đủ 20/20 file gói nguồn trước khi làm (rút kinh nghiệm từ folder 30).

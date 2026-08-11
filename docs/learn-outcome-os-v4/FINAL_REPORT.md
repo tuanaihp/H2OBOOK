@@ -72,7 +72,15 @@ Migration 0053:
 - Bảng mới `student_resource_progress` (1 dòng/học viên/resource — gộp tiến độ đọc + bookmark vì luôn đọc/ghi cùng nhau).
 - Mở rộng `learner_notes`: `knowledge_space_id` thành nullable, thêm `resource_type`/`resource_id`/`mission_id` (nullable) + ràng buộc CHECK phải có ít nhất một cách gắn chủ đề. Note trong Knowledge Space cũ không đổi gì.
 
-**Chưa chạy trên production** tại thời điểm viết báo cáo này.
+**Đã chạy trên production (2026-08-11) — xác nhận bằng dữ liệu thật:**
+
+| Kiểm tra | Kết quả |
+|---|---|
+| 2 bảng/cột mới tồn tại, query được | ✅ `student_resource_progress`, `learner_notes` (cột `resource_type`/`resource_id`/`mission_id`) — 200 OK |
+| Ghi tiến độ đọc + bookmark trên tài liệu thật | ✅ Insert 201, dữ liệu đúng |
+| Ghi note gắn với tài liệu (không qua Knowledge Space) | ✅ Insert 201, `knowledge_space_id=null`, `resource_type/resource_id` đúng |
+| Ràng buộc CHECK từ chối note không có chủ đề nào | ✅ Insert note không có cả `knowledge_space_id` lẫn `resource_type/resource_id` → bị từ chối đúng (lỗi `23514`) |
+| Dọn dẹp sau test | ✅ Xóa cả 2 dòng test — xác nhận 0 dòng còn sót trong org |
 
 ## 9. Nav-context (§5)
 
@@ -112,7 +120,6 @@ Gói nguồn gợi ý 6 feature flag. Không dùng — nhất quán với mọi 
 
 ## 12. Việc cần bạn làm
 
-1. **Chạy `supabase/_RUN-0053-ONLY.sql`** trên Supabase SQL Editor — cần cho bookmark/tiến độ đọc/note trong Reader hoạt động thật. Sau khi báo tôi, tôi sẽ kiểm chứng bằng dữ liệu thật.
-2. **Quyết định có publish bản nháp v2 không** (Parallel Outcome + Success Criteria đầy đủ đã sẵn sàng, 0 blocker) — publish sẽ mở Outcome 2/3/4's Mission đầu ngay cho học viên đang học, không cần chờ xong hết Outcome 1.
-3. **Quyết định về Growth Recommendations** — có cần tôi audit hệ thống thương mại (products/courses/membership) trước khi xây gợi ý không.
-4. **Quyết định về Admin Learning Control Center** — 4/7 module mục tiêu (Smart Review, Classes & Cohorts, Assignment & Review, Quiz & Assessment) hiện chưa có mặt owner/admin — có cần xây mới hay chỉ đổi nhãn 3 module đã khớp?
+1. **Quyết định có publish bản nháp v2 không** (Parallel Outcome + Success Criteria đầy đủ đã sẵn sàng, 0 blocker) — publish sẽ mở Outcome 2/3/4's Mission đầu ngay cho học viên đang học, không cần chờ xong hết Outcome 1.
+2. **Quyết định về Growth Recommendations** — có cần tôi audit hệ thống thương mại (products/courses/membership) trước khi xây gợi ý không.
+3. **Quyết định về Admin Learning Control Center** — 4/7 module mục tiêu (Smart Review, Classes & Cohorts, Assignment & Review, Quiz & Assessment) hiện chưa có mặt owner/admin — có cần xây mới hay chỉ đổi nhãn 3 module đã khớp?
