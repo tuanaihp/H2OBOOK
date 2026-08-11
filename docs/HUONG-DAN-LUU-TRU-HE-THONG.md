@@ -6,6 +6,22 @@
 
 ---
 
+**2026-08-11 — 🗺️ Đã merge + deploy: Smart Journey Shell V3 (folder 31) — hợp nhất Map/Roadmap/Danh sách/Today thành 1 shell, KHÔNG cần migration.**
+
+Lần này đọc đủ **22/22 file** ngay từ đầu (rút kinh nghiệm từ folder 30). Nâng cấp "Hành trình của tôi":
+
+- Header, thanh 4 chỉ số (Insight/Tiến độ/Sẵn sàng/Dự kiến hoàn thành), nút chuyển "Journey ⇄ Today" và "Map ⇄ Roadmap ⇄ Danh sách", panel AI bên phải — tất cả **giữ nguyên khi đổi tab**, không load lại từ đầu, vì cả 4 chế độ giờ đọc chung đúng 1 bộ dữ liệu.
+- Bấm vào 1 Mission ở bất kỳ đâu đều mở **1 khung xem nhanh** (Quick Preview) giống hệt nhau, có nút "Mở Mission Workspace".
+- Tab **Today** mới — 1-5 việc thật nên làm hôm nay (không phải AI đoán): bắt đầu mission đang mở, các bước bắt buộc chưa xong, nhắc nộp bằng chứng nếu cần.
+- Tab **Danh sách** nâng cấp thành "Mission Control": 6 ô tổng quan + tìm kiếm + lọc trạng thái + lọc theo Outcome + 2 chế độ xem (Theo Outcome / Hàng đợi việc cần làm).
+- Tab **Roadmap** giờ nhóm thật theo "Hôm nay → Tiếp theo → Tuần này → Sau đó" thay vì liệt kê phẳng.
+
+**Cam kết không bịa số** (giữ nguyên nguyên tắc từ folder 30): ô "Dự kiến hoàn thành" hiện "—" cho tới khi có AI thật (chưa xây); điểm "Sẵn sàng" toàn hành trình lấy đúng số của Mission đang làm, không phải một con số tự chế riêng.
+
+**Đã kiểm tra dữ liệu thật:** số Mission thật (14), trạng thái thật của học viên, công thức tính điểm sẵn sàng — khớp đúng. Lần này chỉ đọc để đối chiếu, không ghi gì nên không cần dọn dẹp.
+
+---
+
 **2026-08-10 — 🔒 Đã merge + deploy: đối chiếu lại TOÀN BỘ gói nguồn folder 30 — tìm ra và vá 1 lỗ hổng bảo mật thật.**
 
 Bạn hỏi tôi đã kiểm tra đúng với toàn bộ prompt và bộ code chưa. **Thú thật là chưa** — hai đợt trước tôi mới đọc 5/22 file. Đã đọc hết 22 file và đối chiếu lại. Kết quả: kiến trúc không sai chỗ nào, nhưng có **5 lỗi/thiếu sót thật**, đã sửa hết:
