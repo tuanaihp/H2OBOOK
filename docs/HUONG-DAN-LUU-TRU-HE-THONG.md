@@ -6,6 +6,16 @@
 
 ---
 
+**2026-08-11 — 🔧 Đã merge + deploy: SỬA LỖI PHẠM VI — Learning Control Center đặt đúng chỗ (tab LEARN), KHÔNG cần migration.**
+
+Bạn chỉ ra tab LEARN chưa đổi thiết kế — **bạn đúng, và tôi đã làm nhầm chỗ.** Yêu cầu gốc nói "Admin LEARN không được đóng vai học viên"; tôi hiểu nhầm thành khu Academy Control Center, trong khi thực tế là **tab "Learn" trong sidebar chính** — chính màn hình bạn chụp, hiển thị bạn (Chủ workspace) như một học viên với "55% Mastery", "Ôn ngay 3 thẻ", "Ngày duy trì nhịp học".
+
+**Kiểm tra kỹ 7 trang trong tab đó, phát hiện:** tất cả đều là **dữ liệu demo giả**, và **cả 7 bảng dữ liệu thật của chúng đều rỗng** (flashcard 0, lớp học 0, bài tập 0, quiz 0...). Trong khi dữ liệu đào tạo THẬT của bạn rất lớn và nằm chỗ khác: **102 tài liệu, 13 giai đoạn, 28 Mission, 4 học viên có tiến độ thật**.
+
+**Đã sửa:** tab LEARN giờ là **Learning Control Center** — hiện số liệu đào tạo thật của tổ chức (không còn tiến độ cá nhân bịa), và 7 module trỏ đúng nơi quản trị thật. Hai module chưa tồn tại (Smart Review, Quiz & Assessment) ghi rõ "chưa có trang quản trị" thay vì trỏ bừa. Không xóa trang cũ nào — chỉ đổi cách vào.
+
+---
+
 **2026-08-11 — 🛒 Đã merge + deploy: Growth Recommendations + Learning Control Center — nốt 2 việc còn hoãn của folder 32, KHÔNG cần migration.**
 
 **Growth Recommendations** (thay "Khóa học bổ trợ"): đã audit hệ thống bán hàng thật trước khi xây. Phát hiện: **chưa có học viên nào từng mua hàng thành công** trong hệ thống (5 đơn hàng thật đều đang "chờ thanh toán") — nên mục "Đã sở hữu" hiện chưa có gì, đúng thực tế, không bịa. Có 9 sản phẩm thật (6 khóa học, 3 gói membership) với giá thật — dùng trực tiếp, không dùng giá giả. Ngay khi có đơn hàng đầu tiên được đánh dấu đã thanh toán, mục "Đã sở hữu" sẽ tự có nội dung — không cần sửa code.

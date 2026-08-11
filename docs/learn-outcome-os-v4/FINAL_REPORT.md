@@ -72,6 +72,8 @@ Cả hai đã xác nhận bằng truy vấn thật, không phải suy đoán.
 
 ### 7b. Admin Learning Control Center (§9)
 
+> **Sửa lỗi phạm vi (2026-08-11, sau khi Owner chỉ ra):** phần bên dưới ban đầu tôi làm **nhầm chỗ**. §9 nói "Admin LEARN" — tôi hiểu thành Academy Control Center (`/academy-admin`), nhưng thực ra là **nhóm "Learn" trong sidebar workspace chính** (`/learn`, `/study`, `/knowledge`, `/library`, `/classes`, `/assignments`, `/quizzes`) — chính là màn hình hiển thị Workspace Owner như một học viên cá nhân ("55% Mastery", "Ôn ngay 3 thẻ", "Ngày duy trì nhịp học"). Đã sửa lại đúng chỗ, xem mục 7c.
+
 Tìm trang admin thật cho từng module trước khi quyết định xây gì:
 
 | Module | Trạng thái thật | Xử lý |
@@ -84,7 +86,27 @@ Tìm trang admin thật cho từng module trước khi quyết định xây gì:
 | Smart Review | **Không tồn tại** — grep toàn repo không thấy trang quản trị flashcard/spaced-repetition nào | Hiện thẻ "Chưa có trang quản trị" trung thực, không link giả |
 | Quiz & Assessment | **Không tồn tại** — không có question bank/quiz management nào cho admin | Hiện thẻ "Chưa có trang quản trị" trung thực, không link giả |
 
-Đã thêm khối "Learning Control Center — 7 module" ngay trên trang `/academy-admin` (Tổng quan đào tạo) thật, và 2 mục mới vào sidebar Academy Control Center trỏ tới `/instructor/classes` và `/instructor/assessments` — không tạo route mới, không phá route cũ, đúng tinh thần "Preserve routes if necessary; change labels/navigation first".
+### 7c. Sửa lại đúng chỗ — `/learn` trở thành Learning Control Center thật
+
+**Audit 7 trang trong nhóm "Learn" của sidebar chính** (`components/layout/sidebar.tsx`) — đây mới là "Admin LEARN" mà §9 nói tới:
+
+| Trang | Nguồn dữ liệu thật | Số dòng thật trong DB |
+|---|---|---|
+| `/learn` Hành trình học | Zustand demo store | `learning_goals` = **0** |
+| `/study` Ôn tập thông minh | Zustand demo store | `flashcards` = **0** |
+| `/knowledge` Không gian tri thức | Zustand demo store | `knowledge_spaces` = **0** |
+| `/library` Thư viện học | Zustand demo store | — |
+| `/classes` Lớp học | Zustand demo store | `classes` = **0** |
+| `/assignments` Bài tập | Zustand demo store | `assignments` = **0** |
+| `/quizzes` Quiz | Zustand demo store | `quizzes` = **0** |
+
+Trong khi dữ liệu đào tạo **thật** của tổ chức nằm ở chỗ khác và rất lớn: **102 tài liệu**, **13 giai đoạn**, **28 Mission**, **4 dòng tiến độ học viên thật**. Nghĩa là tab LEARN của Owner đang hiển thị **tiến độ cá nhân bịa trên các bảng rỗng**.
+
+**Đã sửa:**
+- `/learn` viết lại thành **Learning Control Center**: số liệu toàn tổ chức từ read model thật mới (`lib/learning-control/summary.ts` — mọi con số là COUNT thật, một số **thật sự bằng 0** và hiện đúng là 0), cộng 7 thẻ module trỏ tới nơi chúng thực sự được quản trị.
+- Nhóm sidebar đổi từ ngữ nghĩa học viên sang quản trị: "Tổng quan đào tạo", "Journey & Outcomes" → `/academy-admin/journey`, "Knowledge & Library" → `/academy-admin/content`, "Classes & Cohorts" → `/instructor/classes` (thật), "Assignment & Review" → `/instructor/assessments` (thật), còn "Smart Review" và "Quiz & Assessment" giữ route cũ và **ghi rõ chưa có trang quản trị**.
+- **Không xóa route demo nào** — đúng tinh thần §9 "preserve routes if necessary; change labels/navigation first".
+- Gỡ khối 7-module đã thêm nhầm ở `/academy-admin` để tránh hai "control center" cạnh tranh nhau.
 
 ## 8. Schema mới — migration 0053
 
