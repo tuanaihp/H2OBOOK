@@ -230,6 +230,13 @@ function JourneyMapAdminPageInner() {
   // preview, not just "draft vs published" (§12's edit-published dialog is a separate concern).
   const isPublished = currentVersion?.status === "published";
   const isDraft = currentVersion?.status === "draft" && !previewAsStudent;
+  // "Học liệu" (resource/tool/assignment bindings) is content curation, not a structural edit — the
+  // server (lib/learn-outcome/admin.ts's attachMissionBinding/removeMissionBinding) deliberately never
+  // gates this on Draft status, so an Admin can pin a new reference document for students same-day on
+  // the version currently applied to them, without a clone/preview/publish cycle. Everything else in
+  // this Inspector (title/completion policy/estimated days/prerequisite/structure) still requires
+  // `isDraft` — only the "Học liệu" tab uses this separate flag.
+  const canEditBindings = !previewAsStudent;
   const selectedOutcome = selected?.type === "outcome" ? outcomes.find((o) => o.id === selected.id) ?? null : null;
   const selectedMilestone = selected?.type === "milestone" ? outcomes.flatMap((o) => o.milestones).find((m) => m.id === selected.id) ?? null : null;
   const selectedMission = selected?.type === "mission" ? missions.find((m) => m.id === selected.id) ?? null : null;
@@ -254,8 +261,9 @@ function JourneyMapAdminPageInner() {
     {previewAsStudent && <div className={styles.card} style={{ marginBottom: 12, padding: 10, fontSize: 12, background: "#eff6ff", border: "1px solid #bfdbfe" }}><Eye size={12} style={{ verticalAlign: "-1px" }} /> Đang xem như học viên — mọi chỉnh sửa đã tắt. <button onClick={() => setPreviewAsStudent(false)} style={{ border: "none", background: "none", color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>Thoát xem trước</button></div>}
     {/* §9 Published immutable — exact banner/CTA text from the source package. */}
     {isPublished && !previewAsStudent && <div className={styles.card} style={{ marginBottom: 12, padding: 10, fontSize: 12, background: "#fff7ed", border: "1px solid #fed7aa", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-      <Lock size={12} /> <strong>Phiên bản đang áp dụng không thể sửa trực tiếp.</strong>
+      <Lock size={12} /> <strong>Cấu trúc (tên/mở khóa/tiêu chí đạt...) của phiên bản đang áp dụng không thể sửa trực tiếp.</strong>
       <button className={styles.button} disabled={busy} onClick={cloneForEdit}><Copy size={12} />Tạo bản nháp để chỉnh sửa</button>
+      <span style={{ color: "#92400e" }}>Riêng tab &ldquo;{TAB_LABEL.resources}&rdquo; vẫn gắn/gỡ được ngay — học viên thấy tài liệu mới ngay lập tức.</span>
     </div>}
     <JourneyInlineGuide />
 
@@ -423,9 +431,12 @@ function JourneyMapAdminPageInner() {
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <strong>{TERMS.resourceBindings}</strong>
-                {isDraft && <button onClick={() => setPickerOpen(true)} className={styles.button} style={{ fontSize: 11, padding: "4px 8px" }}><Search size={11}/> Tìm học liệu</button>}
+                {canEditBindings && <button onClick={() => setPickerOpen(true)} className={styles.button} style={{ fontSize: 11, padding: "4px 8px" }}><Search size={11}/> Tìm học liệu</button>}
               </div>
-              <ul style={{ margin: "4px 0", paddingLeft: 16 }}>{selectedMission.resourceBindings.map((b) => <li key={b.id}>{b.title || <em style={{ color: "#b42318" }}>Chưa resolve được tiêu đề ({b.resourceId})</em>} <small style={{ color: "#94a3b8" }}>({b.role})</small></li>)}
+              <ul style={{ margin: "4px 0", paddingLeft: 16 }}>{selectedMission.resourceBindings.map((b) => <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ flex: 1 }}>{b.title || <em style={{ color: "#b42318" }}>Chưa resolve được tiêu đề ({b.resourceId})</em>} <small style={{ color: "#94a3b8" }}>({b.role})</small></span>
+                {canEditBindings && <button disabled={busy} title="Gỡ học liệu này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "removeBinding", bindingId: b.id, binding: { kind: "resource" } }, "Đã gỡ học liệu.")} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
+              </li>)}
                 {!selectedMission.resourceBindings.length && <p style={{ color: "#6b7a89" }}>Chưa có học liệu liên kết.</p>}
               </ul>
             </div>

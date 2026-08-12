@@ -475,6 +475,19 @@ export async function updateMission(access: AcademyAdminAccess, missionId: strin
   return { ok: true, data: null };
 }
 
+/**
+ * Deliberate exception to the "structural writes require Draft" rule every other function in this
+ * file enforces via requireDraftVersion() (§ journey-tree-editor-v1 security fix): attaching/removing
+ * which documents/tools/assignments show up in a Mission's "Học liệu" list is content curation, not a
+ * structural change — it never touches Mission identity, completion_policy, prerequisite chain, or
+ * student progress rows, so publishVersion()'s root_mission_id remap has nothing to do here either
+ * way. Deliberately allowed on the currently-Published version too (2026-08-12 request: Admin needs
+ * to add a reference document for students same-day, without a clone/preview/publish cycle for a
+ * pure content addition) — the app/academy-admin/journey/page.tsx UI exposes this via a separate
+ * `canEditBindings` flag (true regardless of Draft/Published) distinct from `isDraft` (still gates
+ * every structural field). Do not add requireDraftVersion() here — that would silently break the
+ * "edit Học liệu live" feature this comment exists to protect.
+ */
 export async function attachMissionBinding(
   access: AcademyAdminAccess, missionId: string,
   kind: "resource" | "tool" | "assignment",
@@ -504,6 +517,7 @@ export async function attachMissionBinding(
   return { ok: true, data: { id: data.id } };
 }
 
+/** Same intentional Draft-status exception as attachMissionBinding() above — content curation, allowed on Published. */
 export async function removeMissionBinding(access: AcademyAdminAccess, kind: "resource" | "tool" | "assignment", bindingId: string): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
