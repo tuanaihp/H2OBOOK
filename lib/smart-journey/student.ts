@@ -2,6 +2,7 @@ import "server-only";
 import { getJourneyForStudent } from "@/lib/learn-outcome/student";
 import type { MissionWithProgress } from "@/lib/learn-outcome/student";
 import { loadCareerStages } from "@/lib/career-stages/service";
+import { stageDisplayRank } from "@/lib/career-stages/types";
 import { getWorkspaceConfigsForVersion, getStudentBlockValuesForVersion } from "@/lib/mission-workspace/service";
 import { calculateMissionReadiness } from "@/lib/mission-workspace/student";
 import { listBlueprintVersions, loadBlueprintForStage } from "@/lib/learn-outcome/service";
@@ -90,7 +91,7 @@ export async function getSmartJourneyReadModel(userId: string, organizationId: s
   const todayItems = buildTodayItems(allMissions, currentMission);
 
   return {
-    organizationId, studentId: userId, stageId, stageTitle: stage.title, stagePosition: stage.position,
+    organizationId, studentId: userId, stageId, stageTitle: stage.title, stagePosition: stageDisplayRank(stages, stageId),
     journeyBlueprintId: blueprint.id, journeyVersionId: journey.versionId, journeyVersionNumber: versionNumber, blueprintTitle: journey.blueprintTitle,
     progressPercent: journey.progressPercent, readinessScore, currentMissionId: currentMission?.id ?? null,
     // Never fabricated (mandatory test #13 "no fake ETA") — null until Release 4's H2O Journey AI

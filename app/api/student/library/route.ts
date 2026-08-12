@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/auth/api";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
 import { loadCareerStages } from "@/lib/career-stages/service";
+import { stageDisplayRank } from "@/lib/career-stages/types";
 import { getUnlockedStageIds } from "@/lib/student/stage-access";
 import { factsForResource, loadStudentAccessContext } from "@/lib/content-access/facts";
 import { resolveResourceAccess } from "@/lib/content-access/resolver";
@@ -37,7 +38,9 @@ export async function GET() {
       slug: stage.slug,
       title: stage.title,
       indexLabel: stage.indexLabel,
-      position: stage.position,
+      // Rank among active Stages, not the raw .position column — see lib/career-stages/service.ts's
+      // stageDisplayRank for why (this org's real curriculum sits at position 5-10, not 0-5).
+      position: stageDisplayRank(stages, stage.id),
       durationLabel: stage.durationLabel,
       unlocked: stageUnlocked,
       // Every resource now goes through the one resolver rather than a local rule, so the library

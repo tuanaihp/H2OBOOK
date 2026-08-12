@@ -1,6 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadCareerStages } from "@/lib/career-stages/service";
+import { stageDisplayRank } from "@/lib/career-stages/types";
 import { loadBlueprintForStage, loadVersionGraph, resolveResourceTitles } from "@/lib/learn-outcome/service";
 import { preflightVersion } from "@/lib/learn-outcome/admin";
 import { emitDomainEvent } from "@/lib/domain/events";
@@ -89,8 +90,15 @@ async function loadStageFacts(organizationId: string, stageId: string): Promise<
   const outcomes = activeVersionId ? await loadVersionGraph(organizationId, activeVersionId) : [];
   const missions = flattenMissions(outcomes);
 
+  // Rank among ACTIVE Stages only — the same set students actually see (lib/career-stages/service.ts's
+  // stageDisplayRank doc comment explains why raw .position is wrong here: this org's real curriculum
+  // sits at position 5-10, not 0-5, because archived legacy Stages occupy the earlier positions). A
+  // hidden/draft Stage being audited before publish has no rank yet (0) — it has none to show students.
+  const activeStages = stages.filter((s) => s.status === "active");
+  const stagePosition = stageDisplayRank(activeStages, stage.id);
+
   return {
-    stageId: stage.id, stageTitle: stage.title, stagePosition: stage.position,
+    stageId: stage.id, stageTitle: stage.title, stagePosition,
     nodeCount: nodes.length, containerCount: containers.length, containersWithResource,
     resourceCount: stage.resources.length,
     blueprintId: blueprint?.id ?? null, publishedVersionId: blueprint?.currentPublishedVersionId ?? null,
@@ -244,13 +252,12 @@ export async function getResourceDataLink(organizationId: string, resourceType: 
   const bindings = (bindingRows ?? []) as { id: string; mission_id: string; role: string }[];
   const title = titleMap.get(resourceId) ?? placements.find((p) => p.title_override)?.title_override ?? resourceId;
 
-  const stageIds = [...new Set(placements.map((p) => p.stage_id))];
   const nodeIds = [...new Set(placements.map((p) => p.node_id).filter((id): id is string => Boolean(id)))];
-  const [{ data: stageRows }, { data: nodeRows }] = await Promise.all([
-    stageIds.length ? admin.from("career_stages").select("id,title,position").in("id", stageIds) : Promise.resolve({ data: [] }),
+  const [activeStages, { data: nodeRows }] = await Promise.all([
+    loadCareerStages(organizationId),
     nodeIds.length ? admin.from("academy_stage_nodes").select("id,parent_id,node_type,title").in("id", nodeIds) : Promise.resolve({ data: [] })
   ]);
-  const stageById = new Map(((stageRows ?? []) as { id: string; title: string; position: number }[]).map((s) => [s.id, s]));
+  const stageById = new Map(activeStages.map((s) => [s.id, s]));
   const nodeById = new Map(((nodeRows ?? []) as { id: string; parent_id: string | null; node_type: string; title: string }[]).map((n) => [n.id, n]));
 
   // A node's ancestors might not be in nodeIds (only the leaf placement node was fetched), so walk
@@ -276,7 +283,7 @@ export async function getResourceDataLink(organizationId: string, resourceType: 
   const curriculumPlacements: CurriculumPlacement[] = placements.map((p) => {
     const stage = stageById.get(p.stage_id);
     const chain = nodeChain(p.node_id);
-    return { stageId: p.stage_id, stageTitle: stage?.title ?? "", stagePosition: stage?.position ?? 0, nodeId: p.node_id, ...chain };
+    return { stageId: p.stage_id, stageTitle: stage?.title ?? "", stagePosition: stageDisplayRank(activeStages, p.stage_id), nodeId: p.node_id, ...chain };
   });
 
   const missionIds = bindings.map((b) => b.mission_id);
@@ -447,11 +454,12 @@ export async function listStudentStageContextChecks(organizationId: string, filt
     const journeyStage = journeyStageId ? stageById.get(journeyStageId) : null;
     const { isConsistent, issues } = assertStageContextConsistency({ assignedStageId: assignedStage.id, journeyStageId });
 
+    const assignedRank = stageDisplayRank(orderedStages, assignedStage.id);
     results.push({
       studentId: student.id, studentName: student.name,
-      assignedStageId: assignedStage.id, assignedStageTitle: assignedStage.title, assignedStagePosition: assignedStage.position,
-      resolvedStageId: assignedStage.id, resolvedStagePosition: assignedStage.position,
-      journeyStageId, journeyStagePosition: journeyStage?.position ?? null,
+      assignedStageId: assignedStage.id, assignedStageTitle: assignedStage.title, assignedStagePosition: assignedRank,
+      resolvedStageId: assignedStage.id, resolvedStagePosition: assignedRank,
+      journeyStageId, journeyStagePosition: journeyStage ? stageDisplayRank(orderedStages, journeyStage.id) : null,
       isConsistent, issues
     });
   }

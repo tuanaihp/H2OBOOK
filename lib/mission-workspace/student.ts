@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { completeSelfReportedMission, getJourneyForStudent, startMission, submitEvidence } from "@/lib/learn-outcome/student";
 import type { MissionDisplayState, MissionWithProgress } from "@/lib/learn-outcome/student";
 import { loadCareerStages } from "@/lib/career-stages/service";
+import { stageDisplayRank } from "@/lib/career-stages/types";
 import { getWorkspaceConfig, getStudentBlockValues } from "./service";
 import type { MissionBlock, StudentBlockValue } from "./types";
 
@@ -16,7 +17,7 @@ type Result<T> = { ok: true; data: T } | { ok: false; error: string };
  * from another org simply resolves to null here — the same "wrong org just 404s" shape as
  * app/student/document/[id]'s content-access check.
  */
-async function findMissionStage(organizationId: string, missionId: string): Promise<{ id: string; title: string; indexLabel: string; position: number } | null> {
+async function findMissionStage(organizationId: string, missionId: string): Promise<{ id: string; title: string; indexLabel: string; displayRank: number } | null> {
   const admin = createSupabaseAdminClient();
   if (!admin) return null;
   const mission = await admin.from("learning_journey_missions").select("milestone_id").eq("organization_id", organizationId).eq("id", missionId).maybeSingle();
@@ -31,17 +32,19 @@ async function findMissionStage(organizationId: string, missionId: string): Prom
   if (!blueprint.data) return null;
   const stages = await loadCareerStages(organizationId);
   const stage = stages.find((s) => s.id === (blueprint.data as { stage_id: string }).stage_id);
-  // position (a real, DB-ordered integer) is the only field the student-facing badge may use —
-  // indexLabel is admin-editable free text that can drift from it (docs/academy-data-link-v1/
-  // 01_PRODUCTION_AUDIT.md's P1: the Roadmap already badges off .position, Mission Workspace badged
-  // off .indexLabel, so the same student could see two different Stage numbers for the same Stage).
-  return stage ? { id: stage.id, title: stage.title, indexLabel: stage.indexLabel, position: stage.position } : null;
+  // stageDisplayRank (a real, DB-derived rank-among-active-Stages) is the only number the
+  // student-facing badge may use — indexLabel is admin-editable free text that can drift from it,
+  // and raw .position is a never-reclaimed counter that also counts archived/legacy Stages (this
+  // org's real curriculum sits at position 5-10, not 0-5). docs/academy-data-link-v1/
+  // 01_PRODUCTION_AUDIT.md's P1: the Roadmap and Mission Workspace must show the same number for
+  // the same Stage — both now derive it the same way, not from two different raw columns.
+  return stage ? { id: stage.id, title: stage.title, indexLabel: stage.indexLabel, displayRank: stageDisplayRank(stages, stage.id) } : null;
 }
 
 export interface MissionSibling { id: string; title: string; displayState: MissionDisplayState; lockedReason: string | null; outcomeTitle: string }
 
 export interface MissionContext {
-  stage: { id: string; title: string; indexLabel: string; position: number };
+  stage: { id: string; title: string; indexLabel: string; displayRank: number };
   outcome: { id: string; title: string };
   milestone: { id: string; title: string };
   mission: MissionWithProgress;

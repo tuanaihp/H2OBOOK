@@ -95,7 +95,7 @@ export default function AcademyDataLinkPage() {
       {health && <section className={styles.card} style={{ marginBottom: 16 }}>
         <div className={styles.cardBody} style={{ padding: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div><span className={styles.eyebrow}>DATA LINK HEALTH</span><h2 style={{ margin: "4px 0 0" }}>Giai đoạn {String(health.stagePosition + 1).padStart(2, "0")} · {health.stageTitle}</h2></div>
+            <div><span className={styles.eyebrow}>DATA LINK HEALTH</span><h2 style={{ margin: "4px 0 0" }}>Giai đoạn {String(health.stagePosition).padStart(2, "0")} · {health.stageTitle}</h2></div>
             <div style={{ textAlign: "right" }}><div style={{ fontSize: 30, fontWeight: 700 }}>{health.score}<span style={{ fontSize: 13, color: "#94a3b8" }}>/100</span></div></div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginTop: 14 }}>
@@ -162,7 +162,7 @@ export default function AcademyDataLinkPage() {
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#6b7a89", margin: "12px 0 4px" }}>NẰM TRONG NỘI DUNG ĐÀO TẠO</p>
                 {resourceLink.curriculumPlacements.length === 0 && <p style={{ fontSize: 12, color: "#94a3b8" }}>Chưa gắn vào Curriculum nào.</p>}
                 {resourceLink.curriculumPlacements.map((p, i) => <div key={i} style={{ border: "1px solid #eef1f4", borderRadius: 10, padding: 8, fontSize: 12, marginBottom: 6 }}>
-                  Giai đoạn {String(p.stagePosition + 1).padStart(2, "0")} → {[p.programTitle, p.moduleTitle, p.groupTitle].filter(Boolean).join(" → ") || "Chưa xếp vào Program/Module/Group"}
+                  Giai đoạn {String(p.stagePosition).padStart(2, "0")} → {[p.programTitle, p.moduleTitle, p.groupTitle].filter(Boolean).join(" → ") || "Chưa xếp vào Program/Module/Group"}
                 </div>)}
 
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#6b7a89", margin: "12px 0 4px" }}>ĐƯỢC NHIỆM VỤ SỬ DỤNG</p>
@@ -194,7 +194,7 @@ export default function AcademyDataLinkPage() {
                 <div style={{ display: "grid", gap: 6 }}>
                   {contextChecks.map((c) => <div key={c.studentId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #eef1f4", borderRadius: 10, padding: 8, fontSize: 12 }}>
                     <span>{c.isConsistent ? <CheckCircle2 size={13} color="#177a54" style={{ verticalAlign: "-2px" }} /> : <AlertTriangle size={13} color="#b42318" style={{ verticalAlign: "-2px" }} />} {c.studentName}</span>
-                    <span style={{ color: "#6b7a89" }}>{c.isConsistent ? `Giai đoạn ${String(c.assignedStagePosition + 1).padStart(2, "0")}` : c.issues[0]}</span>
+                    <span style={{ color: "#6b7a89" }}>{c.isConsistent ? `Giai đoạn ${String(c.assignedStagePosition).padStart(2, "0")}` : c.issues[0]}</span>
                   </div>)}
                 </div>
                 {contextChecks.some((c) => !c.isConsistent) && <button className={styles.button} style={{ marginTop: 10 }} disabled={contextBusy} onClick={() => runStageContextCheck(true)}><AlertTriangle size={13} />Ghi nhận cảnh báo P1 (domain event)</button>}

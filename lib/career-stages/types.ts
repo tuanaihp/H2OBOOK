@@ -3,6 +3,24 @@
 // unlock rules in lib/student/stage-access.ts). This module only answers "what belongs where".
 
 export const STAGE_RESOURCE_TYPES = ["book", "course", "publication", "template", "knowledge_space", "roadmap", "link", "asset", "document"] as const;
+
+/**
+ * The 1-based number a student should see for a Stage — "Giai đoạn N" — computed as this Stage's
+ * rank among currently active Stages ordered by `.position`, NOT `.position` itself.
+ *
+ * Found during docs/academy-data-link-v1/01_PRODUCTION_AUDIT.md: `.position` is a raw, never-
+ * reclaimed counter that also counts archived/legacy rows (this org's real 6-stage curriculum sits
+ * at position 5-10, not 0-5, because 6 earlier test/legacy stages used positions 0-4 and were later
+ * archived rather than deleted). Badging directly off `.position` would show "Giai đoạn 06" for the
+ * Stage every admin-facing index_label and the seed data calls "01". Rank-among-active is what
+ * "Nth stage a student can reach" actually means, and — unlike index_label — it is derived from the
+ * real, DB-ordered list, so it cannot drift the way free-typed text can.
+ */
+export function stageDisplayRank(activeStages: { id: string; position: number }[], stageId: string): number {
+  const ordered = [...activeStages].sort((a, b) => a.position - b.position);
+  const index = ordered.findIndex((s) => s.id === stageId);
+  return index === -1 ? 0 : index + 1;
+}
 export type StageResourceType = (typeof STAGE_RESOURCE_TYPES)[number];
 
 export const STAGE_RESOURCE_ACCESS = ["free_preview", "stage_locked", "entitlement_only"] as const;

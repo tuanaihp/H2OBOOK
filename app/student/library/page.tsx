@@ -48,7 +48,7 @@ export default function StudentLibraryPage() {
       {live.stages.map((stage) => <section key={stage.slug} className="h2o-student-section">
         <header>
           <div>
-            <span>{`GIAI ĐOẠN ${String(stage.position + 1).padStart(2, "0")}`}{stage.durationLabel ? ` · ${stage.durationLabel}` : ""}</span>
+            <span>{`GIAI ĐOẠN ${String(stage.position).padStart(2, "0")}`}{stage.durationLabel ? ` · ${stage.durationLabel}` : ""}</span>
             <h2>{stage.title}</h2>
           </div>
           {!stage.unlocked && <Link href="/academy/membership"><LockKeyhole />Mở khóa giai đoạn</Link>}
