@@ -17,6 +17,10 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
 }
 
 interface PortfolioItem { id: string; title: string; score: number | null; approvedAt: string | null; summary: string }
+interface PassportData {
+  career: { direction: string | null; careerMapSummary: string | null; ninetyDayGoal: string | null };
+  credential: { status: "locked" | "eligible" | "issued"; certificateNo: string | null; issuedAt: string | null };
+}
 
 export default function StudentProfilePage() {
   const studentName = useStudentName("Học viên H2O");
@@ -31,6 +35,18 @@ export default function StudentProfilePage() {
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: { items?: PortfolioItem[] } | null) => setPortfolio(payload?.items ?? []))
       .catch(() => setPortfolio([]));
+  }, [live]);
+
+  // Student Journey Passport (docs/stage1-learning-os-v1) — Career direction/Career Map/90-day goal
+  // and real Credential status, aggregated from Stage 1's actual Mission graph. null while loading
+  // or if Stage 1 isn't configured yet — never a placeholder that reads as a real value.
+  const [passport, setPassport] = useState<PassportData | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    fetch("/api/student/passport", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { passport?: PassportData } | null) => setPassport(payload?.passport ?? null))
+      .catch(() => setPassport(null));
   }, [live]);
   const production = summary?.mode === "production" ? summary : null;
 
@@ -74,10 +90,25 @@ export default function StudentProfilePage() {
       <section className="h2o-student-card">
         <header className="h2o-student-card-head"><div><span>CERTIFICATES</span><h2>Chứng nhận</h2></div></header>
         {live
-          ? <EmptyNote>Chưa có chứng nhận nào. Chứng nhận được cấp kèm mã xác minh sau khi bạn hoàn thành khóa học và đạt bài đánh giá cuối.</EmptyNote>
+          ? (passport?.credential.status === "issued"
+              ? <div className="h2o-certificate-card"><Award /><span><small>CHỨNG NHẬN STAGE 1</small><strong>{passport.credential.certificateNo}</strong><p>Cấp ngày {passport.credential.issuedAt ? new Date(passport.credential.issuedAt).toLocaleDateString("vi-VN") : "—"} · Xác minh tại /verify/{passport.credential.certificateNo}</p></span></div>
+              : passport?.credential.status === "eligible"
+                ? <EmptyNote>Bạn đã đủ điều kiện nhận chứng nhận Stage 1 — liên hệ giảng viên để được cấp.</EmptyNote>
+                : <EmptyNote>Chưa có chứng nhận nào. Chứng nhận Stage 1 được cấp kèm mã xác minh sau khi bạn hoàn thành toàn bộ Nhiệm vụ.</EmptyNote>)
           : <div className="h2o-certificate-card"><Award /><span><small>SKILL CERTIFICATE</small><strong>Chứng nhận mẫu</strong><p>Đây là dữ liệu minh họa của chế độ demo.</p></span></div>}
       </section>
     </div>
+
+    {live && passport && (passport.career.direction || passport.career.careerMapSummary || passport.career.ninetyDayGoal) && (
+      <section className="h2o-student-card">
+        <header className="h2o-student-card-head"><div><span>CAREER PASSPORT</span><h2>Định hướng nghề</h2><p>Tổng hợp thật từ các Nhiệm vụ Stage 1 bạn đã hoàn thành.</p></div></header>
+        <div className="h2o-profile-achievements">
+          {passport.career.direction && <article><span>🎯</span><div><strong>Hướng nghề</strong><small>{passport.career.direction}</small></div></article>}
+          {passport.career.careerMapSummary && <article><span>🗺️</span><div><strong>Career Map</strong><small>{passport.career.careerMapSummary}</small></div></article>}
+          {passport.career.ninetyDayGoal && <article><span>📅</span><div><strong>Mục tiêu 90 ngày</strong><small>{passport.career.ninetyDayGoal}</small></div></article>}
+        </div>
+      </section>
+    )}
 
     <section className="h2o-student-card h2o-portfolio-section">
       <header className="h2o-student-card-head">

@@ -6,6 +6,9 @@ import type { MissionDisplayState, MissionWithProgress } from "@/lib/learn-outco
 import { loadCareerStages } from "@/lib/career-stages/service";
 import { stageDisplayRank } from "@/lib/career-stages/types";
 import { getWorkspaceConfig, getStudentBlockValues } from "./service";
+import { getMissionContextSnapshot } from "@/lib/stage1-learning-os/known-context";
+import { getMissionOutputDestinations } from "@/lib/stage1-learning-os/output-reuse";
+import type { MissionContextSnapshot, OutputDestination } from "@/lib/stage1-learning-os/types";
 import type { MissionBlock, StudentBlockValue } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -182,18 +185,24 @@ export interface MissionWorkspaceView extends MissionContext {
   blocks: MissionBlock[];
   values: StudentBlockValue[];
   readiness: MissionReadiness;
+  /** "H2O đã biết gì về bạn?" (docs/stage1-learning-os-v1) — real facts from earlier Missions in the same Chặng, never invented fields. */
+  knownContext: MissionContextSnapshot;
+  /** "Kết quả này sẽ được dùng ở đâu?" — static per-Mission destination map over real surfaces this same folder builds. */
+  outputDestinations: OutputDestination[];
 }
 
 export async function getMissionWorkspaceView(userId: string, organizationId: string, missionId: string): Promise<MissionWorkspaceView | null> {
   const context = await resolveMissionContext(userId, organizationId, missionId);
   if (!context) return null;
-  const [config, values] = await Promise.all([
+  const [config, values, knownContext] = await Promise.all([
     getWorkspaceConfig(organizationId, context.versionId, missionId),
-    getStudentBlockValues(organizationId, userId, context.versionId, missionId)
+    getStudentBlockValues(organizationId, userId, context.versionId, missionId),
+    getMissionContextSnapshot(organizationId, userId, missionId)
   ]);
   const blocks = (config?.blocks ?? []).slice().sort((a, b) => a.position - b.position);
   const readiness = calculateMissionReadiness(context.mission, blocks, values);
-  return { ...context, blocks, values, readiness };
+  const outputDestinations = getMissionOutputDestinations(context.mission.title);
+  return { ...context, blocks, values, readiness, knownContext, outputDestinations };
 }
 
 /**

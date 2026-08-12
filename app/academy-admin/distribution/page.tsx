@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { BadgeCheck, Search } from "lucide-react";
+import { Award, BadgeCheck, Search } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import styles from "@/components/operations/operations.module.css";
@@ -8,6 +8,7 @@ import styles from "@/components/operations/operations.module.css";
 type Course = { id: string; title: string };
 type Student = { id: string; name: string; email: string };
 type Grant = { id: string; userId: string; userName: string; resourceType: string; resourceId: string; status: string; expiresAt: string | null; reason: string | null };
+type Stage1Eligibility = { stageId: string; eligible: boolean; missionsTotal: number; missionsDone: number };
 
 export default function DistributionPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -20,6 +21,9 @@ export default function DistributionPage() {
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [eligibility, setEligibility] = useState<Stage1Eligibility | null>(null);
+  const [issuing, setIssuing] = useState(false);
+  const [issueMessage, setIssueMessage] = useState<string | null>(null);
 
   async function loadGrants() {
     const res = await fetch("/api/academy-admin/entitlements?resourceType=course");
@@ -37,11 +41,24 @@ export default function DistributionPage() {
   }, []);
 
   async function searchStudent() {
-    setSearchError(null); setStudent(null);
+    setSearchError(null); setStudent(null); setEligibility(null); setIssueMessage(null);
     const res = await fetch(`/api/academy-admin/students/lookup?email=${encodeURIComponent(email)}`);
     const json = await res.json();
     if (!res.ok) { setSearchError(json.error === "STUDENT_NOT_FOUND" ? "Không tìm thấy học viên với email này." : json.error); return; }
     setStudent(json.student);
+    const elig = await fetch(`/api/academy-admin/stage1-credential?studentId=${json.student.id}`);
+    const eligJson = await elig.json().catch(() => null);
+    if (elig.ok) setEligibility(eligJson);
+  }
+
+  async function issueCertificate() {
+    if (!student || !eligibility) return;
+    setIssuing(true); setIssueMessage(null);
+    const res = await fetch("/api/academy-admin/stage1-credential", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentId: student.id, stageId: eligibility.stageId }) });
+    const json = await res.json();
+    setIssuing(false);
+    if (!res.ok) { setIssueMessage(json.error ?? "Không cấp được chứng nhận."); return; }
+    setIssueMessage(json.issued ? `Đã cấp chứng nhận: ${json.certificateNo}` : (json.reason ?? "Chưa đủ điều kiện."));
   }
 
   async function grantAccess() {
@@ -98,6 +115,19 @@ export default function DistributionPage() {
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ví dụ: hỗ trợ sự cố thanh toán, quà tặng…" style={{ padding: 10, borderRadius: 10, border: "1px solid #dfe3e8" }} />
           </label>
           <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={saving || !courseId || !reason.trim()} onClick={grantAccess} style={{ justifySelf: "start" }}>Cấp quyền</button>
+        </div>
+      </section>
+    )}
+
+    {student && eligibility && (
+      <section className={styles.card} style={{ marginBottom: 18 }}>
+        <div className={styles.cardHead}><div><h2>Bước 3 — Chứng nhận Stage 1</h2><p style={{ margin: "2px 0 0", fontSize: 11, color: "#6b7a89" }}>Cấp chỉ khi đủ điều kiện thật — mọi Nhiệm vụ Stage 1 đã hoàn thành. Không thể cấp trước khi đủ.</p></div></div>
+        <div style={{ padding: 18, display: "grid", gap: 10 }}>
+          {issueMessage && <p style={{ fontSize: 12, color: issueMessage.startsWith("Đã cấp") ? "#177a54" : "#b22949" }}>{issueMessage}</p>}
+          <p style={{ fontSize: 12 }}>Tiến độ Stage 1: <strong>{eligibility.missionsDone}/{eligibility.missionsTotal}</strong> Nhiệm vụ hoàn thành.</p>
+          <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={!eligibility.eligible || issuing} onClick={issueCertificate} style={{ justifySelf: "start" }}>
+            <Award size={14} />{eligibility.eligible ? "Cấp chứng nhận" : "Chưa đủ điều kiện"}
+          </button>
         </div>
       </section>
     )}
