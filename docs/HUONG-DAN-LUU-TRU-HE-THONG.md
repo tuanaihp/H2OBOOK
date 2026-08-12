@@ -6,6 +6,25 @@
 
 ---
 
+**2026-08-12 — 🔗 Đã merge + deploy: Academy Data Link V1 (folder 34) — liên kết Curriculum ↔ Journey ↔ Học viên, sửa lỗi thật Student Stage badge, KHÔNG cần migration.**
+
+Đọc đủ 16/16 file gói nguồn trước khi làm. Trang mới `/academy-admin/data-link` ("Liên kết dữ liệu" trong sidebar) — chỉ là **read-model + inspector**, không tạo bảng dữ liệu mới:
+
+- **Data Link Health**: điểm số + số liệu thật cho 1 Giai đoạn (Program/Module/Group, học liệu Curriculum, Journey Version, Nhiệm vụ, Mission có học liệu, học liệu gãy, lỗi Stage Context).
+- **Hướng dẫn cài đặt Academy 10 bước**: từng bước tự tính từ dữ liệu thật, có nút bấm thẳng tới đúng chỗ.
+- **Resource Data Link Inspector**: chọn 1 học liệu thật (không gõ UUID) → thấy nó nằm ở đâu trong Curriculum, Mission nào đang dùng, hiện ở đâu cho học viên.
+- **Stage Context Validator**: đối chiếu Stage học viên thật đang được gán với Stage mà Mission gần nhất của họ thuộc về — lệch thì báo P1.
+
+**Lỗi thật tìm ra khi audit:** trang Roadmap của học viên hiện số Giai đoạn lấy từ `career_stages.position` (đúng), nhưng màn Mission Workspace lại lấy từ `index_label` — một ô chữ admin gõ tay, có thể lệch khỏi `position` thật (chính màn quản trị Giai đoạn đã có sẵn cảnh báo việc này từng xảy ra). Cùng 1 học viên, cùng 1 Giai đoạn, có thể thấy 2 số khác nhau ở 2 màn.
+
+**Sửa 2 lần mới đúng — xin nói thật:** lần đầu tôi đổi Mission Workspace sang dùng thẳng `position`, tưởng đã khớp Roadmap — merge, deploy, health check bình thường. Nhưng khi làm đúng bước bắt buộc "kiểm chứng dữ liệu thật" (tra thẳng dữ liệu Giai đoạn thật trên production) mới phát hiện: 6 Giai đoạn thật đang chạy nằm ở `position = 5..10`, không phải `0..5`, vì 6 Giai đoạn nháp/test cũ đã chiếm số 0-4 trước khi bị lưu trữ — `position` là bộ đếm thô không reset lại. Nếu giữ cách sửa lần 1, Giai đoạn đầu tiên học viên đang học sẽ hiện "06" thay vì "01" đúng ý bạn đặt — vẫn sai, chỉ khác kiểu sai. **Đã tự phát hiện và sửa lại trước khi báo hoàn thành**, không để lỗi lọt ra ngoài: thêm cách tính "thứ hạng trong nhóm Giai đoạn đang hoạt động" thay vì dùng số thô, áp dụng thống nhất ở cả Roadmap/Mission Workspace/Thư viện — đã kiểm tra lại bằng dữ liệu thật, khớp đúng 01→06 với số bạn đã đặt cho cả 6 Giai đoạn.
+
+**Đã làm thêm:** tab "Giao diện học viên" trong Stage Workspace từng cho gõ `key` tự do để dựng menu (chưa từng nối vào menu học viên thật) — đổi thành "Hiển thị & Trải nghiệm", chỉ bật/tắt Hiện/Cho xem thử/Khóa/Nổi bật cho đúng 3 khu vực thật (Thư viện/Hành trình/Smart Home).
+
+Báo cáo đầy đủ: `docs/academy-data-link-v1/FINAL_REPORT.md`.
+
+---
+
 **2026-08-11 — 🧩 Đã merge + deploy: Journey Admin Builder V5 (folder 33) — sửa lỗi mất tiến độ khi publish đè version, thêm Xóa bản nháp + Nhân bản nhiều giai đoạn — ⚠️ ĐÃ CHẠY MIGRATION 0054.**
 
 Đọc đủ 12/12 file gói nguồn trước khi làm. Audit ra 1 rủi ro thật đang tồn tại: `duplicateVersion()` tạo Mission mới với UUID hoàn toàn khác mỗi lần nhân bản — nếu Admin publish version mới đè lên version đang publish, tiến độ học viên thật (xác nhận 2 người: Max Crypto, Thùy H2O Makeup, đang có tiến độ thật trên v1) sẽ "biến mất" khỏi giao diện của họ (dữ liệu không mất, chỉ không còn khớp version mới).
