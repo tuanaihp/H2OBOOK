@@ -6,6 +6,7 @@ import { loadVersionGraph } from "./service";
 import { getWorkspaceConfigsForVersion } from "@/lib/mission-workspace/service";
 import { ITEMS_CONFIG_TYPES, MISSION_BLOCK_LABEL } from "@/lib/mission-workspace/types";
 import { emitDomainEvent } from "@/lib/domain/events";
+import { computeSiblingSwap, findOutsidePrerequisiteReferences } from "./tree-helpers";
 import type { MissionBindingRole, MissionInput, PreflightFinding, PreflightResult } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -30,6 +31,63 @@ async function requireDraftVersion(supabase: NonNullable<Awaited<ReturnType<type
   const { data } = await supabase.from("learning_journey_versions").select("status").eq("organization_id", organizationId).eq("id", versionId).maybeSingle();
   if (!data) return { ok: false, error: "VERSION_NOT_FOUND" };
   if ((data as { status: string }).status !== "draft") return { ok: false, error: "VERSION_NOT_DRAFT" };
+  return { ok: true, data: null };
+}
+
+type Sb = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+
+/**
+ * Walks Outcome -> Version / Milestone -> Outcome -> Version / Mission -> Milestone -> ... -> Version
+ * so every write below can be checked against requireDraftVersion server-side — not just disabled in
+ * the UI. docs/journey-tree-editor-v1/01_PRODUCTION_AUDIT.md found createMilestone/createMission/
+ * updateMission skipped this (only createOutcome had it), the same class of gap folder 30's Start
+ * Mission bypass was: a hidden button is not the same as a server-enforced rule.
+ */
+async function resolveOutcomeVersion(supabase: Sb, organizationId: string, outcomeId: string): Promise<{ versionId: string } | null> {
+  const { data } = await supabase.from("learning_journey_outcomes").select("version_id").eq("organization_id", organizationId).eq("id", outcomeId).maybeSingle();
+  return data ? { versionId: (data as { version_id: string }).version_id } : null;
+}
+async function resolveMilestoneVersion(supabase: Sb, organizationId: string, milestoneId: string): Promise<{ versionId: string; outcomeId: string } | null> {
+  const { data } = await supabase.from("learning_journey_milestones").select("outcome_id").eq("organization_id", organizationId).eq("id", milestoneId).maybeSingle();
+  if (!data) return null;
+  const outcomeId = (data as { outcome_id: string }).outcome_id;
+  const resolved = await resolveOutcomeVersion(supabase, organizationId, outcomeId);
+  return resolved ? { versionId: resolved.versionId, outcomeId } : null;
+}
+async function resolveMissionVersion(supabase: Sb, organizationId: string, missionId: string): Promise<{ versionId: string; milestoneId: string } | null> {
+  const { data } = await supabase.from("learning_journey_missions").select("milestone_id").eq("organization_id", organizationId).eq("id", missionId).maybeSingle();
+  if (!data) return null;
+  const milestoneId = (data as { milestone_id: string }).milestone_id;
+  const resolved = await resolveMilestoneVersion(supabase, organizationId, milestoneId);
+  return resolved ? { versionId: resolved.versionId, milestoneId } : null;
+}
+
+/**
+ * Safe-delete check for a set of leaf Missions about to be removed (as part of deleting their
+ * Outcome or Milestone). Every FK from Mission down to student_mission_states/
+ * student_mission_workspace_values is `on delete cascade` — a raw DELETE would silently wipe real
+ * student progress/evidence/workspace input with no warning from Postgres. Mirrors the check
+ * deleteDraftVersion() already does at the Version level, plus two things that check doesn't need to
+ * (it deletes the whole tree, so there is no "outside"):
+ *   - student_learning_actions.mission_id (`on delete set null`, not cascade, but still a silent loss
+ *     of a real link to the student's own action)
+ *   - prerequisite_mission_id from a Mission OUTSIDE this set pointing IN (cross-outcome
+ *     prerequisites are allowed since folder 30 — deleting would silently null another Mission's
+ *     unlock condition)
+ */
+async function checkMissionsSafeToDelete(supabase: Sb, organizationId: string, missionIds: string[]): Promise<Result<null>> {
+  if (!missionIds.length) return { ok: true, data: null };
+  const [states, values, actions, prereqRows] = await Promise.all([
+    supabase.from("student_mission_states").select("id", { count: "exact", head: true }).eq("organization_id", organizationId).in("mission_id", missionIds),
+    supabase.from("student_mission_workspace_values").select("id", { count: "exact", head: true }).eq("organization_id", organizationId).in("mission_id", missionIds),
+    supabase.from("student_learning_actions").select("id", { count: "exact", head: true }).eq("organization_id", organizationId).in("mission_id", missionIds),
+    supabase.from("learning_journey_missions").select("id,title").eq("organization_id", organizationId).in("prerequisite_mission_id", missionIds)
+  ]);
+  if ((states.count ?? 0) > 0) return { ok: false, error: `Có ${states.count} tiến độ học viên thật đang gắn với Nhiệm vụ trong phạm vi này — không thể xóa.` };
+  if ((values.count ?? 0) > 0) return { ok: false, error: `Có dữ liệu Không gian làm việc thật của học viên trong phạm vi này — không thể xóa.` };
+  if ((actions.count ?? 0) > 0) return { ok: false, error: `Có Việc cần làm thật của học viên đang gắn với Nhiệm vụ trong phạm vi này — không thể xóa.` };
+  const outsidePrereq = findOutsidePrerequisiteReferences(((prereqRows.data ?? []) as { id: string; title: string }[]), missionIds)[0];
+  if (outsidePrereq) return { ok: false, error: `Nhiệm vụ "${outsidePrereq.title}" ở ngoài phạm vi này đang lấy 1 Nhiệm vụ bên trong làm điều kiện mở khóa — xóa sẽ làm mất điều kiện đó.` };
   return { ok: true, data: null };
 }
 
@@ -152,6 +210,19 @@ export async function duplicateVersion(access: AcademyAdminAccess, blueprintId: 
 }
 
 /**
+ * Same clone as duplicateVersion() — no separate mutation logic — used specifically by the "Tạo bản
+ * nháp để chỉnh sửa" CTA the Tree Editor shows when Admin is looking at a read-only Published
+ * version (v5/35-.../CLAUDE_INTEGRATION_PROMPT.md §9). Emits an extra, more specific event so
+ * analytics can tell "I was blocked from editing Published and cloned my way in" apart from the
+ * general "Nhân bản phiên bản này" button — both still only ever produce one journey.version_cloned.
+ */
+export async function cloneVersionForEditing(access: AcademyAdminAccess, blueprintId: string, sourceVersionId: string): Promise<Result<{ versionId: string }>> {
+  const result = await duplicateVersion(access, blueprintId, sourceVersionId);
+  if (result.ok) await emitJourneyEvent(access.organizationId, access.userId, "journey.version.cloned_for_edit", result.data.versionId, { sourceVersionId, blueprintId });
+  return result;
+}
+
+/**
  * "Nhân bản sang nhiều giai đoạn" (v5/33-.../CLAUDE_INTEGRATION_PROMPT.md §10): clones one source
  * version's Mission graph into a brand NEW draft version on each target Stage's blueprint (creating
  * the blueprint first if that Stage has none yet). Every target gets its own independent draft —
@@ -207,23 +278,162 @@ export async function createOutcome(access: AcademyAdminAccess, versionId: strin
   const position = await nextPosition(supabase, "learning_journey_outcomes", "version_id", versionId);
   const { data, error } = await supabase.from("learning_journey_outcomes").insert({ organization_id: access.organizationId, version_id: versionId, title, description: input.description ?? null, position }).select("id").single();
   if (error || !data) return { ok: false, error: error?.message ?? "OUTCOME_CREATE_FAILED" };
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_outcomes", resourceId: data.id, eventName: "journey.outcome.created", payload: { versionId } }).catch(() => {});
   return { ok: true, data: { id: data.id } };
+}
+
+export async function updateOutcome(access: AcademyAdminAccess, outcomeId: string, input: { title?: string; description?: string | null; position?: number }): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveOutcomeVersion(supabase, access.organizationId, outcomeId);
+  if (!resolved) return { ok: false, error: "OUTCOME_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
+  const patch: Record<string, unknown> = {};
+  if (input.title !== undefined) { const title = input.title.trim(); if (!title) return { ok: false, error: "TITLE_REQUIRED" }; patch.title = title; }
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.position !== undefined) patch.position = input.position;
+  if (Object.keys(patch).length === 0) return { ok: true, data: null };
+  const { error } = await supabase.from("learning_journey_outcomes").update(patch).eq("organization_id", access.organizationId).eq("id", outcomeId);
+  if (error) return { ok: false, error: error.message };
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_outcomes", resourceId: outcomeId, eventName: "journey.outcome.updated", payload: { versionId: resolved.versionId } }).catch(() => {});
+  return { ok: true, data: null };
+}
+
+/**
+ * Xóa Kết quả (draft only, §8): checkMissionsSafeToDelete first, then walk the same
+ * mission -> milestone -> outcome delete order deleteDraftVersion() already established rather than
+ * rely on FK cascade alone.
+ */
+export async function deleteOutcome(access: AcademyAdminAccess, outcomeId: string): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveOutcomeVersion(supabase, access.organizationId, outcomeId);
+  if (!resolved) return { ok: false, error: "OUTCOME_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
+
+  const { data: milestoneRows } = await supabase.from("learning_journey_milestones").select("id").eq("organization_id", access.organizationId).eq("outcome_id", outcomeId);
+  const milestoneIds = ((milestoneRows ?? []) as { id: string }[]).map((m) => m.id);
+  const { data: missionRows } = milestoneIds.length ? await supabase.from("learning_journey_missions").select("id").eq("organization_id", access.organizationId).in("milestone_id", milestoneIds) : { data: [] };
+  const missionIds = ((missionRows ?? []) as { id: string }[]).map((m) => m.id);
+
+  const safe = await checkMissionsSafeToDelete(supabase, access.organizationId, missionIds);
+  if (!safe.ok) return safe;
+
+  if (missionIds.length) {
+    await supabase.from("learning_mission_workspace_configs").delete().eq("organization_id", access.organizationId).in("mission_id", missionIds);
+    await supabase.from("learning_journey_missions").delete().eq("organization_id", access.organizationId).in("milestone_id", milestoneIds);
+  }
+  if (milestoneIds.length) await supabase.from("learning_journey_milestones").delete().eq("organization_id", access.organizationId).eq("outcome_id", outcomeId);
+  const { error } = await supabase.from("learning_journey_outcomes").delete().eq("organization_id", access.organizationId).eq("id", outcomeId);
+  if (error) return { ok: false, error: error.message };
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_outcomes", resourceId: outcomeId, eventName: "journey.outcome.deleted", payload: { versionId: resolved.versionId } }).catch(() => {});
+  return { ok: true, data: null };
 }
 
 export async function createMilestone(access: AcademyAdminAccess, outcomeId: string, input: { title: string; description?: string }): Promise<Result<{ id: string }>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveOutcomeVersion(supabase, access.organizationId, outcomeId);
+  if (!resolved) return { ok: false, error: "OUTCOME_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
   const title = input.title?.trim();
   if (!title) return { ok: false, error: "TITLE_REQUIRED" };
   const position = await nextPosition(supabase, "learning_journey_milestones", "outcome_id", outcomeId);
   const { data, error } = await supabase.from("learning_journey_milestones").insert({ organization_id: access.organizationId, outcome_id: outcomeId, title, description: input.description ?? null, position }).select("id").single();
   if (error || !data) return { ok: false, error: error?.message ?? "MILESTONE_CREATE_FAILED" };
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_milestones", resourceId: data.id, eventName: "journey.milestone.created", payload: { outcomeId } }).catch(() => {});
   return { ok: true, data: { id: data.id } };
+}
+
+export async function updateMilestone(access: AcademyAdminAccess, milestoneId: string, input: { title?: string; description?: string | null; position?: number }): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveMilestoneVersion(supabase, access.organizationId, milestoneId);
+  if (!resolved) return { ok: false, error: "MILESTONE_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
+  const patch: Record<string, unknown> = {};
+  if (input.title !== undefined) { const title = input.title.trim(); if (!title) return { ok: false, error: "TITLE_REQUIRED" }; patch.title = title; }
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.position !== undefined) patch.position = input.position;
+  if (Object.keys(patch).length === 0) return { ok: true, data: null };
+  const { error } = await supabase.from("learning_journey_milestones").update(patch).eq("organization_id", access.organizationId).eq("id", milestoneId);
+  if (error) return { ok: false, error: error.message };
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_milestones", resourceId: milestoneId, eventName: "journey.milestone.updated", payload: { versionId: resolved.versionId } }).catch(() => {});
+  return { ok: true, data: null };
+}
+
+/** Xóa Chặng (draft only, §8) — same safe-delete check + delete order as deleteOutcome, one level shallower. */
+export async function deleteMilestone(access: AcademyAdminAccess, milestoneId: string): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveMilestoneVersion(supabase, access.organizationId, milestoneId);
+  if (!resolved) return { ok: false, error: "MILESTONE_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
+
+  const { data: missionRows } = await supabase.from("learning_journey_missions").select("id").eq("organization_id", access.organizationId).eq("milestone_id", milestoneId);
+  const missionIds = ((missionRows ?? []) as { id: string }[]).map((m) => m.id);
+
+  const safe = await checkMissionsSafeToDelete(supabase, access.organizationId, missionIds);
+  if (!safe.ok) return safe;
+
+  if (missionIds.length) {
+    await supabase.from("learning_mission_workspace_configs").delete().eq("organization_id", access.organizationId).in("mission_id", missionIds);
+    await supabase.from("learning_journey_missions").delete().eq("organization_id", access.organizationId).eq("milestone_id", milestoneId);
+  }
+  const { error } = await supabase.from("learning_journey_milestones").delete().eq("organization_id", access.organizationId).eq("id", milestoneId);
+  if (error) return { ok: false, error: error.message };
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_milestones", resourceId: milestoneId, eventName: "journey.milestone.deleted", payload: { versionId: resolved.versionId, outcomeId: resolved.outcomeId } }).catch(() => {});
+  return { ok: true, data: null };
+}
+
+/**
+ * Reorders a sibling Outcome/Milestone/Mission by swapping `position` with its immediate neighbour —
+ * same shape as the existing Stage reorder (app/academy-admin/stages/page.tsx's moveStage), same-
+ * parent only (§10 — cross-parent drag needs a prerequisite-remap audit this V1 does not do).
+ */
+export async function reorderTreeNode(access: AcademyAdminAccess, nodeType: "outcome" | "milestone" | "mission", nodeId: string, direction: -1 | 1): Promise<Result<null>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const table = nodeType === "outcome" ? "learning_journey_outcomes" : nodeType === "milestone" ? "learning_journey_milestones" : "learning_journey_missions";
+  const parentColumn = nodeType === "outcome" ? "version_id" : nodeType === "milestone" ? "outcome_id" : "milestone_id";
+
+  const { data: nodeRow } = await supabase.from(table).select(`id,position,${parentColumn}`).eq("organization_id", access.organizationId).eq("id", nodeId).maybeSingle();
+  if (!nodeRow) return { ok: false, error: "NODE_NOT_FOUND" };
+  const parentId = (nodeRow as Record<string, unknown>)[parentColumn] as string;
+
+  const versionId = nodeType === "outcome" ? parentId
+    : nodeType === "milestone" ? (await resolveOutcomeVersion(supabase, access.organizationId, parentId))?.versionId ?? null
+    : (await resolveMilestoneVersion(supabase, access.organizationId, parentId))?.versionId ?? null;
+  if (!versionId) return { ok: false, error: "VERSION_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, versionId);
+  if (!draftCheck.ok) return draftCheck;
+
+  const { data: siblingRows } = await supabase.from(table).select("id,position").eq("organization_id", access.organizationId).eq(parentColumn, parentId);
+  const swap = computeSiblingSwap(((siblingRows ?? []) as { id: string; position: number }[]), nodeId, direction);
+  if (!swap) return { ok: false, error: "CANNOT_MOVE" };
+  const { current, swapWith } = swap;
+
+  const { error: err1 } = await supabase.from(table).update({ position: swapWith.position }).eq("organization_id", access.organizationId).eq("id", current.id);
+  if (err1) return { ok: false, error: err1.message };
+  const { error: err2 } = await supabase.from(table).update({ position: current.position }).eq("organization_id", access.organizationId).eq("id", swapWith.id);
+  if (err2) return { ok: false, error: err2.message };
+
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: table, resourceId: nodeId, eventName: "journey.tree.reordered", payload: { nodeType, parentId, direction } }).catch(() => {});
+  return { ok: true, data: null };
 }
 
 export async function createMission(access: AcademyAdminAccess, milestoneId: string, input: MissionInput): Promise<Result<{ id: string }>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveMilestoneVersion(supabase, access.organizationId, milestoneId);
+  if (!resolved) return { ok: false, error: "MILESTONE_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
   const title = input.title?.trim();
   if (!title) return { ok: false, error: "TITLE_REQUIRED" };
   const position = await nextPosition(supabase, "learning_journey_missions", "milestone_id", milestoneId);
@@ -238,12 +448,17 @@ export async function createMission(access: AcademyAdminAccess, milestoneId: str
   // A freshly created Mission is its own identity root (migration 0054) — cloning inherits from
   // here, never overwrites it, so a mission's root always points at where the lineage began.
   await supabase.from("learning_journey_missions").update({ root_mission_id: data.id }).eq("id", data.id);
+  await emitDomainEvent({ organizationId: access.organizationId, actorId: access.userId, resourceType: "learning_journey_missions", resourceId: data.id, eventName: "journey.mission.created", payload: { milestoneId } }).catch(() => {});
   return { ok: true, data: { id: data.id } };
 }
 
 export async function updateMission(access: AcademyAdminAccess, missionId: string, input: Partial<MissionInput>): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const resolved = await resolveMissionVersion(supabase, access.organizationId, missionId);
+  if (!resolved) return { ok: false, error: "MISSION_NOT_FOUND" };
+  const draftCheck = await requireDraftVersion(supabase, access.organizationId, resolved.versionId);
+  if (!draftCheck.ok) return draftCheck;
   const patch: Record<string, unknown> = {};
   if (input.title !== undefined) patch.title = input.title.trim();
   if (input.description !== undefined) patch.description = input.description;
