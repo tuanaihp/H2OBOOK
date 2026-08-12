@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveAcademyAdminAccess } from "@/lib/academy-admin/request";
-import { archiveVersion, bulkCloneToStages, deleteDraftVersion, duplicateVersion, preflightVersion, publishVersion } from "@/lib/learn-outcome/admin";
+import { archiveVersion, bulkCloneToStages, cloneVersionForEditing, deleteDraftVersion, duplicateVersion, preflightVersion, publishVersion } from "@/lib/learn-outcome/admin";
 import { emitDomainEvent } from "@/lib/domain/events";
 
 type Body = {
@@ -24,6 +24,12 @@ export async function POST(request: Request) {
   if (body.action === "duplicate") {
     if (!body.blueprintId || !body.versionId) return NextResponse.json({ error: "VERSION_REQUIRED" }, { status: 400 });
     const result = await duplicateVersion(access!, body.blueprintId, body.versionId);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    return NextResponse.json(result.data, { status: 201 });
+  }
+  if (body.action === "clone-for-edit") {
+    if (!body.blueprintId || !body.versionId) return NextResponse.json({ error: "VERSION_REQUIRED" }, { status: 400 });
+    const result = await cloneVersionForEditing(access!, body.blueprintId, body.versionId);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
     return NextResponse.json(result.data, { status: 201 });
   }
