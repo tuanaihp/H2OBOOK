@@ -46,6 +46,8 @@ const STATUS_LABEL: Record<string, string> = { draft: TERMS.draft, published: TE
 const COMPLETION_POLICY_LABEL: Record<string, string> = { self_reported: "Học viên tự xác nhận", evidence_required: "Cần nộp bằng chứng", teacher_verified: "Giảng viên duyệt", metric_based: "Đạt chỉ số/KPI" };
 const CATEGORY_LABEL: Record<string, string> = { structure: "Cấu trúc", missing_kpi: `Thiếu ${TERMS.successKpi}`, missing_duration: `Thiếu ${TERMS.estimatedDays}`, missing_binding: `Thiếu ${TERMS.resourceBindings}`, circular: `Vòng lặp ${TERMS.prerequisite}`, broken_reference: "Tham chiếu gãy", other: "Khác" };
 const TAB_LABEL: Record<InspectorTab, string> = { overview: "1. Tổng quan", resources: "2. Học liệu", actions: "3. Việc cần làm", workspace: "4. Không gian làm việc", unlock: "5. Mở khóa & đánh giá" };
+// Bấm 1 lỗi trong Preflight phải mở đúng tab sửa được lỗi đó — không bắt Admin tự đoán "Học liệu" nằm ở tab nào.
+const CATEGORY_TO_TAB: Record<string, InspectorTab> = { structure: "overview", missing_kpi: "overview", missing_duration: "overview", missing_binding: "resources", circular: "unlock", broken_reference: "unlock", other: "actions" };
 const CLONE_OPTION_LABEL: Record<keyof CloneOptions, string> = { copyResources: TERMS.resourceBindings, copyActions: TERMS.actionTemplates, copyWorkspaceBlocks: TERMS.missionWorkspace, copyPrerequisites: TERMS.prerequisite };
 
 type CloneOptions = { copyResources: boolean; copyActions: boolean; copyWorkspaceBlocks: boolean; copyPrerequisites: boolean };
@@ -312,7 +314,8 @@ function JourneyMapAdminPageInner() {
         </div>
         {activeCategory && <div style={{ marginTop: 10, fontSize: 12 }}>
           {(findingsByCategory.get(activeCategory) ?? []).map((f, i) => <div key={i} style={{ padding: "4px 0", borderTop: i ? "1px solid #f1f3f5" : undefined }}>
-            {f.missionTitle && f.missionId ? <button onClick={() => setSelected({ type: "mission", id: f.missionId! })} style={{ border: "none", background: "none", padding: 0, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>{f.missionTitle}</button> : <strong>Chung</strong>} — {f.message}
+            {/* 1 click = đúng Mission + đúng tab để sửa ngay, không bắt đọc-rồi-tự-đoán-tab. */}
+            {f.missionTitle && f.missionId ? <button onClick={() => { setSelected({ type: "mission", id: f.missionId! }); setActiveTab(CATEGORY_TO_TAB[f.category] ?? "overview"); }} style={{ border: "none", background: "none", padding: 0, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>{f.missionTitle}</button> : <strong>Chung</strong>} — {f.message}
           </div>)}
         </div>}
       </div>
@@ -423,7 +426,11 @@ function JourneyMapAdminPageInner() {
               </label>
             </div>
             <div><strong>{TERMS.successKpi}</strong>
-              {selectedMission.successCriteria.length ? selectedMission.successCriteria.map((c, i) => <div key={i}>· {c}</div>) : <p style={{ color: "#6b7a89" }}>Chưa có {TERMS.successKpi.toLowerCase()}.</p>}
+              {selectedMission.successCriteria.length ? selectedMission.successCriteria.map((c, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ flex: 1 }}>· {c}</span>
+                {isDraft && <button disabled={busy} title="Xóa tiêu chí này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: selectedMission.successCriteria.filter((_, idx) => idx !== i) } }, "Đã xóa tiêu chí.")} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
+              </div>) : <p style={{ color: "#6b7a89" }}>Chưa có {TERMS.successKpi.toLowerCase()}.</p>}
+              {isDraft && <div style={{ marginTop: 6 }}><MiniForm placeholder={`+ Thêm ${TERMS.successKpi.toLowerCase()}`} onSubmit={(text) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: [...selectedMission.successCriteria, text] } }, "Đã thêm tiêu chí.")}/></div>}
             </div>
           </>}
 
