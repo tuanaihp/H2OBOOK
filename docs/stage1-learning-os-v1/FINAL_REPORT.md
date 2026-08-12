@@ -70,6 +70,19 @@ V1 này không tích hợp AI provider nào — toàn bộ năng lực hoạt đ
 
 ## Chưa xây / gap còn lại (ghi rõ, không giấu)
 
-- Daily Practice: chưa có UI upload ảnh/video (`asset_ids` đã có cột nhưng chưa có form upload), chưa có cột/luồng "teacher review" (spec ghi rõ đây là tuỳ chọn "nếu có", không bắt buộc).
-- Tiêu chí thành công thật cho 14 Mission đã soạn nhưng chưa được Admin áp dụng vào bản Published.
-- Không claim production hoàn chỉnh trước khi có 1 lượt kiểm thử thật bằng tài khoản học viên Stage 1 (Max Crypto hoặc Thùy H2O Makeup) đăng nhập trực tiếp, xác nhận cả 5 năng lực (Passport ở `/student/profile`, Known Context + Output Reuse trong Mission Workspace, Daily Practice logger, Skill Passport hiện đúng mastery%) hiển thị đúng trên giao diện thật.
+- ~~Daily Practice: chưa có UI upload ảnh/video~~ **Đã đóng — xem "Việc làm thêm sau báo cáo" bên dưới.**
+- ~~Tiêu chí thành công thật cho 14 Mission đã soạn nhưng chưa được Admin áp dụng~~ **Đã đóng — xem bên dưới.**
+- "Teacher review" cho Daily Practice vẫn chưa xây (spec ghi rõ đây là tuỳ chọn "nếu có", không bắt buộc) — vẫn là gap có chủ đích, không phải thiếu sót.
+- Không claim production hoàn chỉnh trước khi có 1 lượt kiểm thử thật bằng tài khoản học viên Stage 1 (Max Crypto hoặc Thùy H2O Makeup) đăng nhập trực tiếp, xác nhận cả 5 năng lực (Passport ở `/student/profile`, Known Context + Output Reuse trong Mission Workspace, Daily Practice logger có upload, Skill Passport hiện đúng mastery%) hiển thị đúng trên giao diện thật.
+
+## Việc làm thêm sau báo cáo — đóng 2 gap còn lại
+
+**Daily Practice photo/video upload:** `components/student/mission-workspace/daily-practice-logger.tsx` giờ đính ảnh/video qua đúng pipeline upload học viên đã có sẵn (`lib/assets/asset-client.ts`'s `uploadAsset` — cùng đường presigned-URL/kiểm quota/scan mà Reader và Brand Kit đang dùng, role `student` đã được server cho phép từ trước). Không xây component upload mới từ đầu — chỉ nối UI vào `assetIds` mà `saveDailyPracticeEntry`/route `/api/student/practice` đã âm thầm chấp nhận sẵn nhưng chưa ai gửi. Video `mp4` đã được `lib/security/uploads.ts` cho phép sẵn (tới 250MB).
+
+**Áp dụng Tiêu chí đạt thật cho 14 Mission:** thay vì để bạn tự thao tác qua giao diện, đã viết `scripts/apply-stage1-success-criteria-v2.mjs` — mirror chính xác logic thật của `duplicateVersion()`/`cloneGraphIntoVersion()` (`lib/learn-outcome/admin.ts`, kể cả `root_mission_id` theo migration 0054 và remap `prerequisite_mission_id` 2 lượt), chạy qua REST với service-role key (vì hàm thật cần session request-scoped mà script không có — cùng quy ước với `scripts/clone-journey-stage1-v2.mjs` đã dùng trước đây). Đã chạy dry-run trước (khớp 14/14, không lỗi), **được bạn xác nhận cho phép chạy ghi thật** trước khi `--apply`. Kết quả: tạo `v2 — Bản nháp` (versionId `5f63920f-23de-4e1d-b3eb-4de5e766c237`) nhân bản đầy đủ từ `v1` (4 outcome, 4 milestone, 14 mission, 20 resource binding, 36 action template), điền đủ Tiêu chí đạt cho cả 14 Mission. **`v1` đang publish không bị đụng tới** — đã xác nhận lại `success_criteria` của `v1` vẫn `[]` sau khi chạy. `v2` vẫn ở trạng thái draft — bạn tự quyết định khi nào vào `/academy-admin/journey` để soát (Kiểm tra/Xem như học viên) rồi Publish.
+
+**Kiểm chứng bằng dữ liệu thật (đợt 2):**
+- Dry-run script khớp đúng 14/14 tên Mission, không ambiguous/missing.
+- Sau khi `--apply`: xác nhận `v2` có đúng 4 outcome/4 milestone/14 mission, `root_mission_id` mỗi Mission trỏ đúng về Mission gốc ở `v1`, `prerequisite_mission_id` remap đúng sang id mới trong `v2` (đối chiếu tay 1 chuỗi phụ thuộc chéo Outcome: "Before/After #1" → "Tóc nền tảng"), resource binding (20/20) và action template (36/36) khớp đúng số lượng `v1`.
+- Xác nhận lại `v1` (mission "Xác định hướng nghề Makeup") vẫn `success_criteria: []` — không bị ảnh hưởng bởi thao tác trên `v2`.
+- Daily Practice upload: chưa test qua UI thật (không có phiên đăng nhập học viên để mô phỏng qua curl, giống toàn bộ phiên làm việc này) — đã xác nhận đúng bằng đọc code: `uploadAsset` cho phép role `student`, route `/api/student/practice` đã nhận `assetIds` từ trước, `saveDailyPracticeEntry` ghi đúng cột `asset_ids`.

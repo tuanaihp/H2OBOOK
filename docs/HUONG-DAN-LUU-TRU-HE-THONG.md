@@ -6,6 +6,18 @@
 
 ---
 
+**2026-08-12 — 📸 Đã merge + deploy: đóng 2 việc còn hoãn của Stage 1 Learning OS V1 — upload ảnh/video cho Nhật ký luyện tập + áp dụng Tiêu chí đạt thật vào 1 bản nháp mới, KHÔNG cần migration.**
+
+Tiếp tục 2 việc đã ghi rõ là "chưa xây" trong báo cáo folder 36.
+
+**Nhật ký luyện tập giờ đính được ảnh/video thật** — dùng đúng đường upload học viên đã có sẵn (cùng cơ chế Reader và Brand Kit đang dùng: link tải lên có chữ ký, tự kiểm dung lượng, tự quét an toàn), không dựng lại từ đầu. Chỉ là nối thêm giao diện — phần ghi dữ liệu (`asset_ids`) máy chủ đã âm thầm nhận sẵn từ trước, chỉ chưa ai gửi lên.
+
+**Tiêu chí đạt thật cho 14 Mission — đã áp dụng vào 1 bản nháp mới, chưa Publish:** thay vì để bạn tự dán tay qua giao diện, tôi đã hỏi và **được bạn cho phép** chạy 1 script ghi thật vào production (hệ thống quyền tự động đã tự chặn lại trước, đúng như thiết kế, và tôi đã dừng hỏi bạn thay vì tìm cách lách). Script mô phỏng chính xác logic nút "Nhân bản phiên bản này" thật đang dùng trong Admin — nhân bản đầy đủ `v1` đang publish thành `v2 — Bản nháp` (đủ 14 Mission, học liệu, Việc cần làm đi kèm), rồi điền Tiêu chí đạt thật vào cả 14 Mission trong bản nháp đó. **`v1` đang publish cho 2 học viên thật hoàn toàn không bị đụng tới** — đã kiểm tra lại sau khi chạy, xác nhận đúng. Bạn vào `/academy-admin/journey`, chọn Stage "Nền tảng nghề Makeup" → `v2 — Bản nháp`, soát lại rồi tự quyết định khi nào Publish.
+
+**Chưa test qua giao diện thật** cho phần upload ảnh/video (không có phiên đăng nhập học viên để mô phỏng qua curl) — đã xác nhận đúng bằng cách đọc lại code, chưa bằng click thật. Báo cáo đầy đủ: `docs/stage1-learning-os-v1/FINAL_REPORT.md`.
+
+---
+
 **2026-08-12 — 🎓 Đã merge + deploy: Stage 1 Learning OS V1 (folder 36) — Passport học viên, Known Context, Output Reuse, Daily Practice, Skill Passport, Chứng nhận Stage 1 — ⚠️ ĐÃ CHẠY MIGRATION 0055.**
 
 Đọc đủ 18/18 file gói nguồn trước khi làm. Gói nguồn mô tả Stage 1 nên trở thành "Learning Outcome OS" — kiến thức → dữ liệu cá nhân → hành động → bằng chứng → kết quả → tái sử dụng dữ liệu → mission tiếp theo — kèm 1 bản blueprint 4 Outcome/13 Mission mới.
