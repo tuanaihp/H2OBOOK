@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-12 — 🌳 Đã merge + deploy: Journey Tree Editor V1 (folder 35) — Admin sửa được đủ Kết quả → Chặng → Nhiệm vụ trong 1 màn, vá thêm 1 lỗ hổng bảo mật thật, KHÔNG cần migration.**
+
+Trước đây màn "Bản đồ kết quả học viên" chỉ cho sửa Nhiệm vụ đầy đủ (5 tab) — Kết quả và Chặng chỉ có nút "+ Thêm", không đổi tên/mô tả, không xóa, không sắp xếp lại được. Giờ bấm vào bất kỳ hàng Kết quả hay Chặng nào cũng mở đúng màn chỉnh sửa (tên, mô tả, thứ tự, quy mô, liên kết dữ liệu thật), có nút Lưu/Thêm/Xóa, có nút ↑ ↓ sắp xếp lại cho cả 3 cấp.
+
+**Xóa an toàn:** trước khi xóa 1 Kết quả hay Chặng, hệ thống tự kiểm tra 4 điều — tiến độ học viên thật, dữ liệu Không gian làm việc thật, Việc cần làm thật, và có Nhiệm vụ nào khác đang lấy Nhiệm vụ bên trong làm điều kiện mở khóa hay không. Có 1 trong 4 → từ chối xóa, báo đúng lý do. Đã kiểm chứng bằng dữ liệu thật: thử xóa đúng Nhiệm vụ có tiến độ thật của Max Crypto/Thùy H2O Makeup — hệ thống nhận đúng là không an toàn.
+
+**Vá thêm 1 lỗ hổng bảo mật thật khi audit (không phải do gói nguồn yêu cầu — do rà lại kỹ):** 3 hàm ghi dữ liệu (thêm Chặng, thêm Nhiệm vụ, sửa Nhiệm vụ) trước đây chỉ bị khóa ở giao diện khi xem bản đang áp dụng cho học viên — máy chủ không thực sự chặn, ai gọi thẳng API vẫn ghi được vào version đã publish. Cùng loại lỗ hổng đã vá ở folder 30 (nút "Bắt đầu Mission"). Đã thêm chặn ở máy chủ cho cả 3 hàm này và toàn bộ hàm mới. Đã kiểm tra: chưa từng có ai lợi dụng.
+
+**Đã làm thêm:** version đang áp dụng giờ hiện rõ banner "Phiên bản đang áp dụng không thể sửa trực tiếp" kèm nút "Tạo bản nháp để chỉnh sửa" (1 bấm ra ngay bản nháp mới); liên kết sâu `?node=...&type=...` để mở đúng Kết quả/Chặng/Nhiệm vụ khi tải lại trang.
+
+**Chưa test qua giao diện thật** (không có phiên đăng nhập để click) — logic phía máy chủ đã kiểm chứng đúng bằng dữ liệu thật (dọn sạch sau khi test), nhưng phần giao diện (panel hiện đúng chỗ, nút ẩn/hiện đúng lúc) cần bạn tự xác nhận qua trình duyệt. Báo cáo đầy đủ: `docs/journey-tree-editor-v1/FINAL_REPORT.md`.
+
+---
+
 **2026-08-12 — 🔗 Đã merge + deploy: Academy Data Link V1 (folder 34) — liên kết Curriculum ↔ Journey ↔ Học viên, sửa lỗi thật Student Stage badge, KHÔNG cần migration.**
 
 Đọc đủ 16/16 file gói nguồn trước khi làm. Trang mới `/academy-admin/data-link` ("Liên kết dữ liệu" trong sidebar) — chỉ là **read-model + inspector**, không tạo bảng dữ liệu mới:
