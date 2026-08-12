@@ -6,6 +6,33 @@
 
 ---
 
+**2026-08-12 — 🎓 Đã merge + deploy: Stage 1 Learning OS V1 (folder 36) — Passport học viên, Known Context, Output Reuse, Daily Practice, Skill Passport, Chứng nhận Stage 1 — ⚠️ ĐÃ CHẠY MIGRATION 0055.**
+
+Đọc đủ 18/18 file gói nguồn trước khi làm. Gói nguồn mô tả Stage 1 nên trở thành "Learning Outcome OS" — kiến thức → dữ liệu cá nhân → hành động → bằng chứng → kết quả → tái sử dụng dữ liệu → mission tiếp theo — kèm 1 bản blueprint 4 Outcome/13 Mission mới.
+
+**Đã hỏi trước khi động vào nội dung thật:** blueprint khác hẳn 4 Outcome/14 Mission thật đang publish, mà 2 học viên thật (Max Crypto, Thùy H2O Makeup) đang học dở. Đã hỏi qua câu hỏi lựa chọn, bạn chọn: **giữ nguyên tên/cấu trúc 14 Mission thật, chỉ thêm năng lực mới gắn vào đúng nội dung thật hiện có** — không dựng lại curriculum theo blueprint.
+
+**Audit trước, gần như không cần bảng mới:** rà 8 nhu cầu của gói nguồn thì 7/8 đã có sẵn hạ tầng thật nhưng chưa được nối: `certificate_issues` (bảng Chứng nhận có thật từ trước, chưa ai ghi), `learning_skill_evidence` + hàm tính mastery% thật (đã có, chỉ thiếu người ghi), `learner_notes` (đã tổng quát hóa từ đợt trước, đủ dùng cho Nhật ký luyện tập), `create_outcome_projects` (đủ dùng cho Brand Kit cá nhân — đã loại `brand_profiles` vì đó là brand của tổ chức, không phải của học viên). Chỉ thiếu đúng 1 cột: `learner_notes.asset_ids` (đính ảnh/video cho Nhật ký luyện tập).
+
+**Đã làm:**
+- **Passport học viên** (`/student/profile`, mục mới "CAREER PASSPORT" + phần Chứng nhận viết lại từ dữ liệu thật) — tổng hợp Định hướng nghề, Career Map, mục tiêu 90 ngày, tiến độ, Skill mastery%, sản phẩm Create, trạng thái Chứng nhận (khóa/đủ điều kiện/đã cấp) — tất cả đọc thật, không ô nào bịa.
+- **"Known Context" trong Mission Workspace** — mở 1 Mission giờ tự hiện lại dữ liệu học viên đã nhập ở các Mission trước cùng Chặng, không bắt nhập lại.
+- **"Kết quả này sẽ dùng ở đâu?"** — mỗi Mission cho biết rõ kết quả sẽ chảy tới đâu (Hồ sơ/Thư viện/Create/Chứng nhận), Mission chưa có đích thì không hiện gì, không tự bịa.
+- **Nhật ký luyện tập hằng ngày** — gắn vào Mission "Xác định mục tiêu 90 ngày", ghi chú + tag (upload ảnh/video và giáo viên duyệt **chưa xây**, ghi rõ là việc còn hoãn).
+- **Skill Passport có người ghi** — hoàn thành 1 trong 4 Mission kỹ thuật nền (Chuẩn bị da đúng/Hoàn thiện lớp nền/Màu sắc cơ bản/Tóc nền tảng) giờ tự ghi 1 dòng bằng chứng kỹ năng, điểm số theo đúng mức được kiểm chứng thật (giáo viên xác nhận > có nộp bằng chứng > tự báo cáo).
+- **Cấp Chứng nhận Stage 1** — mục mới ở trang phân phối Admin, chỉ Admin bấm cấp (học viên không tự cấp cho mình), tự kiểm tra lại đủ 14/14 Mission mới cho cấp, không tin theo dữ liệu gửi lên.
+- **Sửa lỗi thật:** trang `/verify/[mã]` (tra cứu công khai Chứng nhận) trước đây đọc dữ liệu giả — giờ đọc đúng bảng Chứng nhận thật.
+
+**Gap thật tìm thấy khi audit (ngoài yêu cầu gói nguồn):** toàn bộ 14 Mission thật đang publish chưa có Tiêu chí thành công — học viên đang thấy dòng "Chưa có tiêu chí thành công". Đã soạn sẵn tiêu chí thật, cụ thể cho từng Mission (`docs/stage1-learning-os-v1/SUCCESS_CRITERIA_READY_TO_APPLY.md`) — **chưa áp dụng vào bản đang publish**, cần bạn tự áp dụng qua "Nhân bản phiên bản này" ở Journey Admin Builder rồi Publish khi sẵn sàng.
+
+**⚠️ Migration 0055 đã chạy và xác nhận:** bạn đã tự chạy `supabase/_RUN-0055-ONLY.sql` trên Supabase SQL Editor và xác nhận thành công — đã kiểm tra độc lập lại bằng dữ liệu thật trước khi deploy code phụ thuộc cột này.
+
+**Đã kiểm chứng bằng dữ liệu thật:** cả 2 học viên thật chỉ mới xong 1/14 Mission → hệ thống Chứng nhận đúng ra "chưa đủ điều kiện" (không cấp nhầm sớm); thử ghi rồi xóa ngay 1 dòng bằng chứng kỹ năng và 1 dòng Nhật ký luyện tập bằng ID học viên thật — đúng khuôn dữ liệu, xóa sạch, không còn dấu vết.
+
+**Chưa test qua giao diện thật** với 1 tài khoản học viên đăng nhập trực tiếp (không có phiên đăng nhập để mô phỏng, giống mọi folder trước) — verification dựa trên đối chiếu logic + dữ liệu thật production. Báo cáo đầy đủ: `docs/stage1-learning-os-v1/FINAL_REPORT.md`.
+
+---
+
 **2026-08-12 — 🌳 Đã merge + deploy: Journey Tree Editor V1 (folder 35) — Admin sửa được đủ Kết quả → Chặng → Nhiệm vụ trong 1 màn, vá thêm 1 lỗ hổng bảo mật thật, KHÔNG cần migration.**
 
 Trước đây màn "Bản đồ kết quả học viên" chỉ cho sửa Nhiệm vụ đầy đủ (5 tab) — Kết quả và Chặng chỉ có nút "+ Thêm", không đổi tên/mô tả, không xóa, không sắp xếp lại được. Giờ bấm vào bất kỳ hàng Kết quả hay Chặng nào cũng mở đúng màn chỉnh sửa (tên, mô tả, thứ tự, quy mô, liên kết dữ liệu thật), có nút Lưu/Thêm/Xóa, có nút ↑ ↓ sắp xếp lại cho cả 3 cấp.
