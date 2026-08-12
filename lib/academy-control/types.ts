@@ -83,6 +83,9 @@ export interface StudentNavItemDraft {
   route?: string;
   visible: boolean;
   locked: boolean;
+  /** "Cho xem thử" / "Nổi bật" — the only two extra dimensions the reframed "Hiển thị & Trải nghiệm" tab configures, always for one of the 3 real surfaces (library/journey/smart_home), never an arbitrary nav item. */
+  preview?: boolean;
+  featured?: boolean;
   requiredStage?: number | null;
 }
 

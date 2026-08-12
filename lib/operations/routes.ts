@@ -1,6 +1,6 @@
 import {
   Activity, BadgeCheck, BellRing, BookOpenCheck, Bot, Brain, Building2, CheckCheck, CircleDollarSign, Compass,
-  CloudCog, FileInput, GraduationCap, HeartHandshake, LayoutDashboard, LibraryBig, LifeBuoy, ListChecks,
+  CloudCog, FileInput, GraduationCap, HeartHandshake, LayoutDashboard, LibraryBig, LifeBuoy, Link2, ListChecks,
   LockKeyhole, MessageSquareText, PackageSearch, PlugZap, School, Settings2, ShieldCheck, UsersRound, Workflow
 } from "lucide-react";
 
@@ -45,6 +45,10 @@ export const academyAdminRoutes = [
   // outcome graph (Outcome/Mission/Action/Evidence/Result). Route and component names are unchanged.
   { href: "/academy-admin/stages", label: "Giai đoạn & Nội dung đào tạo", icon: Compass },
   { href: "/academy-admin/journey", label: "Bản đồ kết quả học viên", icon: Workflow },
+  // Academy Data Link V1 (v5/34-.../CLAUDE_INTEGRATION_PROMPT.md): read-model + Setup Guide 10 bước
+  // + Resource Inspector + Stage Context Validator that sits ABOVE the two routes it links, never a
+  // third source of truth for Curriculum or Journey data.
+  { href: "/academy-admin/data-link", label: "Liên kết dữ liệu", icon: Link2 },
   { href: "/academy-admin/content", label: "Kho nội dung Academy", icon: LibraryBig },
   { href: "/academy-admin/brain", label: "H2O Brain", icon: Brain },
   { href: "/academy-admin/programs", label: "Khóa học video", icon: GraduationCap },

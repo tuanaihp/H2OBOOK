@@ -18,7 +18,7 @@ type Mission = {
 };
 type Sibling = { id: string; title: string; displayState: DisplayState; lockedReason: string | null; outcomeTitle: string };
 type View = {
-  stage: { id: string; title: string; indexLabel: string };
+  stage: { id: string; title: string; indexLabel: string; position: number };
   outcome: { id: string; title: string }; milestone: { id: string; title: string };
   mission: Mission; versionId: string; blueprintTitle: string | null; journeyProgressPercent: number;
   siblings: Sibling[]; unlocksMissionTitle: string | null; outcomeProgressPercent: number;
@@ -119,7 +119,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
     <div className="h2o-sr-shell">
       <aside className="h2o-sr-panel h2o-sr-context">
         <div className="h2o-sr-eyebrow">Journey Context</div>
-        <h3 style={{ margin: "5px 0 2px", fontSize: 15 }}>{view.stage.indexLabel ? `Giai đoạn ${view.stage.indexLabel} · ` : ""}{view.stage.title}</h3>
+        <h3 style={{ margin: "5px 0 2px", fontSize: 15 }}>{`Giai đoạn ${String(view.stage.position + 1).padStart(2, "0")} · `}{view.stage.title}</h3>
         <p style={{ fontSize: 11, color: "#718092", margin: "0 0 10px" }}>{view.outcome.title}</p>
         {view.siblings.map((s) => {
           const isCurrent = s.id === mission.id;

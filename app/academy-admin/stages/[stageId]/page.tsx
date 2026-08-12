@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Pencil, Check, X } from "lucide-r
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import { DISPLAY_LOCATIONS, REQUIREMENT_TYPES, STAGE_RESOURCE_ACCESS, STAGE_RESOURCE_TYPES, UNLOCK_MODES, type StageResourceAccess, type StageResourceType } from "@/lib/career-stages/types";
+import { CurriculumInlineGuide } from "@/components/academy-data-link/inline-guide";
 import styles from "@/components/operations/operations.module.css";
 
 type Resource = {
@@ -16,7 +17,12 @@ type Resource = {
 type Stage = { id: string; slug: string; position: number; indexLabel: string; title: string; description: string; durationLabel: string; skills: string[]; status: string; resources: Resource[]; publishedAt: string | null };
 type Node = { id: string; parentId: string | null; nodeType: "program" | "module" | "group"; title: string; description: string; position: number; status: string; surface: string | null; effectiveSurface: string | null };
 type CatalogItem = { id: string; contentType: string; title: string; summary: string; tags: string[] };
-type NavItemDraft = { key: string; label: string; icon?: string; route?: string; visible: boolean; locked: boolean; requiredStage?: number | null };
+// v5/34-.../CLAUDE_INTEGRATION_PROMPT.md "Giao diện học viên": this used to be a free-typed `key`
+// building an arbitrary sidebar that was never wired to the real one — reframed to "Hiển thị &
+// Trải nghiệm", configuring only the 3 real surfaces (SURFACE_KEYS below) that already exist.
+type NavItemDraft = { key: string; label: string; icon?: string; route?: string; visible: boolean; locked: boolean; preview?: boolean; featured?: boolean };
+const SURFACE_KEYS = ["library", "journey", "smart_home"] as const;
+const SURFACE_DISPLAY_LABEL: Record<string, string> = { library: "Thư viện", journey: "Hành trình", smart_home: "Smart Home" };
 type UiConfig = { id: string; version: number; status: string; config: { topLevel: NavItemDraft[]; notes?: string }; publishedAt: string | null };
 type Health = { score: number; structure: number; contentCoverage: number; resourceIntegrity: number; accessRules: number; studentExperience: number; unverifiedResources: number; issues: { id: string; severity: "info" | "warning" | "error"; title: string }[] };
 type Preflight = { ok: boolean; checks: { key: string; label: string; status: "pass" | "warn" | "fail"; detail?: string }[] };
@@ -144,14 +150,14 @@ export default function StageWorkspacePage({ params }: { params: Promise<{ stage
       <StageMetaForm stage={stage} busy={busy} onSave={(payload) => call(`/api/academy-admin/stages/${stageId}`, { method: "PATCH", body: JSON.stringify(payload) }, "Đã lưu thông tin giai đoạn.")} />
     </div>}
 
-    {active === "structure" && <StructureContentTab stage={stage} nodes={nodes} busy={busy}
+    {active === "structure" && <><CurriculumInlineGuide /><StructureContentTab stage={stage} nodes={nodes} busy={busy}
       onCreateNode={(payload) => call(`/api/academy-admin/stages/${stageId}/nodes`, { method: "POST", body: JSON.stringify(payload) }, "Đã thêm.")}
       onPatchNode={(nodeId, payload, msg) => call(`/api/academy-admin/stage-nodes/${nodeId}`, { method: "PATCH", body: JSON.stringify(payload) }, msg)}
       onArchiveNode={(nodeId) => call(`/api/academy-admin/stage-nodes/${nodeId}`, { method: "DELETE" }, "Đã lưu trữ — tài liệu bên trong chuyển về mục Chưa phân loại.")}
       onPatchResource={(resourceId, payload, msg) => call(`/api/academy-admin/stage-resources/${resourceId}`, { method: "PATCH", body: JSON.stringify(payload) }, msg)}
       onDetachResource={(resourceId) => call(`/api/academy-admin/stage-resources/${resourceId}`, { method: "DELETE" }, "Đã gỡ tài liệu khỏi giai đoạn.")}
       onAttachCatalog={(payload) => call(`/api/academy-admin/stages/${stageId}/catalog-resources`, { method: "POST", body: JSON.stringify(payload) }, "Đã gắn tài liệu vào giai đoạn.")}
-      onAttachManual={(payload) => call(`/api/academy-admin/stages/${stageId}/resources`, { method: "POST", body: JSON.stringify(payload) }, "Đã gắn tài liệu vào giai đoạn.")} />}
+      onAttachManual={(payload) => call(`/api/academy-admin/stages/${stageId}/resources`, { method: "POST", body: JSON.stringify(payload) }, "Đã gắn tài liệu vào giai đoạn.")} /></>}
 
     {active === "assignments" && <InfoPanel title="Bài tập" text="Chưa nối vào hệ bài tập trong lượt tích hợp này. Bài tập/nộp bài/chấm điểm vẫn quản lý ở Academy Admin → Bài tập như hiện tại." />}
 
@@ -682,25 +688,33 @@ function ExperienceTab({ stageId, busy, onSaveDraft, onPublish }: {
   const [items, setItems] = useState<NavItemDraft[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Always exactly the 3 real surfaces, in a fixed order — missing ones (a Stage with no config yet,
+  // or an old free-form config from before this reframe) are seeded with safe defaults rather than
+  // left absent, so Admin is never looking at a partial or arbitrary list.
+  function withFixedSurfaces(topLevel: NavItemDraft[]): NavItemDraft[] {
+    const byKey = new Map(topLevel.map((item) => [item.key, item]));
+    return SURFACE_KEYS.map((key) => byKey.get(key) ?? { key, label: SURFACE_DISPLAY_LABEL[key], visible: true, locked: false, preview: false, featured: false });
+  }
+
   async function load() {
     setLoading(true);
     const res = await fetch(`/api/academy-admin/stages/${stageId}/ui-config`, { cache: "no-store" });
     const json = await res.json().catch(() => null);
     setDraft(json?.draft ?? null);
     setPublished(json?.published ?? null);
-    setItems((json?.draft ?? json?.published)?.config?.topLevel ?? []);
+    setItems(withFixedSurfaces((json?.draft ?? json?.published)?.config?.topLevel ?? []));
     setLoading(false);
   }
   useEffect(() => { load(); }, [stageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function updateItem(index: number, patch: Partial<NavItemDraft>) {
-    setItems((current) => current.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  function updateItem(key: string, patch: Partial<NavItemDraft>) {
+    setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   }
 
   return <div style={{ display: "grid", gap: 14 }}>
     <div className={styles.card} style={{ padding: 18 }}>
       <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6b7a89" }}>
-        Soạn cấu hình sidebar cho riêng giai đoạn này. <strong>Chưa nối vào sidebar học viên thật</strong> — học viên vẫn thấy menu HOME/LEARN/CREATE/BUSINESS cố định như hiện nay cho tới khi có một đợt tích hợp riêng, có cờ tính năng, bật thủ công. Đây là bước soạn thảo/lưu trữ trước.
+        <strong>Hiển thị &amp; Trải nghiệm</strong> — chỉ cấu hình mức hiển thị/truy cập của 3 khu vực học viên thật cho riêng giai đoạn này. Menu chính của học viên (HOME/LEARN/CREATE/BUSINESS) giữ nguyên, không đổi bằng màn này.
       </p>
       {loading && <p style={{ fontSize: 12, color: "#6b7a89" }}>Đang tải…</p>}
       {!loading && <>
@@ -709,16 +723,15 @@ function ExperienceTab({ stageId, busy, onSaveDraft, onPublish }: {
           <span>Đã xuất bản: {published ? `v${published.version}` : "chưa có"}</span>
         </div>
         <div style={{ display: "grid", gap: 8 }}>
-          {items.map((item, index) => <div key={index} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto auto", gap: 8, alignItems: "center", border: "1px solid #eef1f4", borderRadius: 10, padding: 8 }}>
-            <input value={item.key} onChange={(event) => updateItem(index, { key: event.target.value })} placeholder="key" style={field} />
-            <input value={item.label} onChange={(event) => updateItem(index, { label: event.target.value })} placeholder="Tên hiển thị" style={field} />
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><input type="checkbox" checked={item.visible} onChange={(event) => updateItem(index, { visible: event.target.checked })} />Hiện</label>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><input type="checkbox" checked={item.locked} onChange={(event) => updateItem(index, { locked: event.target.checked })} />Khóa</label>
-            <button className={styles.button} onClick={() => setItems((current) => current.filter((_, i) => i !== index))}><Trash2 size={12} /></button>
+          {items.map((item) => <div key={item.key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto auto", gap: 10, alignItems: "center", border: "1px solid #eef1f4", borderRadius: 10, padding: 10 }}>
+            <strong style={{ fontSize: 12 }}>{SURFACE_DISPLAY_LABEL[item.key]}</strong>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><input type="checkbox" checked={item.visible} onChange={(event) => updateItem(item.key, { visible: event.target.checked })} />Hiện</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><input type="checkbox" checked={Boolean(item.preview)} onChange={(event) => updateItem(item.key, { preview: event.target.checked })} />Cho xem thử</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><input type="checkbox" checked={item.locked} onChange={(event) => updateItem(item.key, { locked: event.target.checked })} />Khóa quyền truy cập</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><input type="checkbox" checked={Boolean(item.featured)} onChange={(event) => updateItem(item.key, { featured: event.target.checked })} />Nổi bật</label>
           </div>)}
         </div>
         <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-          <button className={styles.button} onClick={() => setItems((current) => [...current, { key: `item_${current.length + 1}`, label: "", visible: true, locked: false }])}><Plus size={14} />Thêm mục</button>
           <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy} onClick={async () => { if (await onSaveDraft(items)) load(); }}>Lưu bản nháp</button>
           {draft && <button className={styles.button} disabled={busy} onClick={async () => { if (await onPublish(draft.version)) load(); }}>Xuất bản v{draft.version}</button>}
         </div>

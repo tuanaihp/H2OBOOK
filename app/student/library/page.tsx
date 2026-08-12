@@ -5,7 +5,7 @@ import { BookOpen, Bookmark, Clock3, LockKeyhole, Search, Sparkles } from "lucid
 import { useAppStore } from "@/store/app-store";
 
 type LibraryResource = { id: string; resourceType: string; resourceId: string; title: string; summary: string; href: string; free: boolean };
-type LibraryStage = { slug: string; title: string; indexLabel: string; durationLabel: string; unlocked: boolean; resources: LibraryResource[]; lockedCount: number };
+type LibraryStage = { slug: string; title: string; indexLabel: string; position: number; durationLabel: string; unlocked: boolean; resources: LibraryResource[]; lockedCount: number };
 type LibraryPayload = { mode: "production" | "unconfigured" | "demo"; stages: LibraryStage[] };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -48,7 +48,7 @@ export default function StudentLibraryPage() {
       {live.stages.map((stage) => <section key={stage.slug} className="h2o-student-section">
         <header>
           <div>
-            <span>{stage.indexLabel || "GIAI ĐOẠN"}{stage.durationLabel ? ` · ${stage.durationLabel}` : ""}</span>
+            <span>{`GIAI ĐOẠN ${String(stage.position + 1).padStart(2, "0")}`}{stage.durationLabel ? ` · ${stage.durationLabel}` : ""}</span>
             <h2>{stage.title}</h2>
           </div>
           {!stage.unlocked && <Link href="/academy/membership"><LockKeyhole />Mở khóa giai đoạn</Link>}

@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, RefreshCw, CheckCircle2, Archive, Copy, AlertTriangle, Search, X, Eye, Trash2, GitBranch } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import { MissionWorkspaceBuilder } from "@/components/academy-admin/mission-workspace-builder";
+import { JourneyInlineGuide } from "@/components/academy-data-link/inline-guide";
 import styles from "@/components/operations/operations.module.css";
 
 // Vietnamese terminology dictionary — v5/33-.../docs/TERMS_VI.md is the source of truth. Every
@@ -45,7 +47,14 @@ const CLONE_OPTION_LABEL: Record<keyof CloneOptions, string> = { copyResources: 
 type CloneOptions = { copyResources: boolean; copyActions: boolean; copyWorkspaceBlocks: boolean; copyPrerequisites: boolean };
 const DEFAULT_CLONE_OPTIONS: CloneOptions = { copyResources: true, copyActions: true, copyWorkspaceBlocks: true, copyPrerequisites: true };
 
+// Wrapped in Suspense because useSearchParams() (deep-linking ?stageId=/?missionId= from
+// /academy-admin/data-link's Setup Guide and Resource Inspector CTAs) opts this route out of static
+// prerendering unless a boundary is present — Next.js build fails otherwise.
 export default function JourneyMapAdminPage() {
+  return <Suspense fallback={null}><JourneyMapAdminPageInner /></Suspense>;
+}
+
+function JourneyMapAdminPageInner() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [stageId, setStageId] = useState("");
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
@@ -69,13 +78,20 @@ export default function JourneyMapAdminPage() {
   const [bulkCloneResults, setBulkCloneResults] = useState<BulkCloneResult[] | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  const searchParams = useSearchParams();
+  const deepLinkStageId = searchParams.get("stageId");
+  const deepLinkMissionId = searchParams.get("missionId");
+
   useEffect(() => {
     fetch("/api/academy-admin/stages", { cache: "no-store" }).then((r) => r.json()).then((json) => {
       const list = (json?.stages ?? []).map((s: { id: string; title: string; indexLabel?: string }) => ({ id: s.id, title: s.title, indexLabel: s.indexLabel ?? "" }));
       setStages(list);
-      if (list[0]) setStageId(list[0].id);
+      // Setup Guide / Resource Data Link Inspector CTAs (folder 34) link here with ?stageId=... —
+      // land on that Stage instead of always defaulting to the first one.
+      const preselected = deepLinkStageId && list.some((s: Stage) => s.id === deepLinkStageId) ? deepLinkStageId : list[0]?.id;
+      if (preselected) setStageId(preselected);
     }).catch(() => null);
-  }, []);
+  }, [deepLinkStageId]);
 
   async function loadJourney(forStageId: string, forVersionId?: string) {
     if (!forStageId) return;
@@ -144,6 +160,16 @@ export default function JourneyMapAdminPage() {
   }
 
   const missions = useMemo(() => outcomes.flatMap((o) => o.milestones.flatMap((m) => m.missions)), [outcomes]);
+
+  // Resource Data Link Inspector (folder 34) links to a specific Mission with ?missionId=... — jump
+  // straight to it once its Outcome graph has loaded, instead of leaving the tree unopened.
+  useEffect(() => {
+    if (deepLinkMissionId && missions.some((m) => m.id === deepLinkMissionId)) {
+      setSelectedMissionId(deepLinkMissionId);
+      setActiveTab("overview");
+    }
+  }, [deepLinkMissionId, missions]);
+
   const currentVersion = versions.find((v) => v.id === versionId);
   // "Xem như học viên" forces every edit control off regardless of draft status — a true read-only
   // preview, not just "draft vs published" (§12's edit-published dialog is a separate concern).
@@ -168,6 +194,7 @@ export default function JourneyMapAdminPage() {
     <div className="page-header"><div><h1>Bản đồ kết quả học viên — {TERMS.outcome} → {TERMS.mission} Builder</h1><p style={{ fontSize: 12, color: "#6b7a89" }}>Lớp thực thi bổ sung cho giáo trình hiện có (Stage → Program → Module → Group vẫn ở &ldquo;Giai đoạn &amp; Nội dung đào tạo&rdquo;) — không thay thế, không copy tài liệu.</p></div></div>
     {message && <div className={styles.card} style={{ marginBottom: 12, padding: 10, fontSize: 12 }}>{message}</div>}
     {previewAsStudent && <div className={styles.card} style={{ marginBottom: 12, padding: 10, fontSize: 12, background: "#eff6ff", border: "1px solid #bfdbfe" }}><Eye size={12} style={{ verticalAlign: "-1px" }} /> Đang xem như học viên — mọi chỉnh sửa đã tắt. <button onClick={() => setPreviewAsStudent(false)} style={{ border: "none", background: "none", color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>Thoát xem trước</button></div>}
+    <JourneyInlineGuide />
 
     <section className={styles.card} style={{ marginBottom: 16 }}>
       <div className={styles.cardBody} style={{ padding: 16, display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr", alignItems: "end" }}>
