@@ -26,6 +26,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       route: typeof item.route === "string" ? item.route : undefined,
       visible: item.visible !== false,
       locked: item.locked === true,
+      // preview/featured (v5/34-.../CLAUDE_INTEGRATION_PROMPT.md "Giao diện học viên" reframe):
+      // "Cho xem thử" and "Nổi bật" for each of the 3 real surfaces.
+      preview: item.preview === true,
+      featured: item.featured === true,
       requiredStage: typeof item.requiredStage === "number" ? item.requiredStage : null
     }));
   const result = await saveDraftUiConfig(access!, id, {

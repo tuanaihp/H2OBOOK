@@ -37,6 +37,7 @@ export async function GET() {
       slug: stage.slug,
       title: stage.title,
       indexLabel: stage.indexLabel,
+      position: stage.position,
       durationLabel: stage.durationLabel,
       unlocked: stageUnlocked,
       // Every resource now goes through the one resolver rather than a local rule, so the library
