@@ -2,6 +2,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getPublishedJourneyForStage, resolveResourceTitles } from "./service";
+import { recordStage1SkillEvidence } from "@/lib/stage1-learning-os/skill-evidence";
 import type { JourneyMission, JourneyOutcome, MissionResourceBinding, StudentMissionState } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -209,7 +210,14 @@ export async function completeSelfReportedMission(userId: string, organizationId
   return { ok: true, data: null };
 }
 
+// Single choke-point every completion path (self-reported, evidence-verified, teacher-approved)
+// funnels through — Stage 1 Skill Passport evidence (docs/stage1-learning-os-v1) is recorded here
+// once rather than duplicated at each call site. Best-effort: a skill-evidence write failing must
+// never block the student's actual mission completion.
 async function maybeMarkResultAchieved(supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>, organizationId: string, studentId: string, missionId: string, blueprintVersionId: string) {
   const now = new Date().toISOString();
   await supabase.from("student_mission_states").update({ state: "result_achieved", result_achieved_at: now }).eq("organization_id", organizationId).eq("student_id", studentId).eq("mission_id", missionId).eq("blueprint_version_id", blueprintVersionId);
+  const { data: mission } = await supabase.from("learning_journey_missions").select("completion_policy").eq("organization_id", organizationId).eq("id", missionId).maybeSingle();
+  const completionPolicy = (mission as { completion_policy: string } | null)?.completion_policy;
+  if (completionPolicy) await recordStage1SkillEvidence(organizationId, studentId, missionId, completionPolicy).catch(() => {});
 }

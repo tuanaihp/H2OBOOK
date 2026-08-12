@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MissionBlockField, type StudentBlockValue, type StudentMissionBlock } from "./mission-block-field";
 import { buildMissionResourceHref } from "@/components/student/reader/context-url";
+import { MissionKnownContext, type KnownFact } from "./mission-known-context";
+import { MissionOutputFlow, type OutputDestination } from "./mission-output-flow";
+import { DailyPracticeLogger } from "./daily-practice-logger";
+import { stage1LearningOsFeatures } from "@/lib/stage1-learning-os/feature-flags";
+
+// Daily Practice Journal (docs/stage1-learning-os-v1) lives inside the one real Stage 1 Mission it
+// naturally belongs to — "Xác định mục tiêu 90 ngày" IS the 90-Day Plan Mission the source package
+// asks Daily Practice to sit under. Matched by title, same approach as
+// lib/stage1-learning-os/skill-evidence.ts's Mission->skill map.
+const DAILY_PRACTICE_MISSION_TITLE = "Xác định mục tiêu 90 ngày";
 
 type DisplayState = "locked" | "available" | "not_started" | "learning" | "planning" | "doing" | "evidence_pending" | "review_pending" | "verified" | "result_achieved" | "blocked";
 type Mission = {
@@ -23,6 +33,7 @@ type View = {
   mission: Mission; versionId: string; blueprintTitle: string | null; journeyProgressPercent: number;
   siblings: Sibling[]; unlocksMissionTitle: string | null; outcomeProgressPercent: number;
   blocks: StudentMissionBlock[]; values: StudentBlockValue[]; readiness: { score: number; missingRequiredBlockIds: string[] };
+  knownContext: { knownFacts: KnownFact[] }; outputDestinations: OutputDestination[];
 };
 
 const DONE_STATES: DisplayState[] = ["verified", "result_achieved"];
@@ -162,6 +173,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
         </div>
 
         {tab === "brief" && <div className="h2o-sr-pane">
+          {stage1LearningOsFeatures.stage1FlowV1 && stage1LearningOsFeatures.knownContext && <MissionKnownContext facts={view.knownContext.knownFacts} />}
           {(mission.resourceBindings.length > 0 || mission.toolBindings.length > 0) && <div className="h2o-sr-section">
             <h4>Kiến thức cần dùng</h4>
             {mission.resourceBindings.map((r) => <Link key={r.id} href={buildMissionResourceHref(r.resourceType, r.resourceId, mission.id)} className="h2o-sr-doc">
@@ -221,6 +233,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
                     ? <button className="h2o-sr-btn primary" onClick={() => setTab("evidence")}>Tiếp tục → Evidence</button>
                     : !DONE_STATES.includes(mission.displayState) && <button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "completeSelf", missionId })}>Đánh dấu hoàn thành</button>}
                 </div>
+                {stage1LearningOsFeatures.stage1FlowV1 && stage1LearningOsFeatures.dailyPractice && mission.title === DAILY_PRACTICE_MISSION_TITLE && <DailyPracticeLogger missionId={mission.id} />}
               </>}
         </div>}
 
@@ -284,6 +297,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
               Kết quả sẽ được chốt khi {needsEvidence ? "bằng chứng được xác nhận" : "bạn đánh dấu hoàn thành"}.
             </p>}
           </div>
+          {stage1LearningOsFeatures.stage1FlowV1 && stage1LearningOsFeatures.outputReuse && <MissionOutputFlow items={view.outputDestinations} />}
         </div>}
 
         <div className="h2o-sr-footer">
