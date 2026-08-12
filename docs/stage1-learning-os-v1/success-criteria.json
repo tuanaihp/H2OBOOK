@@ -1,0 +1,117 @@
+{
+  "sourceDoc": "docs/stage1-learning-os-v1/SUCCESS_CRITERIA_READY_TO_APPLY.md",
+  "missionSuccessCriteria": [
+    {
+      "title": "Xác định hướng nghề Makeup",
+      "successCriteria": [
+        "Nêu được 1 hướng đi chính (vd bridal, editorial, beauty thương mại…) và lý do chọn",
+        "Xác định được ít nhất 1 nhóm khách hàng mục tiêu ban đầu",
+        "Nêu được 2-3 điểm mạnh cá nhân liên quan tới hướng đã chọn"
+      ]
+    },
+    {
+      "title": "Hoàn thành Career Map",
+      "successCriteria": [
+        "Career Map có đủ mục tiêu ngắn hạn (90 ngày) và dài hạn (1 năm)",
+        "Có bảng chi phí khởi nghiệp với ít nhất 5 khoản mục thực tế",
+        "Có ít nhất 1 mốc thu nhập mục tiêu cụ thể"
+      ]
+    },
+    {
+      "title": "Xác định mục tiêu 90 ngày",
+      "successCriteria": [
+        "Có mục tiêu học tập cụ thể, đo được cho 90 ngày",
+        "Có lịch thực hành hằng tuần rõ ràng",
+        "Bắt đầu ghi Nhật ký thực hành đều đặn (ít nhất 1 lần/tuần)"
+      ]
+    },
+    {
+      "title": "Chuẩn hóa túi đồ nghề",
+      "successCriteria": [
+        "Có đủ nhóm dụng cụ bắt buộc (cọ, mút, dụng cụ vệ sinh) theo checklist",
+        "Dụng cụ được phân loại theo từng nhóm công việc (nền/mắt/môi…)",
+        "Không thiếu nhóm dụng cụ bắt buộc nào trong checklist"
+      ]
+    },
+    {
+      "title": "Hoàn thành tiêu chuẩn vệ sinh",
+      "successCriteria": [
+        "Hoàn thành checklist vệ sinh trước/trong/sau buổi làm",
+        "Phân biệt rõ khu vực dụng cụ sạch và đã dùng",
+        "Giải thích được nguyên tắc tránh lây nhiễm chéo giữa khách hàng"
+      ]
+    },
+    {
+      "title": "Setup hồ sơ nghề Makeup",
+      "successCriteria": [
+        "Có ảnh đại diện nghề nghiệp chuyên nghiệp",
+        "Có phần giới thiệu (bio) nêu rõ dịch vụ và tệp khách hàng mục tiêu",
+        "Có đầy đủ thông tin liên hệ thật"
+      ]
+    },
+    {
+      "title": "Chuẩn bị da đúng",
+      "successCriteria": [
+        "Phân tích đúng loại da và tình trạng da của khách/mẫu",
+        "Chọn đúng sản phẩm dưỡng/prep phù hợp loại da",
+        "Lớp nền sau prep không vón/cakey trong ít nhất 2 giờ"
+      ]
+    },
+    {
+      "title": "Hoàn thiện lớp nền",
+      "successCriteria": [
+        "Tone nền hài hòa với vùng cổ, không lệch tông",
+        "Độ che phủ phù hợp khuyết điểm da, không dày quá mức cần",
+        "Lớp nền giữ form ít nhất 4 giờ ở điều kiện thường"
+      ]
+    },
+    {
+      "title": "Màu sắc cơ bản",
+      "successCriteria": [
+        "Xác định đúng tone màu tổng thể phù hợp trang phục/dịp",
+        "Phối màu mắt – má – môi hài hòa, không xung đột tông",
+        "Giải thích được lý do chọn bảng màu đã dùng"
+      ]
+    },
+    {
+      "title": "Tóc nền tảng",
+      "successCriteria": [
+        "Tạo được form sóng/phồng cơ bản đúng kỹ thuật",
+        "Không lộ kẹp/ghim trên tóc thành phẩm",
+        "Có bước bảo vệ tóc (dùng nhiệt bảo vệ) trước khi tạo kiểu"
+      ]
+    },
+    {
+      "title": "Before/After #1",
+      "successCriteria": [
+        "Ảnh Before/After chụp cùng điều kiện ánh sáng, cùng góc",
+        "Có ghi chú tự đánh giá điểm đạt/chưa đạt",
+        "Ảnh đủ nét để nhìn rõ chi tiết kỹ thuật"
+      ]
+    },
+    {
+      "title": "Before/After #2",
+      "successCriteria": [
+        "Đáp ứng đủ tiêu chuẩn như bộ #1",
+        "Có ít nhất 1 điểm cải thiện rõ rệt so với bộ #1 (nêu cụ thể)",
+        "Tự nhận xét được điểm đã khắc phục từ lần trước"
+      ]
+    },
+    {
+      "title": "Before/After #3",
+      "successCriteria": [
+        "Đáp ứng đủ tiêu chuẩn kỹ thuật như bộ #1 và #2",
+        "Đạt chất lượng đủ để đưa vào hồ sơ/portfolio",
+        "Không còn lỗi kỹ thuật cơ bản đã ghi nhận ở 2 bộ trước"
+      ]
+    },
+    {
+      "title": "Hoàn thiện hồ sơ Stage 1",
+      "successCriteria": [
+        "Hồ sơ nghề Makeup đã hoàn chỉnh và cập nhật",
+        "Career Map và mục tiêu 90 ngày đã được rà soát lại",
+        "Đủ 3 bộ ảnh Before/After đạt chuẩn nộp portfolio"
+      ]
+    }
+  ]
+}
