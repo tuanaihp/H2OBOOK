@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-13 — 🧭 Đã merge + deploy: Mission Workspace V2 (folder 37) — "còn thiếu gì" rõ ràng ở tab Kết quả, Minh chứng đổi hình theo từng loại Mission, KHÔNG cần migration.**
+
+Đọc đủ 18/18 file gói nguồn trước khi làm. Gói nguồn yêu cầu nâng `/student/missions/[missionId]` thành luồng 4 bước rõ ràng, và sửa cho đúng nguyên tắc "Sẵn sàng (Readiness) khác Hoàn thành (Completion)".
+
+**Audit trước — phát hiện: phần lớn đã có sẵn, không phải xây từ đầu.** Route thật đã là 4 tab (Hiểu nhiệm vụ / Làm việc / Evidence / Kết quả) từ các đợt nâng cấp trước, đã có "H2O đã biết gì về bạn" (Known Context), đã có Result Card thật, đã có "Kết quả này dùng ở đâu". **Kiểm tra sâu nguyên tắc Sẵn sàng ≠ Hoàn thành: xác nhận KHÔNG có lỗi thật** — hệ thống chưa từng lấy điểm Sẵn sàng để tự suy ra Hoàn thành, "Hoàn thành" luôn đọc đúng từ tiến độ thật đã ghi theo đúng quy tắc Cách xác nhận hoàn thành. Cái thật sự thiếu: 1 danh sách rõ ràng "còn thiếu đúng những gì" thay vì 1 câu chung chung.
+
+**Đã làm thêm:**
+- **Tab "Kết quả"** — khi Mission chưa xong, giờ hiện đúng "Chưa tạo kết quả" kèm danh sách cụ thể còn thiếu bao nhiêu mục, và 2 nút quay lại "Thực hiện"/"Minh chứng" ngay tại chỗ.
+- **Đổi tên tab cho đúng tiếng Việt tự nhiên**: "Làm việc" → "Thực hiện", "Evidence" → "Minh chứng".
+- **Tab Minh chứng giờ đổi hình theo từng loại Mission thật** — Mission cần ảnh Before/After thì hiện 2 ô tải ảnh riêng biệt; Mission chỉ cần 1 ảnh thì hiện 1 ô tải; Mission chỉ cần học viên tự xác nhận (không cần ảnh) thì chỉ hiện 1 ô tick xác nhận, không ép tải file. Dùng đúng đường tải ảnh/video học viên đã có sẵn (cùng cơ chế Nhật ký luyện tập đã xây trước đó).
+- **Màn Admin quản lý Nhiệm vụ** — thêm câu giải thích ngắn dưới mỗi trong 5 tab, để Admin hiểu rõ từng tab dùng để làm gì mà không cần đoán.
+
+**Không tạo bảng dữ liệu mới nào** — toàn bộ đọc/ghi qua đúng những gì đã có.
+
+**Chưa test qua giao diện thật** với 1 tài khoản học viên đăng nhập trực tiếp (không có phiên đăng nhập để mô phỏng, giống mọi đợt trước) — đặc biệt chưa tự bấm thử luồng tải ảnh Before/After thật. Báo cáo đầy đủ: `docs/mission-workspace-v2/FINAL_REPORT.md`.
+
+---
+
 **2026-08-12 — 📸 Đã merge + deploy: đóng 2 việc còn hoãn của Stage 1 Learning OS V1 — upload ảnh/video cho Nhật ký luyện tập + áp dụng Tiêu chí đạt thật vào 1 bản nháp mới, KHÔNG cần migration.**
 
 Tiếp tục 2 việc đã ghi rõ là "chưa xây" trong báo cáo folder 36.
