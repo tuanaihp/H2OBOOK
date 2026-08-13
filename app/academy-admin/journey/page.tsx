@@ -110,9 +110,15 @@ function JourneyMapAdminPageInner() {
   // resetSelection defaults to false: a save (onBlur/onChange -> call() -> loadJourney) must not
   // close whatever Outcome/Chặng/Nhiệm vụ panel Admin is looking at, or "Lưu thay đổi" would feel
   // like it closes the very thing you just edited. Only an actual Stage/Version switch clears it.
-  async function loadJourney(forStageId: string, forVersionId?: string, resetSelection = false) {
+  // `silent` (2026-08-13): a plain field edit (title/expected result/estimated days/tiêu chí đạt/...)
+  // still needs the tree refetched so the saved value is reflected, but toggling `loading` for that
+  // unmounts the whole tree+Inspector to "Đang tải..." and remounts it — the "màn hình tự động nhấp
+  // nháy" (screen auto-flickers) complaint. Silent reload fetches and swaps the data in place with no
+  // loading-gate flash; only genuinely disruptive actions (switch Stage/Version, delete, publish) still
+  // show the full loading state, where a visible reset is expected anyway.
+  async function loadJourney(forStageId: string, forVersionId?: string, resetSelection = false, options?: { silent?: boolean }) {
     if (!forStageId) return;
-    setLoading(true); setPreflight(null); setActiveCategory(null);
+    if (!options?.silent) { setLoading(true); setPreflight(null); setActiveCategory(null); }
     if (resetSelection) { setSelected(null); setActiveTab("overview"); }
     const url = new URL("/api/academy-admin/learn-outcome", window.location.origin);
     url.searchParams.set("stageId", forStageId);
@@ -122,19 +128,19 @@ function JourneyMapAdminPageInner() {
     setVersions(json?.versions ?? []);
     setVersionId(json?.selectedVersionId ?? null);
     setOutcomes(json?.outcomes ?? []);
-    setLoading(false);
+    if (!options?.silent) setLoading(false);
   }
 
   useEffect(() => { if (stageId) loadJourney(stageId, undefined, true); }, [stageId]);
 
-  async function call(url: string, body: unknown, okMessage: string, reload = true): Promise<boolean> {
+  async function call(url: string, body: unknown, okMessage: string, reload = true, silent = false): Promise<boolean> {
     setBusy(true); setMessage(null);
     try {
       const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
       if (!res.ok) { setMessage(json?.error ?? "Thao tác thất bại."); return false; }
       setMessage(okMessage);
-      if (reload) await loadJourney(stageId, versionId ?? undefined);
+      if (reload) await loadJourney(stageId, versionId ?? undefined, false, { silent });
       return true;
     } catch {
       setMessage("Mất kết nối — thử lại.");
@@ -222,14 +228,14 @@ function JourneyMapAdminPageInner() {
 
   // §10 Reorder: same-parent ↑↓ swap, same shape as the Stage list's moveStage.
   async function moveNode(nodeType: NodeType, nodeId: string, direction: -1 | 1) {
-    await call("/api/academy-admin/learn-outcome/node", { action: "reorder", nodeType, nodeId, direction }, "Đã đổi thứ tự.");
+    await call("/api/academy-admin/learn-outcome/node", { action: "reorder", nodeType, nodeId, direction }, "Đã đổi thứ tự.", true, true);
   }
 
   async function saveOutcomeNode(outcomeId: string, patch: { title: string; description: string }) {
-    await call("/api/academy-admin/learn-outcome/node", { action: "updateOutcome", outcomeId, title: patch.title, description: patch.description }, "Đã lưu Kết quả.");
+    await call("/api/academy-admin/learn-outcome/node", { action: "updateOutcome", outcomeId, title: patch.title, description: patch.description }, "Đã lưu Kết quả.", true, true);
   }
   async function saveMilestoneNode(milestoneId: string, patch: { title: string; description: string }) {
-    await call("/api/academy-admin/learn-outcome/node", { action: "updateMilestone", milestoneId, title: patch.title, description: patch.description }, "Đã lưu Chặng.");
+    await call("/api/academy-admin/learn-outcome/node", { action: "updateMilestone", milestoneId, title: patch.title, description: patch.description }, "Đã lưu Chặng.", true, true);
   }
   async function confirmDeleteNode() {
     if (!deleteNodeConfirm) return;
@@ -460,24 +466,24 @@ function JourneyMapAdminPageInner() {
         <div style={{ padding: 16, display: "grid", gap: 10, fontSize: 12 }}>
           {activeTab === "overview" && <>
             <label>{TERMS.expectedResult}
-              <textarea defaultValue={selectedMission.expectedResult} disabled={!isDraft} onBlur={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { expectedResult: e.target.value } }, "Đã cập nhật.")} style={{ ...field, minHeight: 60 }}/>
+              <textarea defaultValue={selectedMission.expectedResult} disabled={!isDraft} onBlur={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { expectedResult: e.target.value } }, "Đã cập nhật.", true, true)} style={{ ...field, minHeight: 60 }}/>
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <label>{TERMS.completionPolicy}
-                <select defaultValue={selectedMission.completionPolicy} disabled={!isDraft} onChange={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { completionPolicy: e.target.value } }, "Đã cập nhật.")} style={field}>
+                <select defaultValue={selectedMission.completionPolicy} disabled={!isDraft} onChange={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { completionPolicy: e.target.value } }, "Đã cập nhật.", true, true)} style={field}>
                   {["self_reported", "evidence_required", "teacher_verified", "metric_based"].map((p) => <option key={p} value={p}>{COMPLETION_POLICY_LABEL[p]}</option>)}
                 </select>
               </label>
               <label>{TERMS.estimatedDays}
-                <input type="number" min={0} defaultValue={selectedMission.estimatedDays ?? ""} disabled={!isDraft} onBlur={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { estimatedDays: e.target.value ? Number(e.target.value) : null } }, "Đã cập nhật.")} style={field}/>
+                <input type="number" min={0} defaultValue={selectedMission.estimatedDays ?? ""} disabled={!isDraft} onBlur={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { estimatedDays: e.target.value ? Number(e.target.value) : null } }, "Đã cập nhật.", true, true)} style={field}/>
               </label>
             </div>
             <div><strong>{TERMS.successKpi}</strong>
               {selectedMission.successCriteria.length ? selectedMission.successCriteria.map((c, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ flex: 1 }}>· {c}</span>
-                {isDraft && <button disabled={busy} title="Xóa tiêu chí này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: selectedMission.successCriteria.filter((_, idx) => idx !== i) } }, "Đã xóa tiêu chí.")} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
+                {isDraft && <button disabled={busy} title="Xóa tiêu chí này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: selectedMission.successCriteria.filter((_, idx) => idx !== i) } }, "Đã xóa tiêu chí.", true, true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
               </div>) : <p style={{ color: "#6b7a89" }}>Chưa có {TERMS.successKpi.toLowerCase()}.</p>}
-              {isDraft && <div style={{ marginTop: 6 }}><MiniForm placeholder={`+ Thêm ${TERMS.successKpi.toLowerCase()}`} onSubmit={(text) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: [...selectedMission.successCriteria, text] } }, "Đã thêm tiêu chí.")}/></div>}
+              {isDraft && <div style={{ marginTop: 6 }}><MiniForm placeholder={`+ Thêm ${TERMS.successKpi.toLowerCase()}`} onSubmit={(text) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: [...selectedMission.successCriteria, text] } }, "Đã thêm tiêu chí.", true, true)}/></div>}
             </div>
           </>}
 
@@ -489,7 +495,7 @@ function JourneyMapAdminPageInner() {
               </div>
               <ul style={{ margin: "4px 0", paddingLeft: 16 }}>{selectedMission.resourceBindings.map((b) => <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ flex: 1 }}>{b.title || <em style={{ color: "#b42318" }}>Chưa resolve được tiêu đề ({b.resourceId})</em>} <small style={{ color: "#94a3b8" }}>({b.role})</small></span>
-                {canEditBindings && <button disabled={busy} title="Gỡ học liệu này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "removeBinding", bindingId: b.id, binding: { kind: "resource" } }, "Đã gỡ học liệu.")} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
+                {canEditBindings && <button disabled={busy} title="Gỡ học liệu này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "removeBinding", bindingId: b.id, binding: { kind: "resource" } }, "Đã gỡ học liệu.", true, true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
               </li>)}
                 {!selectedMission.resourceBindings.length && <p style={{ color: "#6b7a89" }}>Chưa có học liệu liên kết.</p>}
               </ul>
@@ -526,7 +532,7 @@ function JourneyMapAdminPageInner() {
                 from a different Outcome is allowed (explicit cross-outcome dependency, §6) but
                 flagged so Admin knows they are opting out of the default parallel-Outcome behavior. */}
             <strong>{TERMS.prerequisite}</strong>
-            <select defaultValue={selectedMission.prerequisiteMissionId ?? ""} disabled={!isDraft} onChange={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { prerequisiteMissionId: e.target.value || null } }, "Đã cập nhật điều kiện mở khóa.")} style={{ ...field, marginTop: 4 }}>
+            <select defaultValue={selectedMission.prerequisiteMissionId ?? ""} disabled={!isDraft} onChange={(e) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { prerequisiteMissionId: e.target.value || null } }, "Đã cập nhật điều kiện mở khóa.", true, true)} style={{ ...field, marginTop: 4 }}>
               <option value="">— Không có ({TERMS.entry}, mở ngay khi Stage mở) —</option>
               {outcomes.map((outcome) => <optgroup key={outcome.id} label={outcome.title}>
                 {outcome.milestones.flatMap((ms) => ms.missions).filter((m) => m.id !== selectedMission.id).map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
@@ -554,7 +560,7 @@ function JourneyMapAdminPageInner() {
         <input autoFocus value={pickerQuery} onChange={(e) => searchResources(e.target.value)} placeholder="Gõ tên tài liệu..." style={{ ...field, margin: "10px 0" }}/>
         <div style={{ display: "grid", gap: 6 }}>
           {pickerResults.map((r) => <button key={r.resourceId} onClick={async () => {
-            await call("/api/academy-admin/learn-outcome/node", { action: "attachBinding", missionId: selectedMission.id, binding: { kind: "resource", resourceType: r.resourceType, resourceId: r.resourceId } }, "Đã gắn học liệu.");
+            await call("/api/academy-admin/learn-outcome/node", { action: "attachBinding", missionId: selectedMission.id, binding: { kind: "resource", resourceType: r.resourceType, resourceId: r.resourceId } }, "Đã gắn học liệu.", true, true);
             setPickerOpen(false); setPickerQuery(""); setPickerResults([]);
           }} style={{ textAlign: "left", padding: 10, borderRadius: 8, border: "1px solid #eef1f4", background: "#fff", cursor: "pointer" }}>
             <strong style={{ fontSize: 12 }}>{r.title}</strong>
