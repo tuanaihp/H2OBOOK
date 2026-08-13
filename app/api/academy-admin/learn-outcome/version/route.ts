@@ -7,7 +7,7 @@ type Body = {
   action?: string; blueprintId?: string; versionId?: string;
   targetStageIds?: string[];
   copyResources?: boolean; copyActions?: boolean; copyWorkspaceBlocks?: boolean; copyPrerequisites?: boolean;
-  scope?: string;
+  scope?: string; overrideBlockers?: boolean;
 };
 
 // One dispatcher route for the version-level commands (docs/learn-outcome-os's "Save Draft /
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // publishing already does. Reject any other scope rather than pretend to support it.
     const scope = body.scope ?? "all_active_students";
     if (scope !== "all_active_students") return NextResponse.json({ error: "SCOPE_NOT_SUPPORTED" }, { status: 400 });
-    const result = await publishVersion(access!, body.blueprintId, body.versionId);
+    const result = await publishVersion(access!, body.blueprintId, body.versionId, { overrideBlockers: body.overrideBlockers });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
     try { await emitDomainEvent({ organizationId: access!.organizationId, actorId: access!.userId, resourceType: "learning_journey_versions", resourceId: body.versionId, eventName: "journey.version_scope_applied", payload: { scope } }); } catch { /* best-effort analytics */ }
     return NextResponse.json({ ok: true });

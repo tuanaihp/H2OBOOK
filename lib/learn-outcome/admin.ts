@@ -714,14 +714,23 @@ async function repointStudentProgress(supabase: NonNullable<Awaited<ReturnType<t
  * leave the blueprint briefly without a current published version. Accepted for Release A; worth a
  * real transaction (an RPC) before a higher-stakes cutover depends on atomicity here.
  */
-export async function publishVersion(access: AcademyAdminAccess, blueprintId: string, versionId: string): Promise<Result<null>> {
+/**
+ * `overrideBlockers` (2026-08-13 request): lets Admin publish anyway when Preflight still has
+ * blockers (e.g. a freshly-transformed version with new Missions whose Success Criteria isn't
+ * written yet) — Admin needs the version live for students today and will keep filling content in
+ * afterward, rather than being unable to apply anything until every field is perfect. Preflight
+ * still always runs first (never skipped) so the exact bypassed list is known and recorded on
+ * journey.version_published's payload for a real audit trail — this is a conscious, logged override
+ * per publish, not a change to what Preflight itself reports as blocking.
+ */
+export async function publishVersion(access: AcademyAdminAccess, blueprintId: string, versionId: string, options?: { overrideBlockers?: boolean }): Promise<Result<null>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
   const draftCheck = await requireDraftVersion(supabase, access.organizationId, versionId);
   if (!draftCheck.ok) return draftCheck;
 
   const preflight = await preflightVersion(access.organizationId, versionId);
-  if (!preflight.ok) return { ok: false, error: `PREFLIGHT_FAILED: ${preflight.blockers.join("; ")}` };
+  if (!preflight.ok && !options?.overrideBlockers) return { ok: false, error: `PREFLIGHT_FAILED: ${preflight.blockers.join("; ")}` };
 
   const { data: outgoing } = await supabase.from("learning_journey_versions").select("id").eq("organization_id", access.organizationId).eq("blueprint_id", blueprintId).eq("status", "published").maybeSingle();
   const outgoingVersionId = (outgoing as { id: string } | null)?.id ?? null;
@@ -738,7 +747,10 @@ export async function publishVersion(access: AcademyAdminAccess, blueprintId: st
   const { error: pointerError } = await supabase.from("learning_journey_blueprints").update({ current_published_version_id: versionId, updated_at: publishedAt }).eq("organization_id", access.organizationId).eq("id", blueprintId);
   if (pointerError) return { ok: false, error: pointerError.message };
 
-  await emitJourneyEvent(access.organizationId, access.userId, "journey.version_published", versionId, { blueprintId, outgoingVersionId });
+  await emitJourneyEvent(access.organizationId, access.userId, "journey.version_published", versionId, {
+    blueprintId, outgoingVersionId,
+    ...(preflight.ok ? {} : { overriddenBlockers: preflight.blockers })
+  });
   return { ok: true, data: null };
 }
 
