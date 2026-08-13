@@ -440,6 +440,22 @@ function JourneyMapAdminPageInner() {
             {TAB_LABEL[tab]}
           </button>)}
         </div>
+        {/* "X vấn đề" ở cây bên trái chỉ là số đếm — Admin phải biết CHÍNH XÁC là gì mà không cần tự
+            lọc lại từng loại. Liệt kê thẳng ở đây, mỗi dòng bấm được để nhảy đúng tab sửa. */}
+        {(() => {
+          const missionFindings = (preflight?.findings ?? []).filter((f) => f.missionId === selectedMission.id);
+          if (!missionFindings.length) return null;
+          return <div style={{ margin: "10px 16px 0", padding: 10, borderRadius: 8, background: "#fffbeb", border: "1px solid #fde68a", fontSize: 11 }}>
+            <strong style={{ color: "#92400e" }}>{missionFindings.length} vấn đề ở Nhiệm vụ này:</strong>
+            <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+              {missionFindings.map((f, i) => <li key={i} style={{ padding: "2px 0" }}>
+                <button onClick={() => setActiveTab(CATEGORY_TO_TAB[f.category] ?? "overview")} style={{ border: "none", background: "none", padding: 0, color: f.severity === "blocker" ? "#b42318" : "#92400e", cursor: "pointer", textDecoration: "underline", fontWeight: f.severity === "blocker" ? 700 : 500 }}>
+                  {f.severity === "blocker" ? "🔴" : "🟡"} {f.message} — bấm để mở tab &ldquo;{TAB_LABEL[CATEGORY_TO_TAB[f.category] ?? "overview"]}&rdquo;
+                </button>
+              </li>)}
+            </ul>
+          </div>;
+        })()}
 
         <div style={{ padding: 16, display: "grid", gap: 10, fontSize: 12 }}>
           {activeTab === "overview" && <>
