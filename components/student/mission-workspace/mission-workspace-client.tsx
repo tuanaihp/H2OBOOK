@@ -8,6 +8,9 @@ import { MissionKnownContext, type KnownFact } from "./mission-known-context";
 import { MissionOutputFlow, type OutputDestination } from "./mission-output-flow";
 import { DailyPracticeLogger } from "./daily-practice-logger";
 import { stage1LearningOsFeatures } from "@/lib/stage1-learning-os/feature-flags";
+import { missionWorkspaceV2Features } from "@/lib/mission-workspace/feature-flags";
+import { getMissionCompletionChecklist } from "@/lib/mission-workspace/completion";
+import { AdaptiveEvidenceForm } from "./adaptive-evidence-form";
 
 // Daily Practice Journal (docs/stage1-learning-os-v1) lives inside the one real Stage 1 Mission it
 // naturally belongs to — "Xác định mục tiêu 90 ngày" (now "Lộ trình Makeup 90 ngày của tôi" after the
@@ -21,7 +24,7 @@ const DAILY_PRACTICE_MISSION_ROOT_ID = "6c1bcff8-0c54-4ea7-960f-b9396189a0ea";
 type DisplayState = "locked" | "available" | "not_started" | "learning" | "planning" | "doing" | "evidence_pending" | "review_pending" | "verified" | "result_achieved" | "blocked";
 type Mission = {
   id: string; title: string; description: string; expectedResult: string; completionPolicy: string; estimatedDays: number | null; rootMissionId: string | null;
-  successCriteria: string[]; displayState: DisplayState; lockedReason: string | null;
+  successCriteria: string[]; displayState: DisplayState; lockedReason: string | null; evidencePolicy: Record<string, unknown>;
   resourceBindings: { id: string; title: string; role: string; resourceType: string; resourceId: string }[];
   toolBindings: { id: string; toolType: string; toolId: string; role: string }[];
   actionTemplates: { id: string; title: string; description: string; required: boolean; evidenceRequired: boolean }[];
@@ -46,8 +49,8 @@ const STATE_LABEL: Record<DisplayState, string> = {
   review_pending: "Chờ giáo viên duyệt", verified: "Đã xác nhận", result_achieved: "Hoàn thành", blocked: "Cần xem lại"
 };
 const TABS = [
-  { key: "brief", label: "01 · Hiểu nhiệm vụ" }, { key: "work", label: "02 · Làm việc" },
-  { key: "evidence", label: "03 · Evidence" }, { key: "result", label: "04 · Kết quả" }
+  { key: "brief", label: "01 · Hiểu nhiệm vụ" }, { key: "work", label: "02 · Thực hiện" },
+  { key: "evidence", label: "03 · Minh chứng" }, { key: "result", label: "04 · Kết quả" }
 ] as const;
 type TabKey = typeof TABS[number]["key"];
 
@@ -62,8 +65,6 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [evidenceNote, setEvidenceNote] = useState("");
-  const [evidenceLink, setEvidenceLink] = useState("");
 
   async function refresh() {
     const res = await fetch(`/api/student/mission-workspace?missionId=${missionId}`, { cache: "no-store" });
@@ -101,6 +102,13 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
   const missionProgressPercent = DONE_STATES.includes(mission.displayState) ? 100 : mission.actions.length ? Math.round((mission.actions.filter((a) => a.status === "completed").length / mission.actions.length) * 100) : 0;
   const requiredActions = mission.actions.filter((a) => a.required);
   const requiredDone = requiredActions.filter((a) => a.status === "completed").length;
+  // Display-only — never decides completion (docs/mission-workspace-v2 §3). The real gate stays
+  // mission.displayState, written server-side by completeSelfReportedMission/submitEvidence/
+  // teacherVerifyMission. This just turns "1 aggregate sentence" into an itemized "what's left" list.
+  const completionChecklist = missionWorkspaceV2Features.readinessCompletionSplit
+    ? getMissionCompletionChecklist({ blocks: view.blocks, values: view.values, actions: mission.actions, evidence: mission.evidence, completionPolicy: mission.completionPolicy, displayState: mission.displayState })
+    : [];
+  const outstandingRequirements = completionChecklist.filter((r) => !r.satisfied);
 
   if (mission.displayState === "locked") return <>
     <Link href="/student/courses" className="h2o-sr-back">← Quay lại Roadmap</Link>
@@ -242,29 +250,17 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
 
         {tab === "evidence" && <div className="h2o-sr-pane">
           <div className="h2o-sr-section">
-            <h4>Evidence {mission.completionPolicy === "teacher_verified" ? "· cần giáo viên xác nhận" : ""}</h4>
-            {canSubmitEvidence ? <>
-              <div className="h2o-sr-field">
-                <label>Mô tả bằng chứng</label>
-                <textarea value={evidenceNote} onChange={(e) => setEvidenceNote(e.target.value)} placeholder="Mô tả bằng chứng đã hoàn thành (ảnh Before/After, ghi chú...)" />
-              </div>
-              <div className="h2o-sr-field">
-                <label>Link ảnh / file (tùy chọn)</label>
-                <input value={evidenceLink} onChange={(e) => setEvidenceLink(e.target.value)} placeholder="Dán link ảnh hoặc file" />
-              </div>
-              <div className="h2o-sr-cta">
-                <button className="h2o-sr-btn primary" disabled={busy || (!evidenceNote.trim() && !evidenceLink.trim())}
-                  onClick={async () => {
-                    const note = [evidenceNote.trim(), evidenceLink.trim()].filter(Boolean).join(" · ");
-                    const ok = await post("/api/student/journey/evidence", { missionId, note });
-                    if (ok) { setEvidenceNote(""); setEvidenceLink(""); setTab("result"); }
-                  }}>Nộp Evidence</button>
-              </div>
-            </> : <p style={{ fontSize: 12, color: "#718092", margin: "8px 0 0" }}>
-              {!started ? "Bắt đầu Mission trước khi nộp evidence."
+            <h4>Minh chứng {mission.completionPolicy === "teacher_verified" ? "· cần giáo viên xác nhận" : ""}</h4>
+            {canSubmitEvidence ? (
+              <AdaptiveEvidenceForm
+                evidencePolicyType={missionWorkspaceV2Features.evidenceAdaptiveUi && typeof mission.evidencePolicy?.type === "string" ? mission.evidencePolicy.type : undefined}
+                busy={busy}
+                onSubmit={async (input) => { const ok = await post("/api/student/journey/evidence", { missionId, ...input }); if (ok) setTab("result"); return ok; }} />
+            ) : <p style={{ fontSize: 12, color: "#718092", margin: "8px 0 0" }}>
+              {!started ? "Bắt đầu Mission trước khi nộp minh chứng."
                 : mission.displayState === "review_pending" ? "Đã nộp — đang chờ giáo viên duyệt."
                 : DONE_STATES.includes(mission.displayState) ? "Đã được xác nhận."
-                : "Mission này không cần evidence."}
+                : "Mission này không cần minh chứng."}
             </p>}
           </div>
 
@@ -296,9 +292,21 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
                 {mission.resultAchievedAt && `Hoàn thành: ${new Date(mission.resultAchievedAt).toLocaleDateString("vi-VN")}`}
               </p>}
             </div>
-            {!DONE_STATES.includes(mission.displayState) && <p style={{ fontSize: 12, color: "#718092", marginTop: 10 }}>
-              Kết quả sẽ được chốt khi {needsEvidence ? "bằng chứng được xác nhận" : "bạn đánh dấu hoàn thành"}.
-            </p>}
+            {!DONE_STATES.includes(mission.displayState) && <>
+              <p style={{ fontSize: 12, color: "#718092", marginTop: 10 }}>
+                <b>Chưa tạo kết quả.</b> Kết quả sẽ được chốt khi {needsEvidence ? "bằng chứng được xác nhận" : "bạn đánh dấu hoàn thành"}.
+              </p>
+              {missionWorkspaceV2Features.readinessCompletionSplit && outstandingRequirements.length > 0 && <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: "#fff8ec", border: "1px solid #fde68a" }}>
+                <b style={{ fontSize: 12 }}>Còn thiếu {outstandingRequirements.length} mục:</b>
+                <ul style={{ margin: "6px 0 0", paddingLeft: 16, fontSize: 12 }}>
+                  {outstandingRequirements.map((r) => <li key={r.id}>{r.label}</li>)}
+                </ul>
+              </div>}
+              <div className="h2o-sr-cta" style={{ marginTop: 10 }}>
+                <button className="h2o-sr-btn" onClick={() => setTab("work")}>← Quay lại Thực hiện</button>
+                {needsEvidence && <button className="h2o-sr-btn" onClick={() => setTab("evidence")}>← Quay lại Minh chứng</button>}
+              </div>
+            </>}
           </div>
           {stage1LearningOsFeatures.stage1FlowV1 && stage1LearningOsFeatures.outputReuse && <MissionOutputFlow items={view.outputDestinations} />}
         </div>}

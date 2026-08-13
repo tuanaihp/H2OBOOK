@@ -46,6 +46,17 @@ const STATUS_LABEL: Record<string, string> = { draft: TERMS.draft, published: TE
 const COMPLETION_POLICY_LABEL: Record<string, string> = { self_reported: "Học viên tự xác nhận", evidence_required: "Cần nộp bằng chứng", teacher_verified: "Giảng viên duyệt", metric_based: "Đạt chỉ số/KPI" };
 const CATEGORY_LABEL: Record<string, string> = { structure: "Cấu trúc", missing_kpi: `Thiếu ${TERMS.successKpi}`, missing_duration: `Thiếu ${TERMS.estimatedDays}`, missing_binding: `Thiếu ${TERMS.resourceBindings}`, circular: `Vòng lặp ${TERMS.prerequisite}`, broken_reference: "Tham chiếu gãy", other: "Khác" };
 const TAB_LABEL: Record<InspectorTab, string> = { overview: "1. Tổng quan", resources: "2. Học liệu", actions: "3. Việc cần làm", workspace: "4. Không gian làm việc", unlock: "5. Mở khóa & đánh giá" };
+// docs/mission-workspace-v2 §10 — helper text đúng nguyên văn gói nguồn, gắn vào đúng tab tương ứng
+// đã có sẵn (không tạo tab mới cho "Minh chứng"/"Kết quả" — 2 khái niệm này chưa có UI cấu hình
+// riêng: Minh chứng suy ra từ Cách xác nhận hoàn thành ở tab unlock; Kết quả/result destinations vẫn
+// là bảng tĩnh trong code (lib/stage1-learning-os/output-reuse.ts), ghi rõ là gap trong FINAL_REPORT).
+const TAB_HELP: Record<InspectorTab, string> = {
+  overview: "Tiêu chí đạt: điều kiện để Mission được coi là hoàn thành.",
+  resources: "Học liệu: tài liệu học viên cần đọc/xem để làm Mission này.",
+  actions: "Việc cần làm: các bước bắt buộc học viên phải hoàn thành.",
+  workspace: "Không gian làm việc: form/checklist/công cụ để học viên tạo ra kết quả.",
+  unlock: "Điều kiện mở khóa: Mission nào phải xong trước. Cách xác nhận hoàn thành quyết định Minh chứng: học viên tự nhận, phải nộp bằng chứng, hay cần giáo viên xác nhận."
+};
 // Bấm 1 lỗi trong Preflight phải mở đúng tab sửa được lỗi đó — không bắt Admin tự đoán "Học liệu" nằm ở tab nào.
 const CATEGORY_TO_TAB: Record<string, InspectorTab> = { structure: "overview", missing_kpi: "overview", missing_duration: "overview", missing_binding: "resources", circular: "unlock", broken_reference: "unlock", other: "actions" };
 const CLONE_OPTION_LABEL: Record<keyof CloneOptions, string> = { copyResources: TERMS.resourceBindings, copyActions: TERMS.actionTemplates, copyWorkspaceBlocks: TERMS.missionWorkspace, copyPrerequisites: TERMS.prerequisite };
@@ -454,6 +465,7 @@ function JourneyMapAdminPageInner() {
             {TAB_LABEL[tab]}
           </button>)}
         </div>
+        <p style={{ margin: "8px 16px 0", fontSize: 11, color: "#6b7a89" }}>{TAB_HELP[activeTab]}</p>
         {/* "X vấn đề" ở cây bên trái chỉ là số đếm — Admin phải biết CHÍNH XÁC là gì mà không cần tự
             lọc lại từng loại. Liệt kê thẳng ở đây, mỗi dòng bấm được để nhảy đúng tab sửa. */}
         {(() => {
