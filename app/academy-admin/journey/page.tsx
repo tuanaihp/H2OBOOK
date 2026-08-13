@@ -84,6 +84,11 @@ function JourneyMapAdminPageInner() {
   const [bulkCloneResults, setBulkCloneResults] = useState<BulkCloneResult[] | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteNodeConfirm, setDeleteNodeConfirm] = useState<{ type: "outcome" | "milestone"; id: string; title: string } | null>(null);
+  // "Vẫn áp dụng dù còn thiếu" (2026-08-13): Publish luôn chạy Preflight thật trước, không đoán từ
+  // state cũ — nếu vẫn còn blocker, mở dialog liệt kê đúng danh sách rồi mới cho Admin bấm xác nhận
+  // thay vì im lặng chặn hẳn hoặc im lặng bỏ qua.
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [publishConfirmFindings, setPublishConfirmFindings] = useState<Finding[]>([]);
 
   const searchParams = useSearchParams();
   const deepLinkStageId = searchParams.get("stageId");
@@ -142,6 +147,32 @@ function JourneyMapAdminPageInner() {
     const res = await fetch("/api/academy-admin/learn-outcome/version", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "preflight", versionId }) });
     const json = await res.json().catch(() => null);
     setPreflight(json); setActiveCategory(null); setBusy(false);
+  }
+
+  const PUBLISH_OK_MESSAGE = "Đã áp dụng cho học viên. Tiến độ học viên đang có trên phiên bản trước đã được bảo toàn (Mission tương đương tự động chuyển sang phiên bản mới).";
+
+  // Publish luôn tự chạy Preflight thật ngay lúc bấm (không dùng state cũ có thể đã lỗi thời) — hết
+  // blocker thì áp dụng thẳng như trước; còn blocker thì dừng lại hỏi Admin có chắc muốn áp dụng dù
+  // còn thiếu hay không, kèm đúng danh sách đang thiếu gì.
+  async function attemptPublish() {
+    if (!versionId || !blueprint) return;
+    setBusy(true);
+    const res = await fetch("/api/academy-admin/learn-outcome/version", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "preflight", versionId }) });
+    const result = await res.json().catch(() => null) as Preflight | null;
+    setPreflight(result); setActiveCategory(null); setBusy(false);
+    if (result?.ok) {
+      await call("/api/academy-admin/learn-outcome/version", { action: "publish", blueprintId: blueprint.id, versionId, scope: "all_active_students" }, PUBLISH_OK_MESSAGE);
+    } else {
+      setPublishConfirmFindings((result?.findings ?? []).filter((f) => f.severity === "blocker"));
+      setPublishConfirmOpen(true);
+    }
+  }
+
+  async function confirmForcePublish() {
+    if (!versionId || !blueprint) return;
+    setPublishConfirmOpen(false);
+    await call("/api/academy-admin/learn-outcome/version", { action: "publish", blueprintId: blueprint.id, versionId, scope: "all_active_students", overrideBlockers: true },
+      `${PUBLISH_OK_MESSAGE} Đã áp dụng dù còn ${publishConfirmFindings.length} mục thiếu — nhớ bổ sung tiếp, học viên đang thấy đúng phần còn thiếu đó.`);
   }
 
   async function submitBulkClone() {
@@ -289,7 +320,7 @@ function JourneyMapAdminPageInner() {
           <span style={{ fontSize: 11, color: "#6b7a89", padding: "6px 0" }}>Đã lưu tự động theo từng thay đổi</span>
           <button className={styles.button} disabled={busy || !versionId} onClick={() => setPreviewAsStudent((v) => !v)}><Eye size={14}/>Xem như học viên</button>
           <button className={styles.button} disabled={busy || !versionId} onClick={runPreflight}><RefreshCw size={14}/>{TERMS.preflight}</button>
-          {currentVersion?.status === "draft" && <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy || !versionId} onClick={() => call("/api/academy-admin/learn-outcome/version", { action: "publish", blueprintId: blueprint.id, versionId, scope: "all_active_students" }, "Đã áp dụng cho học viên. Tiến độ học viên đang có trên phiên bản trước đã được bảo toàn (Mission tương đương tự động chuyển sang phiên bản mới).")}><CheckCircle2 size={14}/>{TERMS.publish}</button>}
+          {currentVersion?.status === "draft" && <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy || !versionId} onClick={attemptPublish}><CheckCircle2 size={14}/>{TERMS.publish}</button>}
         </div>
         <div style={{ padding: "0 16px 16px", display: "flex", gap: 8, flexWrap: "wrap", borderTop: "1px solid #f1f3f5", paddingTop: 12 }}>
           <button className={styles.button} disabled={busy || !versionId} onClick={() => call("/api/academy-admin/learn-outcome/version", { action: "duplicate", blueprintId: blueprint.id, versionId }, "Đã tạo phiên bản nháp mới (nhân bản).")}><Copy size={14}/>Nhân bản phiên bản này</button>
@@ -525,6 +556,24 @@ function JourneyMapAdminPageInner() {
         <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
           <button className={styles.button} onClick={() => setDeleteConfirmOpen(false)}>Hủy</button>
           <button className={styles.button} style={{ background: "#b42318", color: "#fff", borderColor: "#b42318" }} disabled={busy} onClick={confirmDeleteDraft}><Trash2 size={14}/> Xóa bản nháp</button>
+        </div>
+      </div>
+    </div>}
+
+    {publishConfirmOpen && <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={() => setPublishConfirmOpen(false)}>
+      <div style={{ width: 480, maxHeight: "80vh", overflowY: "auto", background: "#fff", borderRadius: 12, padding: 20 }} onClick={(e) => e.stopPropagation()}>
+        <strong style={{ fontSize: 14, color: "#b42318" }}><AlertTriangle size={14} style={{ verticalAlign: "-2px" }}/> Vẫn còn {publishConfirmFindings.length} lỗi chưa sửa</strong>
+        <p style={{ fontSize: 12, color: "#6b7a89", marginTop: 8 }}>Nếu áp dụng ngay, học viên thật sẽ thấy đúng phần còn thiếu này (ví dụ: dòng &ldquo;Chưa có tiêu chí thành công&rdquo;) cho tới khi bạn bổ sung. Hệ thống sẽ ghi lại đúng danh sách đã bỏ qua để đối chiếu sau.</p>
+        <ul style={{ margin: "10px 0", paddingLeft: 16, fontSize: 12, maxHeight: 220, overflowY: "auto" }}>
+          {publishConfirmFindings.map((f, i) => <li key={i} style={{ padding: "3px 0" }}>
+            {f.missionTitle && f.missionId
+              ? <button onClick={() => { setPublishConfirmOpen(false); setSelected({ type: "mission", id: f.missionId! }); setActiveTab(CATEGORY_TO_TAB[f.category] ?? "overview"); }} style={{ border: "none", background: "none", padding: 0, color: "#2563eb", cursor: "pointer", fontWeight: 600 }}>{f.missionTitle}</button>
+              : <strong>Chung</strong>} — {f.message}
+          </li>)}
+        </ul>
+        <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+          <button className={styles.button} onClick={() => setPublishConfirmOpen(false)}>Hủy, để tôi sửa trước</button>
+          <button className={styles.button} style={{ background: "#b42318", color: "#fff", borderColor: "#b42318" }} disabled={busy} onClick={confirmForcePublish}><CheckCircle2 size={14}/> Vẫn áp dụng dù còn thiếu</button>
         </div>
       </div>
     </div>}
