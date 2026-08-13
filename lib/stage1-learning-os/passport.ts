@@ -7,11 +7,18 @@ import type { StudentJourneyPassport, PassportCreativeItem } from "./types";
 
 const DONE_STATES = new Set(["verified", "result_achieved"]);
 
-// Career Mission titles (docs/stage1-learning-os-v1/01_PRODUCTION_AUDIT.md) — the real Outcome 01
+// Career Mission identity (docs/stage1-learning-os-v1/01_PRODUCTION_AUDIT.md) — the real Outcome 01
 // Missions whose Mission Workspace block values ARE the student's Career Direction/Career Map/
 // 90-Day Goal. Read from student_mission_workspace_values (migration 0052), the same table the
 // Mission Workspace itself already saves to — no new column, no copy.
-const CAREER_MISSION_TITLES = { direction: "Xác định hướng nghề Makeup", careerMap: "Hoàn thành Career Map", ninetyDay: "Xác định mục tiêu 90 ngày" } as const;
+//
+// Keyed by root_mission_id (migration 0054), NOT title: the 2026-08-13 Stage 1 Blueprint
+// Transformation renamed "Hoàn thành Career Map" -> "Hoàn thành Makeup Career Map" and "Xác định mục
+// tiêu 90 ngày" -> "Lộ trình Makeup 90 ngày của tôi" on the new published version — a title-keyed map
+// would have silently stopped recognizing both the moment that version went live (exactly what
+// happened before this fix: Career Passport on /student/profile went blank for real students).
+// root_mission_id is the one identifier guaranteed to survive a rename/re-clone across versions.
+const CAREER_MISSION_ROOT_IDS = { direction: "e6956113-3a08-4d93-8a74-b574a10389c4", careerMap: "cbfbcc11-237a-46e5-b498-a8222974a634", ninetyDay: "6c1bcff8-0c54-4ea7-960f-b9396189a0ea" } as const;
 
 /**
  * Student Journey Passport (v5/36-H2OBOOK_STAGE1_LEARNING_OS_V1): a read-only aggregate over
@@ -49,21 +56,21 @@ export async function getStudentJourneyPassport(organizationId: string, studentI
   const missionsDone = allMissions.filter((m) => DONE_STATES.has(m.displayState)).length;
   const learning = { stageTitle: journey.blueprintTitle ?? "", progressPercent: journey.progressPercent, missionsTotal: allMissions.length, missionsDone };
 
-  const missionByTitle = new Map(allMissions.map((m) => [m.title, m]));
-  function careerBlockSummary(title: string): string | null {
+  const missionByRoot = new Map(allMissions.map((m) => [m.rootMissionId ?? m.id, m]));
+  function careerBlockSummary(rootMissionId: string): string | null {
     // A Mission's own successCriteria/evidence carries the closest thing to a real "what did the
     // student produce" summary without reaching into Mission Workspace block values here (those are
     // block-shaped, not prose) — verified/result_achieved is treated as "there is a real answer",
     // and its evidence note (if any) is surfaced; otherwise honestly "Chưa đủ dữ liệu".
-    const mission = missionByTitle.get(title);
+    const mission = missionByRoot.get(rootMissionId);
     if (!mission || !DONE_STATES.has(mission.displayState)) return null;
     const latestEvidence = mission.evidence[mission.evidence.length - 1];
     return latestEvidence?.note || mission.expectedResult || null;
   }
   const career = {
-    direction: careerBlockSummary(CAREER_MISSION_TITLES.direction),
-    careerMapSummary: careerBlockSummary(CAREER_MISSION_TITLES.careerMap),
-    ninetyDayGoal: careerBlockSummary(CAREER_MISSION_TITLES.ninetyDay)
+    direction: careerBlockSummary(CAREER_MISSION_ROOT_IDS.direction),
+    careerMapSummary: careerBlockSummary(CAREER_MISSION_ROOT_IDS.careerMap),
+    ninetyDayGoal: careerBlockSummary(CAREER_MISSION_ROOT_IDS.ninetyDay)
   };
 
   const evidenceCounts = allMissions.reduce((acc, m) => {

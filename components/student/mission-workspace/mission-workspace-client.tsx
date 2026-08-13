@@ -10,14 +10,17 @@ import { DailyPracticeLogger } from "./daily-practice-logger";
 import { stage1LearningOsFeatures } from "@/lib/stage1-learning-os/feature-flags";
 
 // Daily Practice Journal (docs/stage1-learning-os-v1) lives inside the one real Stage 1 Mission it
-// naturally belongs to — "Xác định mục tiêu 90 ngày" IS the 90-Day Plan Mission the source package
-// asks Daily Practice to sit under. Matched by title, same approach as
-// lib/stage1-learning-os/skill-evidence.ts's Mission->skill map.
-const DAILY_PRACTICE_MISSION_TITLE = "Xác định mục tiêu 90 ngày";
+// naturally belongs to — "Xác định mục tiêu 90 ngày" (now "Lộ trình Makeup 90 ngày của tôi" after the
+// 2026-08-13 Blueprint Transformation) IS the 90-Day Plan Mission the source package asks Daily
+// Practice to sit under. Matched by root_mission_id (migration 0054), NOT title — a title match broke
+// silently the moment that Mission was renamed on the newly-published version; root_mission_id is
+// stable across renames/re-clones. Same fix applied to lib/stage1-learning-os/passport.ts and
+// lib/stage1-learning-os/output-reuse.ts.
+const DAILY_PRACTICE_MISSION_ROOT_ID = "6c1bcff8-0c54-4ea7-960f-b9396189a0ea";
 
 type DisplayState = "locked" | "available" | "not_started" | "learning" | "planning" | "doing" | "evidence_pending" | "review_pending" | "verified" | "result_achieved" | "blocked";
 type Mission = {
-  id: string; title: string; description: string; expectedResult: string; completionPolicy: string; estimatedDays: number | null;
+  id: string; title: string; description: string; expectedResult: string; completionPolicy: string; estimatedDays: number | null; rootMissionId: string | null;
   successCriteria: string[]; displayState: DisplayState; lockedReason: string | null;
   resourceBindings: { id: string; title: string; role: string; resourceType: string; resourceId: string }[];
   toolBindings: { id: string; toolType: string; toolId: string; role: string }[];
@@ -233,7 +236,7 @@ export function MissionWorkspaceClient({ missionId, initialView }: { missionId: 
                     ? <button className="h2o-sr-btn primary" onClick={() => setTab("evidence")}>Tiếp tục → Evidence</button>
                     : !DONE_STATES.includes(mission.displayState) && <button className="h2o-sr-btn primary" disabled={busy} onClick={() => post("/api/student/journey/mission", { action: "completeSelf", missionId })}>Đánh dấu hoàn thành</button>}
                 </div>
-                {stage1LearningOsFeatures.stage1FlowV1 && stage1LearningOsFeatures.dailyPractice && mission.title === DAILY_PRACTICE_MISSION_TITLE && <DailyPracticeLogger missionId={mission.id} />}
+                {stage1LearningOsFeatures.stage1FlowV1 && stage1LearningOsFeatures.dailyPractice && (mission.rootMissionId ?? mission.id) === DAILY_PRACTICE_MISSION_ROOT_ID && <DailyPracticeLogger missionId={mission.id} />}
               </>}
         </div>}
 
