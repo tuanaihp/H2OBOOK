@@ -72,6 +72,11 @@ function JourneyMapAdminPageInner() {
   const [preflight, setPreflight] = useState<Preflight | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Silent field-saves (title/expected result/estimated days/tiêu chí đạt/học liệu...) used to flip
+  // the same `busy` flag every button on the page checks — so editing one field visibly dimmed the
+  // "Xem như học viên"/"Nhân bản phiên bản này" row a moment later, unrelated to what was actually
+  // being saved. Tracked separately so those far-away buttons stay untouched during a background save.
+  const [savingSilently, setSavingSilently] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pickerQuery, setPickerQuery] = useState("");
@@ -134,7 +139,10 @@ function JourneyMapAdminPageInner() {
   useEffect(() => { if (stageId) loadJourney(stageId, undefined, true); }, [stageId]);
 
   async function call(url: string, body: unknown, okMessage: string, reload = true, silent = false): Promise<boolean> {
-    setBusy(true); setMessage(null);
+    // Silent saves set savingSilently, never the global busy flag — busy is reserved for actions the
+    // rest of the page's buttons should actually wait on (create/delete/publish/duplicate/...).
+    if (silent) setSavingSilently(true); else setBusy(true);
+    setMessage(null);
     try {
       const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
@@ -145,7 +153,7 @@ function JourneyMapAdminPageInner() {
     } catch {
       setMessage("Mất kết nối — thử lại.");
       return false;
-    } finally { setBusy(false); }
+    } finally { if (silent) setSavingSilently(false); else setBusy(false); }
   }
 
   async function runPreflight() {
@@ -323,7 +331,7 @@ function JourneyMapAdminPageInner() {
       </div>
       {blueprint && <>
         <div style={{ padding: "0 16px 16px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "#6b7a89", padding: "6px 0" }}>Đã lưu tự động theo từng thay đổi</span>
+          <span style={{ fontSize: 11, color: "#6b7a89", padding: "6px 0" }}>{savingSilently ? "Đang lưu…" : "Đã lưu tự động theo từng thay đổi"}</span>
           <button className={styles.button} disabled={busy || !versionId} onClick={() => setPreviewAsStudent((v) => !v)}><Eye size={14}/>Xem như học viên</button>
           <button className={styles.button} disabled={busy || !versionId} onClick={runPreflight}><RefreshCw size={14}/>{TERMS.preflight}</button>
           {currentVersion?.status === "draft" && <button className={`${styles.button} ${styles.buttonPrimary}`} disabled={busy || !versionId} onClick={attemptPublish}><CheckCircle2 size={14}/>{TERMS.publish}</button>}
@@ -371,8 +379,8 @@ function JourneyMapAdminPageInner() {
                 <strong style={{ fontSize: 13 }}>{outcome.title}</strong>
               </button>
               {isDraft && <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                <button title="Đưa lên trước" disabled={busy || outcomeIndex === 0} onClick={() => moveNode("outcome", outcome.id, -1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: outcomeIndex === 0 ? "default" : "pointer", padding: 3, opacity: outcomeIndex === 0 ? 0.4 : 1 }}><ChevronUp size={13} /></button>
-                <button title="Đưa xuống sau" disabled={busy || outcomeIndex === outcomes.length - 1} onClick={() => moveNode("outcome", outcome.id, 1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: outcomeIndex === outcomes.length - 1 ? "default" : "pointer", padding: 3, opacity: outcomeIndex === outcomes.length - 1 ? 0.4 : 1 }}><ChevronDown size={13} /></button>
+                <button title="Đưa lên trước" disabled={savingSilently || outcomeIndex === 0} onClick={() => moveNode("outcome", outcome.id, -1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: outcomeIndex === 0 ? "default" : "pointer", padding: 3, opacity: outcomeIndex === 0 ? 0.4 : 1 }}><ChevronUp size={13} /></button>
+                <button title="Đưa xuống sau" disabled={savingSilently || outcomeIndex === outcomes.length - 1} onClick={() => moveNode("outcome", outcome.id, 1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: outcomeIndex === outcomes.length - 1 ? "default" : "pointer", padding: 3, opacity: outcomeIndex === outcomes.length - 1 ? 0.4 : 1 }}><ChevronDown size={13} /></button>
               </div>}
             </div>
             {outcome.milestones.map((milestone, milestoneIndex) => <div key={milestone.id} style={{ marginLeft: 12, marginTop: 8, borderLeft: "2px solid #e5e9ee", paddingLeft: 10 }}>
@@ -382,8 +390,8 @@ function JourneyMapAdminPageInner() {
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{milestone.title}</span>
                 </button>
                 {isDraft && <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                  <button title="Đưa lên trước" disabled={busy || milestoneIndex === 0} onClick={() => moveNode("milestone", milestone.id, -1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: milestoneIndex === 0 ? "default" : "pointer", padding: 3, opacity: milestoneIndex === 0 ? 0.4 : 1 }}><ChevronUp size={12} /></button>
-                  <button title="Đưa xuống sau" disabled={busy || milestoneIndex === outcome.milestones.length - 1} onClick={() => moveNode("milestone", milestone.id, 1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: milestoneIndex === outcome.milestones.length - 1 ? "default" : "pointer", padding: 3, opacity: milestoneIndex === outcome.milestones.length - 1 ? 0.4 : 1 }}><ChevronDown size={12} /></button>
+                  <button title="Đưa lên trước" disabled={savingSilently || milestoneIndex === 0} onClick={() => moveNode("milestone", milestone.id, -1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: milestoneIndex === 0 ? "default" : "pointer", padding: 3, opacity: milestoneIndex === 0 ? 0.4 : 1 }}><ChevronUp size={12} /></button>
+                  <button title="Đưa xuống sau" disabled={savingSilently || milestoneIndex === outcome.milestones.length - 1} onClick={() => moveNode("milestone", milestone.id, 1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: milestoneIndex === outcome.milestones.length - 1 ? "default" : "pointer", padding: 3, opacity: milestoneIndex === outcome.milestones.length - 1 ? 0.4 : 1 }}><ChevronDown size={12} /></button>
                 </div>}
               </div>
               <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
@@ -402,8 +410,8 @@ function JourneyMapAdminPageInner() {
                       {missionFindings.length > 0 && <span style={{ fontSize: 10, color: missionFindings.some((f) => f.severity === "blocker") ? "#b42318" : "#92400e" }}>{missionFindings.length} vấn đề</span>}
                     </button>
                     {isDraft && <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                      <button title="Đưa lên trước" disabled={busy || missionIndex === 0} onClick={() => moveNode("mission", mission.id, -1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: missionIndex === 0 ? "default" : "pointer", padding: 3, opacity: missionIndex === 0 ? 0.4 : 1 }}><ChevronUp size={12} /></button>
-                      <button title="Đưa xuống sau" disabled={busy || missionIndex === milestone.missions.length - 1} onClick={() => moveNode("mission", mission.id, 1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: missionIndex === milestone.missions.length - 1 ? "default" : "pointer", padding: 3, opacity: missionIndex === milestone.missions.length - 1 ? 0.4 : 1 }}><ChevronDown size={12} /></button>
+                      <button title="Đưa lên trước" disabled={savingSilently || missionIndex === 0} onClick={() => moveNode("mission", mission.id, -1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: missionIndex === 0 ? "default" : "pointer", padding: 3, opacity: missionIndex === 0 ? 0.4 : 1 }}><ChevronUp size={12} /></button>
+                      <button title="Đưa xuống sau" disabled={savingSilently || missionIndex === milestone.missions.length - 1} onClick={() => moveNode("mission", mission.id, 1)} style={{ border: "1px solid #e5e9ee", borderRadius: 6, background: "#fff", cursor: missionIndex === milestone.missions.length - 1 ? "default" : "pointer", padding: 3, opacity: missionIndex === milestone.missions.length - 1 ? 0.4 : 1 }}><ChevronDown size={12} /></button>
                     </div>}
                   </div>;
                 })}
@@ -481,7 +489,7 @@ function JourneyMapAdminPageInner() {
             <div><strong>{TERMS.successKpi}</strong>
               {selectedMission.successCriteria.length ? selectedMission.successCriteria.map((c, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ flex: 1 }}>· {c}</span>
-                {isDraft && <button disabled={busy} title="Xóa tiêu chí này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: selectedMission.successCriteria.filter((_, idx) => idx !== i) } }, "Đã xóa tiêu chí.", true, true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
+                {isDraft && <button disabled={savingSilently} title="Xóa tiêu chí này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: selectedMission.successCriteria.filter((_, idx) => idx !== i) } }, "Đã xóa tiêu chí.", true, true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
               </div>) : <p style={{ color: "#6b7a89" }}>Chưa có {TERMS.successKpi.toLowerCase()}.</p>}
               {isDraft && <div style={{ marginTop: 6 }}><MiniForm placeholder={`+ Thêm ${TERMS.successKpi.toLowerCase()}`} onSubmit={(text) => call("/api/academy-admin/learn-outcome/node", { action: "updateMission", missionId: selectedMission.id, mission: { successCriteria: [...selectedMission.successCriteria, text] } }, "Đã thêm tiêu chí.", true, true)}/></div>}
             </div>
@@ -495,7 +503,7 @@ function JourneyMapAdminPageInner() {
               </div>
               <ul style={{ margin: "4px 0", paddingLeft: 16 }}>{selectedMission.resourceBindings.map((b) => <li key={b.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ flex: 1 }}>{b.title || <em style={{ color: "#b42318" }}>Chưa resolve được tiêu đề ({b.resourceId})</em>} <small style={{ color: "#94a3b8" }}>({b.role})</small></span>
-                {canEditBindings && <button disabled={busy} title="Gỡ học liệu này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "removeBinding", bindingId: b.id, binding: { kind: "resource" } }, "Đã gỡ học liệu.", true, true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
+                {canEditBindings && <button disabled={savingSilently} title="Gỡ học liệu này" onClick={() => call("/api/academy-admin/learn-outcome/node", { action: "removeBinding", bindingId: b.id, binding: { kind: "resource" } }, "Đã gỡ học liệu.", true, true)} style={{ border: "none", background: "none", cursor: "pointer", color: "#b42318" }}><Trash2 size={12} /></button>}
               </li>)}
                 {!selectedMission.resourceBindings.length && <p style={{ color: "#6b7a89" }}>Chưa có học liệu liên kết.</p>}
               </ul>
