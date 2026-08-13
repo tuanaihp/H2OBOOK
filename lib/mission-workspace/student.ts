@@ -201,7 +201,7 @@ export async function getMissionWorkspaceView(userId: string, organizationId: st
   ]);
   const blocks = (config?.blocks ?? []).slice().sort((a, b) => a.position - b.position);
   const readiness = calculateMissionReadiness(context.mission, blocks, values);
-  const outputDestinations = getMissionOutputDestinations(context.mission.title);
+  const outputDestinations = getMissionOutputDestinations(context.mission.rootMissionId ?? context.mission.id);
   return { ...context, blocks, values, readiness, knownContext, outputDestinations };
 }
 
