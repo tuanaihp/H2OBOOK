@@ -4,6 +4,9 @@ import { requireCurrentUser } from "@/lib/auth/current-user";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
 import { getMissionWorkspaceView } from "@/lib/mission-workspace/student";
 import { MissionWorkspaceClient } from "@/components/student/mission-workspace/mission-workspace-client";
+import { CoachWorkspaceShell, type CoachJourneyItem } from "@/components/h2o-coach/coach-workspace-shell";
+import { h2oCoachFeatures } from "@/lib/h2o-coach/feature-flags";
+import { getCoachSessionState } from "@/lib/h2o-coach/service";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +27,26 @@ export default async function StudentMissionWorkspacePage({ params }: { params: 
     <p style={{ color: "#718092", fontSize: 13, lineHeight: 1.7 }}>Mission này không tồn tại, chưa được publish, hoặc không thuộc hành trình của bạn.</p>
     <Link href="/student/courses" style={{ fontSize: 13 }}>← Về Roadmap</Link>
   </section>;
+
+  // H2O Coach OS V1 (docs/h2o-coach-v1) — mounted only when the flag is on AND this Stage/Mission
+  // actually has a published Coach profile + coaching config. No profile configured (the common case
+  // until an admin publishes one) means getCoachSessionState returns null and the 4-tab Mission
+  // Workspace below is unaffected — this never replaces it silently.
+  const coachSession = h2oCoachFeatures.coachWorkspaceV1 ? await getCoachSessionState(organizationId, user.id, missionId) : null;
+  if (coachSession) {
+    const journeyItems: CoachJourneyItem[] = view.siblings.map((s) => ({
+      id: s.id, title: s.title,
+      state: s.displayState === "locked" ? "locked" : s.displayState === "result_achieved" ? "done" : s.id === missionId ? "current" : "available"
+    }));
+    return <CoachWorkspaceShell
+      missionId={missionId} stageTitle={view.stage.title} missionTitle={view.mission.title}
+      progressPercent={view.readiness.score} journeyItems={journeyItems}
+      resources={view.mission.resourceBindings.map((r) => ({ id: r.id, title: r.title, resourceType: r.resourceType, resourceId: r.resourceId }))}
+      memorySchema={coachSession.profile.memorySchema.map((f) => ({ key: f.key, label: f.label, namespace: f.namespace }))}
+      initialMemory={coachSession.memory.map((m) => ({ field: m.field, namespace: m.namespace, value: m.value, status: m.status, updatedAt: m.updatedAt }))}
+      initialMessages={coachSession.messages}
+    />;
+  }
 
   return <MissionWorkspaceClient missionId={missionId} initialView={view} />;
 }

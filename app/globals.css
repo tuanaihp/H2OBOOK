@@ -1334,3 +1334,54 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
 .asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
 .asset-grid-item{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #eef1f4;border-radius:12px}
 .asset-grid-item .asset-file-icon{align-self:flex-start}
+
+/* H2O Coach Workspace (docs/h2o-coach-v1) — reuses the --student-* palette already defined on
+   .h2o-student-shell; this only ever renders inside the student shell. */
+.h2o-coach-workspace{display:grid;grid-template-columns:240px minmax(0,1fr) 300px;gap:14px;align-items:start}
+.h2o-coach-eyebrow{display:block;font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--student-wine);text-transform:uppercase;margin-bottom:6px}
+.h2o-coach-journey,.h2o-coach-memory{background:var(--student-panel);border:1px solid var(--student-line);border-radius:18px;padding:16px}
+.h2o-coach-journey h2{margin:2px 0 12px;font-size:16px}
+.h2o-coach-journey-list{display:flex;flex-direction:column;gap:8px}
+.h2o-coach-journey-item{border:1px solid var(--student-line);border-radius:12px;padding:10px}
+.h2o-coach-journey-item small{display:block;font-size:10px;color:var(--student-muted);margin-bottom:3px}
+.h2o-coach-journey-item strong{font-size:13px}
+.h2o-coach-journey-item.state-current{border-color:var(--student-violet);background:rgba(136,117,235,.06)}
+.h2o-coach-journey-item.state-locked{opacity:.55}
+.h2o-coach-journey-resources{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+.h2o-coach-resource-link{display:block;border:1px solid var(--student-line);border-radius:12px;padding:9px 11px;font-size:12px;font-weight:600;text-decoration:none;color:var(--student-ink)}
+.h2o-coach-chat{background:var(--student-panel);border:1px solid var(--student-line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.h2o-coach-chat>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--student-line)}
+.h2o-coach-chat>header h1{margin:2px 0 0;font-size:19px}
+.h2o-coach-progress{background:#0d1624;color:#fff;border-radius:14px;padding:8px 12px;text-align:center;min-width:80px}
+.h2o-coach-progress b{display:block;font-size:16px}
+.h2o-coach-progress small{font-size:10px;color:#9aa8bc}
+.h2o-coach-stream{flex:1;min-height:420px;max-height:520px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
+.h2o-coach-msg{max-width:84%;border-radius:16px;padding:10px 13px}
+.h2o-coach-msg small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;opacity:.6;margin-bottom:3px;text-transform:uppercase}
+.h2o-coach-msg p{margin:0;font-size:13px;line-height:1.6}
+.h2o-coach-msg.role-coach{background:#fff;border:1px solid var(--student-line)}
+.h2o-coach-msg.role-learner{background:#0d1624;color:#fff;margin-left:auto}
+.h2o-coach-confirm-card{border:1px solid #bfe8d8;background:#f0fbf6;border-radius:14px;padding:12px}
+.h2o-coach-confirm-card p{margin:0 0 8px;font-size:13px}
+.h2o-coach-confirm-card button{border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;margin-right:8px;cursor:pointer}
+.h2o-coach-confirm-card button:first-child{background:#0ba878;color:#fff}
+.h2o-coach-confirm-card button:last-child{background:#eef2f7;color:var(--student-ink)}
+.h2o-coach-error{margin:0 18px;font-size:12px;color:#b42318}
+.h2o-coach-composer{border-top:1px solid var(--student-line);padding:12px 14px;display:flex;gap:8px}
+.h2o-coach-composer input{flex:1;border:1px solid var(--student-line);border-radius:14px;padding:11px 14px;font-size:13px;font:inherit}
+.h2o-coach-composer button{border:none;border-radius:14px;padding:0 18px;background:linear-gradient(90deg,var(--student-cyan),var(--student-violet));color:#0f1a29;font-weight:800;cursor:pointer}
+.h2o-coach-composer button:disabled{opacity:.6;cursor:default}
+.h2o-coach-memory-head{background:linear-gradient(145deg,#0d1624,#241d45);color:#fff;border-radius:14px;padding:13px;margin-bottom:12px}
+.h2o-coach-memory-head h3{margin:2px 0 4px;font-size:15px}
+.h2o-coach-memory-head p{margin:0;font-size:11px;color:#c5cde3}
+.h2o-coach-memory-list{display:flex;flex-direction:column;gap:8px}
+.h2o-coach-memory-field{border:1px solid var(--student-line);border-radius:12px;padding:10px}
+.h2o-coach-memory-field small{display:block;font-size:10px;color:var(--student-muted)}
+.h2o-coach-memory-field strong{display:block;font-size:13px;margin:3px 0}
+.h2o-coach-memory-field span{font-size:11px}
+.h2o-coach-memory-field .status-confirmed{color:#0ba878}
+.h2o-coach-memory-field .status-proposed{color:var(--student-violet)}
+.h2o-coach-memory-field .status-rejected{color:#b42318}
+.h2o-coach-memory-field .status-missing{color:#9aa4b2}
+.h2o-coach-memory-empty{font-size:12px;color:var(--student-muted)}
+@media(max-width:1100px){.h2o-coach-workspace{grid-template-columns:1fr}.h2o-coach-journey,.h2o-coach-memory{order:2}}

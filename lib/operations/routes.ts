@@ -51,6 +51,11 @@ export const academyAdminRoutes = [
   { href: "/academy-admin/data-link", label: "Liên kết dữ liệu", icon: Link2 },
   { href: "/academy-admin/content", label: "Kho nội dung Academy", icon: LibraryBig },
   { href: "/academy-admin/brain", label: "H2O Brain", icon: Brain },
+  // H2O Coach OS V1 (docs/h2o-coach-v1) — a separate domain from H2O Brain above: Brain curates
+  // admin-facing content/knowledge, Coach Builder configures per-Stage STUDENT coaching (role,
+  // knowledge scope, memory schema, questions, provider mode). Deliberately not merged into one nav
+  // item or one table.
+  { href: "/academy-admin/coach-builder", label: "H2O Coach Builder", icon: Bot },
   { href: "/academy-admin/programs", label: "Khóa học video", icon: GraduationCap },
   { href: "/academy-admin/distribution", label: "Phân phối & cấp quyền", icon: BadgeCheck },
   // Learning Control Center (v5/32-.../CLAUDE_INTEGRATION_PROMPT.md §9): "Classes & Cohorts" and
