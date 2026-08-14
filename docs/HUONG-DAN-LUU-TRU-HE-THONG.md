@@ -6,6 +6,22 @@
 
 ---
 
+**2026-08-14 — 🐛 Đã merge + deploy: Sửa lỗi tài khoản được cấp Giai đoạn 2/3 trước hạn bị kẹt, không vào được Giai đoạn 1, KHÔNG cần migration.**
+
+Bạn báo: tài khoản "Max Crypto" được cấp cả Giai đoạn 2 và 3, nhưng vào "Hành trình của tôi" lại hiện "Giai đoạn này đang được xây dựng hành trình" — không vào được chi tiết Giai đoạn 1 dù Giai đoạn 1 đã xây xong từ lâu.
+
+**Nguyên nhân thật:** "Giai đoạn hiện tại" của học viên luôn được tính là **Giai đoạn có vị trí cao nhất mà học viên đã mở khóa** — không quan tâm Giai đoạn đó đã có nội dung thật hay chưa. Tài khoản này mở khóa được Giai đoạn 1 (miễn phí) + Giai đoạn 2 + Giai đoạn 3 (được cấp thủ công để test tính năng cấp quyền vừa xây xong) → hệ thống chọn Giai đoạn 3 làm "hiện tại" vì vị trí cao nhất — nhưng Giai đoạn 3 **chưa có hành trình nào được publish** (chưa xây), Giai đoạn 2 cũng vậy (mới có bản nháp). Kết quả: học viên bị kẹt ở 1 Giai đoạn trống, không còn cách nào vào lại Giai đoạn 1 đã xây xong và đang mở.
+
+**Đã sửa:** "Giai đoạn hiện tại" giờ ưu tiên tìm từ vị trí cao nhất xuống thấp, chọn **Giai đoạn đã mở khóa ĐẦU TIÊN có hành trình thật (đã publish)** — chỉ khi không Giai đoạn nào có hành trình thật mới quay lại chọn Giai đoạn vị trí cao nhất như cũ (đúng bản chất "chưa có gì để xem" thật sự). Gom 3 nơi từng lặp lại cùng 1 đoạn logic (trang Hành trình, trang Lộ trình, API `/api/student/journey`) về chung 1 hàm `resolveCurrentStageId()`.
+
+Đã xác minh: chạy thử đúng dữ liệu thật của tài khoản Max Crypto (mở khóa Giai đoạn 1+2+3, chỉ Giai đoạn 1 có hành trình publish) — kết quả chọn đúng Giai đoạn 1.
+
+Không migration — chỉ sửa logic đọc dữ liệu, không đổi bảng nào.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-14 — 🧠 Đã merge + deploy: Learning Journey Intelligence V1 (Nhật ký thực hành 90 ngày + H2OBrain Student Context + Capability Snapshot), CÓ migration (0056, bạn đã tự chạy trong Supabase SQL Editor).**
 
 Tích hợp từ folder 38 (`v5/38-h2obook_learning_intelligence_v1`) — thêm một lớp "Learning Memory" ghi lại 90 ngày thực hành thật (hôm nay luyện gì, ảnh/video, kỹ năng đang luyện, tự chấm điểm, điểm giáo viên, thời gian luyện, lỗi lặp lại, nhận xét, việc cần làm tiếp) để nuôi H2OBrain đánh giá năng lực — xây **thêm lên trên** Journey hiện có, không đụng vào Stage/Mission/Checkpoint/Progress/Unlock.
