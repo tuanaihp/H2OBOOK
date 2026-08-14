@@ -79,3 +79,27 @@ export async function getCurrentStageLabelsForStudents(organizationId: string, u
   }
   return result;
 }
+
+/**
+ * "Current stage" for a student = the highest-position stage they have unlocked THAT ACTUALLY HAS a
+ * published journey — not just the highest-position unlocked stage. Bug found 2026-08-14: an admin
+ * granted a student Stage 2 and Stage 3 ahead of time (testing the grant feature built this session)
+ * while only Stage 1 had a published journey (Stage 2 = draft only, Stage 3 = no blueprint at all).
+ * The old plain "highest unlocked" resolution (app/student/courses/page.tsx,
+ * app/api/student/journey/route.ts, app/student/roadmap/page.tsx all duplicated this same
+ * `.reverse().find()` line) picked Stage 3 and hard-failed with "Giai đoạn này đang được xây dựng
+ * hành trình" — the student could no longer reach Stage 1's real, finished content at all. Falls back
+ * to the plain highest-unlocked stage only if NONE of the unlocked stages have a published journey
+ * (a real "nothing built yet" state, which should still say so).
+ */
+export async function resolveCurrentStageId(organizationId: string, orderedStages: { id: string; slug: string; position: number }[], unlockedSlugs: Set<string>): Promise<string | null> {
+  const unlockedDesc = [...orderedStages].filter((s) => unlockedSlugs.has(s.slug)).sort((a, b) => b.position - a.position);
+  if (!unlockedDesc.length) return orderedStages[0]?.id ?? null;
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return unlockedDesc[0].id;
+
+  const { data } = await supabase.from("learning_journey_blueprints").select("stage_id").eq("organization_id", organizationId).not("current_published_version_id", "is", null);
+  const publishedStageIds = new Set(((data ?? []) as { stage_id: string }[]).map((row) => row.stage_id));
+  return unlockedDesc.find((s) => publishedStageIds.has(s.id))?.id ?? unlockedDesc[0].id;
+}
