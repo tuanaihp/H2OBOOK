@@ -1,8 +1,9 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadCareerStages } from "@/lib/career-stages/service";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { emitDomainEvent } from "@/lib/domain/events";
-import type { CoachKnowledgeScope, CoachMemoryFieldSchema, CoachQuestionRule, CoachResultTemplate, CoachStageProfileVersion, CoachToolBinding, CoachVersionStatus, MissionCoachConfig } from "./types";
+import { normalizeKnowledgeScope, type CoachKnowledgeScope, type CoachMemoryFieldSchema, type CoachQuestionRule, type CoachResultTemplate, type CoachStageProfileVersion, type CoachToolBinding, type CoachVersionStatus, type MissionCoachConfig } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 type Sb = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
@@ -25,12 +26,18 @@ export interface StageProfileSummary {
   latestDraftVersionId: string | null; status: "published" | "draft" | "unconfigured";
 }
 
-/** Builder index — every real Stage plus whatever Coach profile status it has, never a placeholder list. */
+/**
+ * Builder index — every real, currently-active Stage plus whatever Coach profile status it has.
+ * Uses loadCareerStages()'s default (active-only, same as the Roadmap/Journey Builder use everywhere
+ * else) rather than a raw career_stages query — an earlier version of this function queried every
+ * status and leaked archived/hidden/test stages (e.g. old draft rows never meant to be Coach-
+ * configurable) into the Builder's stage grid, found 2026-08-15 in real production data.
+ */
 export async function listStageProfiles(access: AcademyAdminAccess): Promise<StageProfileSummary[]> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return [];
-  const [{ data: stages }, { data: profiles }] = await Promise.all([
-    supabase.from("career_stages").select("id,title,position").eq("organization_id", access.organizationId).order("position", { ascending: true }),
+  const [stages, { data: profiles }] = await Promise.all([
+    loadCareerStages(access.organizationId),
     supabase.from("coach_stage_profiles").select("id,stage_id,current_published_version_id").eq("organization_id", access.organizationId)
   ]);
   const profileByStage = new Map(((profiles ?? []) as { id: string; stage_id: string; current_published_version_id: string | null }[]).map((p) => [p.stage_id, p]));
@@ -40,7 +47,7 @@ export async function listStageProfiles(access: AcademyAdminAccess): Promise<Sta
     : { data: [] };
   const versionRows = (versions ?? []) as { id: string; profile_id: string; version_number: number; status: CoachVersionStatus }[];
 
-  return ((stages ?? []) as { id: string; title: string; position: number }[]).map((stage) => {
+  return stages.map((stage) => {
     const profile = profileByStage.get(stage.id);
     if (!profile) return { stageId: stage.id, stageTitle: stage.title, stagePosition: stage.position, profileId: null, publishedVersionId: null, publishedVersionNumber: null, latestDraftVersionId: null, status: "unconfigured" as const };
     const published = profile.current_published_version_id ? versionRows.find((v) => v.id === profile.current_published_version_id) : undefined;
@@ -71,7 +78,10 @@ export async function getOrCreateProfile(access: AcademyAdminAccess, stageId: st
     profileId = created.id;
   }
   if (!profileId) return { ok: false, error: "PROFILE_CREATE_FAILED" };
-  const { data: version, error: versionError } = await supabase.from("coach_stage_profile_versions").insert({ organization_id: org, profile_id: profileId, version_number: 1, status: "draft", coach_role: "H2O Coach", created_by: access.userId }).select("id").single();
+  const { data: version, error: versionError } = await supabase.from("coach_stage_profile_versions").insert({
+    organization_id: org, profile_id: profileId, version_number: 1, status: "draft", coach_role: "H2O Coach", created_by: access.userId,
+    knowledge_scope: normalizeKnowledgeScope(null), memory_schema: []
+  }).select("id").single();
   if (versionError || !version) return { ok: false, error: versionError?.message ?? "VERSION_CREATE_FAILED" };
   return { ok: true, data: { profileId, versionId: version.id, created: true } };
 }
@@ -91,7 +101,7 @@ export async function duplicateProfileVersion(access: AcademyAdminAccess, profil
   const { data: version, error } = await supabase.from("coach_stage_profile_versions").insert({
     organization_id: org, profile_id: profileId, version_number: nextNumber, status: "draft", created_by: access.userId,
     name: source.name, coach_role: source.coach_role, system_tone: source.system_tone, provider_mode: source.provider_mode,
-    knowledge_scope: source.knowledge_scope, memory_schema: source.memory_schema
+    knowledge_scope: normalizeKnowledgeScope(source.knowledge_scope), memory_schema: source.memory_schema ?? []
   }).select("id").single();
   if (error || !version) return { ok: false, error: error?.message ?? "VERSION_CREATE_FAILED" };
 
@@ -206,7 +216,7 @@ export async function getProfileVersionDetail(access: AcademyAdminAccess, versio
   return {
     id: v.id, organizationId: v.organization_id, profileId: v.profile_id, versionNumber: v.version_number, status: v.status,
     name: v.name, coachRole: v.coach_role, systemTone: v.system_tone, providerMode: v.provider_mode,
-    knowledgeScope: v.knowledge_scope ?? { resourceIds: [], allowMissionBindings: true, allowStageCurriculum: true },
+    knowledgeScope: normalizeKnowledgeScope(v.knowledge_scope),
     memorySchema: v.memory_schema ?? [], publishedAt: v.published_at, createdAt: v.created_at, updatedAt: v.updated_at, missionConfigs
   };
 }

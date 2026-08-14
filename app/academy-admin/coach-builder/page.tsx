@@ -162,7 +162,7 @@ export default function CoachBuilderPage() {
               Dùng Curriculum của Giai đoạn này
             </label>
             <label style={fieldLabelStyle}>Tài liệu chỉ định thêm (mỗi dòng 1 resource id)
-              <textarea rows={3} defaultValue={detail.knowledgeScope.resourceIds.join("\n")} disabled={!editable} style={inputStyle}
+              <textarea rows={3} defaultValue={(detail.knowledgeScope.resourceIds ?? []).join("\n")} disabled={!editable} style={inputStyle}
                 onBlur={(e) => saveField({ knowledgeScope: { ...detail.knowledgeScope, resourceIds: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) } })} />
             </label>
           </div>}

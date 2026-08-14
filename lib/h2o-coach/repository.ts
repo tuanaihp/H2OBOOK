@@ -1,9 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getLearnerMemory } from "./memory";
-import type {
-  CoachConversationMessage, CoachKnowledgeScope, CoachRuntimeContext, CoachStageProfileVersion, MissionCoachConfig
-} from "./types";
+import { normalizeKnowledgeScope, type CoachConversationMessage, type CoachKnowledgeScope, type CoachRuntimeContext, type CoachStageProfileVersion, type MissionCoachConfig } from "./types";
 
 interface ProfileVersionRow {
   id: string; organization_id: string; profile_id: string; version_number: number; status: "draft" | "published" | "archived";
@@ -15,7 +13,7 @@ function mapVersion(row: ProfileVersionRow): CoachStageProfileVersion {
   return {
     id: row.id, organizationId: row.organization_id, profileId: row.profile_id, versionNumber: row.version_number,
     status: row.status, name: row.name, coachRole: row.coach_role, systemTone: row.system_tone, providerMode: row.provider_mode,
-    knowledgeScope: row.knowledge_scope ?? { resourceIds: [], allowMissionBindings: true, allowStageCurriculum: true },
+    knowledgeScope: normalizeKnowledgeScope(row.knowledge_scope),
     memorySchema: row.memory_schema ?? [], publishedAt: row.published_at, createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
