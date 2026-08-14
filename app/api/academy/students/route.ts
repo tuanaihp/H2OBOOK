@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/runtime-config";
 import { academyDemoState } from "@/lib/academy/demo-store";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
+import { getCurrentStageLabelsForStudents } from "@/lib/student/stage-access";
 
 export async function GET(request: Request) {
   const auth = await requireApiUser();
@@ -18,13 +19,17 @@ export async function GET(request: Request) {
     .eq("organization_id", access.organizationId).eq("role", "student").order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const userIds = (members ?? []).map((row) => String(row.user_id));
-  const { data: skills } = userIds.length ? await admin.from("academy_skill_progress").select("user_id,progress_percent").in("user_id", userIds) : { data: [] };
+  const [{ data: skills }, currentStageByUser] = await Promise.all([
+    userIds.length ? admin.from("academy_skill_progress").select("user_id,progress_percent").in("user_id", userIds) : Promise.resolve({ data: [] }),
+    getCurrentStageLabelsForStudents(access.organizationId, userIds)
+  ]);
   const progress = new Map<string, number[]>();
   for (const row of skills ?? []) progress.set(String(row.user_id), [...(progress.get(String(row.user_id)) ?? []), Number(row.progress_percent)]);
   const students = (members ?? []).map((row) => {
     const profileValue = row.profiles as unknown as Record<string, unknown> | Record<string, unknown>[];
     const profile = Array.isArray(profileValue) ? profileValue[0] ?? {} : profileValue ?? {};
     const values = progress.get(String(row.user_id)) ?? [];
+    const currentStage = currentStageByUser.get(String(row.user_id)) ?? null;
     return {
       id: String(row.user_id),
       name: String(profile.full_name ?? "Học viên"),
@@ -32,7 +37,8 @@ export async function GET(request: Request) {
       phone: String(profile.phone ?? ""),
       status: row.status === "active" ? "active" : row.status === "paused" ? "paused" : "invited",
       joinedAt: String(row.created_at),
-      progress: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0
+      progress: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0,
+      currentStageTitle: currentStage ? `${currentStage.indexLabel ? `${currentStage.indexLabel} — ` : ""}${currentStage.title}` : null
     };
   });
   return NextResponse.json({ students, mode: "production" });

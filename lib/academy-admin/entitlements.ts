@@ -3,16 +3,20 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { grantAcademyAccess } from "@/lib/academy/service";
 import { membershipPlans } from "@/lib/public-site/content";
+import { createNotification } from "@/lib/notifications/service";
+import { getCurrentStageLabelsForStudents } from "@/lib/student/stage-access";
 import type { AcademyAdminAccess } from "./types";
 
-export interface StudentLookupResult { id: string; name: string; email: string }
+export interface StudentLookupResult { id: string; name: string; email: string; currentStageTitle: string | null }
 
 export async function findStudentByEmail(access: AcademyAdminAccess, email: string): Promise<StudentLookupResult | null> {
   const admin = createSupabaseAdminClient();
   if (!admin) return null;
   const { data } = await admin.from("profiles").select("id,full_name,email,organization_members!inner(organization_id)").eq("organization_members.organization_id", access.organizationId).ilike("email", email.trim().toLowerCase()).maybeSingle();
   if (!data) return null;
-  return { id: String(data.id), name: String(data.full_name || "Học viên"), email: String(data.email ?? "") };
+  const stageByUser = await getCurrentStageLabelsForStudents(access.organizationId, [String(data.id)]);
+  const stage = stageByUser.get(String(data.id)) ?? null;
+  return { id: String(data.id), name: String(data.full_name || "Học viên"), email: String(data.email ?? ""), currentStageTitle: stage ? `${stage.indexLabel ? `${stage.indexLabel} — ` : ""}${stage.title}` : null };
 }
 
 export interface ManualGrantInput {
@@ -44,6 +48,11 @@ export async function grantManualEntitlement(access: AcademyAdminAccess, input: 
     granted_by: access.userId
   }).select("id").single();
   if (error || !data) return { ok: false as const, error: error?.message ?? "GRANT_CREATE_FAILED" };
+  if (input.resourceType === "course") {
+    const { data: course } = await supabase.from("academy_courses").select("title").eq("id", input.resourceId).maybeSingle();
+    const courseTitle = (course as { title: string } | null)?.title ?? "khóa học";
+    await createNotification({ organizationId: access.organizationId, userId: input.userId, title: "Đã mở khóa học mới", message: `Bạn vừa được cấp quyền truy cập "${courseTitle}".`, notificationType: "entitlement_granted", href: "/student/courses" });
+  }
   return { ok: true as const, id: String(data.id) };
 }
 
@@ -102,6 +111,10 @@ export async function grantManualStageAccess(access: AcademyAdminAccess, input: 
     created_by: access.userId
   }, { onConflict: "organization_id,user_id,feature_slug,source_type,source_id" }).select("id").single();
   if (error || !data) return { ok: false as const, error: error?.message ?? "STAGE_GRANT_FAILED" };
+  const { data: stage } = await supabase.from("career_stages").select("title,index_label").eq("organization_id", access.organizationId).eq("slug", input.stageSlug).maybeSingle();
+  const stageRow = stage as { title: string; index_label: string | null } | null;
+  const stageLabel = stageRow ? `${stageRow.index_label ? `Giai đoạn ${stageRow.index_label} — ` : ""}${stageRow.title}` : "Giai đoạn mới";
+  await createNotification({ organizationId: access.organizationId, userId: input.userId, title: "Đã mở Giai đoạn mới", message: `Bạn vừa được cấp quyền vào "${stageLabel}".`, notificationType: "stage_granted", href: "/student/courses" });
   return { ok: true as const, id: String(data.id) };
 }
 
@@ -145,7 +158,8 @@ export const MEMBERSHIP_PLAN_OPTIONS = membershipPlans.map((plan) => ({ slug: pl
 export async function grantManualMembership(access: AcademyAdminAccess, input: { userId: string; planSlug: string; expiresAt?: string; reason: string }) {
   const admin = createSupabaseAdminClient();
   if (!admin) return { ok: false as const, error: "SUPABASE_ADMIN_NOT_CONFIGURED" };
-  if (!membershipPlans.some((plan) => plan.id === input.planSlug)) return { ok: false as const, error: "PLAN_NOT_FOUND" };
+  const plan = membershipPlans.find((p) => p.id === input.planSlug);
+  if (!plan) return { ok: false as const, error: "PLAN_NOT_FOUND" };
   try {
     await grantAcademyAccess(admin, {
       organizationId: access.organizationId,
@@ -156,6 +170,7 @@ export async function grantManualMembership(access: AcademyAdminAccess, input: {
       sourceId: null,
       membershipGrant: { status: "active", expiresAt: input.expiresAt ?? null }
     });
+    await createNotification({ organizationId: access.organizationId, userId: input.userId, title: "Membership đã được kích hoạt", message: `Bạn vừa được cấp gói "${plan.name}" — có hiệu lực ngay, mở toàn bộ Giai đoạn.`, notificationType: "membership_granted", href: "/student/profile" });
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "MEMBERSHIP_GRANT_FAILED" };
