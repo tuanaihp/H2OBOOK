@@ -8,12 +8,14 @@ export interface CoachResourceItem { id: string; title: string; resourceType: st
 export interface CoachMemoryValue { field: string; namespace: string; value: unknown; status: "proposed" | "confirmed" | "rejected"; updatedAt: string }
 export interface CoachMessage { id: string; role: "coach" | "learner" | "system"; text: string; createdAt: string }
 export interface CoachSchemaField { key: string; label: string; namespace: string }
+export type CoachMissionState = "in_progress" | "awaiting_confirmation" | "confirmed";
 
 export interface CoachWorkspaceShellProps {
   missionId: string;
   stageTitle: string;
   missionTitle: string;
-  progressPercent: number;
+  initialProgressPercent: number;
+  initialMissionState: CoachMissionState;
   journeyItems: CoachJourneyItem[];
   resources: CoachResourceItem[];
   memorySchema: CoachSchemaField[];
@@ -28,17 +30,22 @@ function displayValue(value: unknown): string {
   if (value == null || value === "") return "";
   return Array.isArray(value) ? value.join(", ") : String(value);
 }
+function newClientMessageId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `cid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 /**
- * Real H2O Coach Workspace — the reference package's HTML/component scaffold
- * (v5/39-H2OBOOK_H2O_COACH_OS_V1/html/H2O_COACH_WORKSPACE_V1.html) wired to
- * /api/student/h2o-coach/turn and /api/student/h2o-coach/memory instead of a hardcoded transcript.
- * Only mounted when a real published Coach profile + Mission coaching config exist (see
- * app/student/missions/[missionId]/page.tsx) — the 4-tab Mission Workspace is always the fallback.
+ * Real H2O Coach Workspace, wired to /api/student/h2o-coach/turn and /api/student/h2o-coach/memory.
+ * progressPercent/missionState are STATE here, not derived from a static prop — both come from the
+ * server's response to every turn (never computed client-side), matching the fix spec's "không để
+ * LLM/UI tự quản lý state" rule: this component only ever displays what the server just computed
+ * from real learner_memory_values rows.
  */
 export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
   const [messages, setMessages] = useState<CoachMessage[]>(props.initialMessages);
   const [memory, setMemory] = useState<CoachMemoryValue[]>(props.initialMemory);
+  const [progressPercent, setProgressPercent] = useState(props.initialProgressPercent);
+  const [missionState, setMissionState] = useState<CoachMissionState>(props.initialMissionState);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,18 +53,20 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
 
   function scrollToBottom() { requestAnimationFrame(() => streamRef.current?.scrollTo({ top: streamRef.current.scrollHeight })); }
 
-  async function send() {
-    const text = input.trim();
-    if (!text || sending) return;
+  async function sendText(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
     setSending(true); setError(null);
-    setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: "learner", text, createdAt: new Date().toISOString() }]);
+    setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: "learner", text: trimmed, createdAt: new Date().toISOString() }]);
     setInput("");
     scrollToBottom();
-    const res = await fetch("/api/student/h2o-coach/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ missionId: props.missionId, message: text }) });
+    const res = await fetch("/api/student/h2o-coach/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ missionId: props.missionId, message: trimmed, clientMessageId: newClientMessageId() }) });
     const json = await res.json().catch(() => null);
     setSending(false);
     if (!res.ok) { setError("Không gửi được tin nhắn — thử lại."); return; }
     setMessages((prev) => [...prev, { id: `coach-${Date.now()}`, role: "coach", text: json.reply, createdAt: new Date().toISOString() }]);
+    setProgressPercent(json.progressPercent ?? progressPercent);
+    setMissionState(json.missionState ?? missionState);
     if (Array.isArray(json.candidates) && json.candidates.length) {
       setMemory((prev) => {
         const next = [...prev];
@@ -86,10 +95,15 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
       <span className="h2o-coach-eyebrow">JOURNEY CONTEXT</span>
       <h2>{props.stageTitle}</h2>
       <div className="h2o-coach-journey-list">
-        {props.journeyItems.map((item) => <div key={item.id} className={`h2o-coach-journey-item state-${item.state}`}>
-          <small>{item.state === "done" ? "✓ Đã hoàn thành" : item.state === "current" ? "● Bạn đang ở đây" : item.state === "locked" ? "🔒 Chưa mở" : "Chưa bắt đầu"}</small>
-          <strong>{item.title}</strong>
-        </div>)}
+        {props.journeyItems.map((item) => {
+          // The currently-open Mission reflects the live Coach state instead of the page-load
+          // snapshot — confirming just now flips this to "done" without waiting for a refresh.
+          const state = item.id === props.missionId && missionState === "confirmed" ? "done" : item.state;
+          return <div key={item.id} className={`h2o-coach-journey-item state-${state}`}>
+            <small>{state === "done" ? "✓ Đã hoàn thành" : state === "current" ? "● Bạn đang ở đây" : state === "locked" ? "🔒 Chưa mở" : "Chưa bắt đầu"}</small>
+            <strong>{item.title}</strong>
+          </div>;
+        })}
       </div>
       {props.resources.length > 0 && <div className="h2o-coach-journey-resources">
         <span className="h2o-coach-eyebrow">HỌC LIỆU LIÊN QUAN</span>
@@ -100,22 +114,27 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
     <main className="h2o-coach-chat">
       <header>
         <div><span className="h2o-coach-eyebrow">H2O COACH WORKSPACE</span><h1>{props.missionTitle}</h1></div>
-        <div className="h2o-coach-progress"><b>{props.progressPercent}%</b><small>Mission progress</small></div>
+        <div className="h2o-coach-progress"><b>{progressPercent}%</b><small>{missionState === "confirmed" ? "Đã hoàn thành" : "Coach progress"}</small></div>
       </header>
+      {missionState === "confirmed" && <div className="h2o-coach-done-banner">✓ Mission này đã hoàn thành — thông tin bên phải là hồ sơ đã xác nhận.</div>}
       <div className="h2o-coach-stream" ref={streamRef}>
         {messages.map((m) => <div key={m.id} className={`h2o-coach-msg role-${m.role}`}>
           <small>{m.role === "coach" ? "H2O Coach" : m.role === "learner" ? "Bạn" : "Hệ thống"}</small>
-          <p>{m.text}</p>
+          <p style={{ whiteSpace: "pre-line" }}>{m.text}</p>
         </div>)}
         {pendingConfirmations.map((c) => <div key={c.field} className="h2o-coach-confirm-card">
           <p>H2O hiểu bạn: <b>{fieldLabel(props.memorySchema, c.field)}</b> = {displayValue(c.value)}</p>
           <div><button onClick={() => respondToCandidate(c.field, "confirm")}>Đúng rồi</button><button onClick={() => respondToCandidate(c.field, "reject")}>Chỉnh lại</button></div>
         </div>)}
+        {missionState === "awaiting_confirmation" && <div className="h2o-coach-confirm-card">
+          <p>H2O đã tổng hợp đủ thông tin — xem tin nhắn tóm tắt phía trên.</p>
+          <div><button onClick={() => sendText("Đúng rồi")} disabled={sending}>Đúng rồi</button><button onClick={() => sendText("Chỉnh lại")} disabled={sending}>Chỉnh lại</button></div>
+        </div>}
       </div>
       {error && <p className="h2o-coach-error">{error}</p>}
       <div className="h2o-coach-composer">
-        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Nói với H2O về điều bạn đang nghĩ..." disabled={sending} />
-        <button onClick={send} disabled={sending || !input.trim()}>{sending ? "Đang gửi…" : "Gửi"}</button>
+        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendText(input)} placeholder="Nói với H2O về điều bạn đang nghĩ..." disabled={sending} />
+        <button onClick={() => sendText(input)} disabled={sending || !input.trim()}>{sending ? "Đang gửi…" : "Gửi"}</button>
       </div>
     </main>
 

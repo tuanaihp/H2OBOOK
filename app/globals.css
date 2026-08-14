@@ -1355,6 +1355,7 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
 .h2o-coach-progress{background:#0d1624;color:#fff;border-radius:14px;padding:8px 12px;text-align:center;min-width:80px}
 .h2o-coach-progress b{display:block;font-size:16px}
 .h2o-coach-progress small{font-size:10px;color:#9aa8bc}
+.h2o-coach-done-banner{margin:0 18px;padding:10px 14px;border-radius:12px;background:#eafaf6;color:#078462;font-size:12px;font-weight:700}
 .h2o-coach-stream{flex:1;min-height:420px;max-height:520px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
 .h2o-coach-msg{max-width:84%;border-radius:16px;padding:10px 13px}
 .h2o-coach-msg small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;opacity:.6;margin-bottom:3px;text-transform:uppercase}

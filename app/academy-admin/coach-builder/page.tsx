@@ -6,7 +6,8 @@ import styles from "@/components/operations/operations.module.css";
 
 interface StageSummary { stageId: string; stageTitle: string; stagePosition: number; profileId: string | null; publishedVersionId: string | null; publishedVersionNumber: number | null; latestDraftVersionId: string | null; status: "published" | "draft" | "unconfigured" }
 interface VersionRow { id: string; versionNumber: number; status: "draft" | "published" | "archived"; publishedAt: string | null }
-interface MemoryField { key: string; label: string; namespace: string; type: string; required?: boolean; requiresConfirmation?: boolean }
+interface ExtractionRule { pattern: string; value: string }
+interface MemoryField { key: string; label: string; namespace: string; type: string; required?: boolean; requiresConfirmation?: boolean; extractionRules?: ExtractionRule[] }
 interface Condition { field: string; op: "missing" | "present" | "eq" | "neq" | "contains"; value?: string }
 interface QuestionRule { id: string; when: Condition[]; prompt: string; targetField?: string; priority: number }
 interface ToolBinding { toolKey: string; label: string; href?: string; required?: boolean }
@@ -214,16 +215,32 @@ function MemorySchemaEditor({ schema, editable, onChange }: { schema: MemoryFiel
   function addRow() { const next = [...rows, { key: "", label: "", namespace: "career", type: "text" as const, requiresConfirmation: true }]; setRows(next); }
   function removeRow(index: number) { const next = rows.filter((_, i) => i !== index); setRows(next); onChange(next); }
 
-  return <div style={{ display: "grid", gap: 8, maxWidth: 700 }}>
+  function updateRules(index: number, text: string) {
+    const rules: ExtractionRule[] = text.split("\n").map((line) => {
+      const [pattern, value] = line.split("=");
+      return { pattern: (pattern ?? "").trim(), value: (value ?? "").trim() };
+    }).filter((r) => r.pattern && r.value);
+    update(index, { extractionRules: rules });
+  }
+  function rulesToText(rules?: ExtractionRule[]): string {
+    return (rules ?? []).map((r) => `${r.pattern}=${r.value}`).join("\n");
+  }
+
+  return <div style={{ display: "grid", gap: 14, maxWidth: 760 }}>
     <p style={{ fontSize: 12, color: "#718092" }}>Field key dạng &quot;namespace.field&quot;, ví dụ career.direction — Mission sau sẽ tự đọc lại field đã confirm, không hỏi lại.</p>
-    {rows.map((row, i) => <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px 90px auto", gap: 6, alignItems: "center" }}>
-      <input value={row.key} disabled={!editable} placeholder="career.direction" style={inputStyle} onChange={(e) => update(i, { key: e.target.value, namespace: e.target.value.split(".")[0] || "career" })} />
-      <input value={row.label} disabled={!editable} placeholder="Hướng nghề" style={inputStyle} onChange={(e) => update(i, { label: e.target.value })} />
-      <select value={row.type} disabled={!editable} style={inputStyle} onChange={(e) => update(i, { type: e.target.value as MemoryField["type"] })}>
-        {["text", "number", "boolean", "select", "multi_select", "date", "json"].map((t) => <option key={t} value={t}>{t}</option>)}
-      </select>
-      <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><input type="checkbox" checked={row.requiresConfirmation ?? true} disabled={!editable} onChange={(e) => update(i, { requiresConfirmation: e.target.checked })} />Cần xác nhận</label>
-      {editable && <button onClick={() => removeRow(i)} style={{ border: "none", background: "none", color: "#b42318", cursor: "pointer" }}>✕</button>}
+    {rows.map((row, i) => <div key={i} style={{ border: "1px solid #eef1f4", borderRadius: 12, padding: 10, display: "grid", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px 90px auto", gap: 6, alignItems: "center" }}>
+        <input value={row.key} disabled={!editable} placeholder="career.direction" style={inputStyle} onChange={(e) => update(i, { key: e.target.value, namespace: e.target.value.split(".")[0] || "career" })} />
+        <input value={row.label} disabled={!editable} placeholder="Hướng nghề" style={inputStyle} onChange={(e) => update(i, { label: e.target.value })} />
+        <select value={row.type} disabled={!editable} style={inputStyle} onChange={(e) => update(i, { type: e.target.value as MemoryField["type"] })}>
+          {["text", "number", "boolean", "select", "multi_select", "date", "json"].map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><input type="checkbox" checked={row.requiresConfirmation ?? true} disabled={!editable} onChange={(e) => update(i, { requiresConfirmation: e.target.checked })} />Cần xác nhận</label>
+        {editable && <button onClick={() => removeRow(i)} style={{ border: "none", background: "none", color: "#b42318", cursor: "pointer" }}>✕</button>}
+      </div>
+      <label style={fieldLabelStyle}>Quy tắc nhận diện Offline (mỗi dòng: từ khoá=giá trị lưu lại, ví dụ &quot;cô dâu=Bridal Makeup&quot;) — chỉ áp dụng khi Chế độ AI = Offline
+        <textarea rows={2} defaultValue={rulesToText(row.extractionRules)} disabled={!editable} style={inputStyle} onBlur={(e) => updateRules(i, e.target.value)} />
+      </label>
     </div>)}
     {editable && <button onClick={addRow} style={{ alignSelf: "start", fontSize: 12, border: "1px dashed #9aa4b2", borderRadius: 10, padding: "6px 12px", background: "none", cursor: "pointer" }}>+ Thêm field</button>}
   </div>;
