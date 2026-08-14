@@ -1,6 +1,6 @@
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
-import { getUnlockedStageIds } from "@/lib/student/stage-access";
+import { getUnlockedStageIds, resolveCurrentStageId } from "@/lib/student/stage-access";
 import { loadCareerStages } from "@/lib/career-stages/service";
 import { getSmartJourneyReadModel } from "@/lib/smart-journey/student";
 import { getGrowthRecommendations } from "@/lib/growth/recommendations";
@@ -26,7 +26,8 @@ export default async function StudentCoursesPage() {
 
   const [stages, unlockedStageIds] = await Promise.all([loadCareerStages(organizationId), getUnlockedStageIds(user.id, organizationId)]);
   const orderedStages = [...stages].sort((a, b) => a.position - b.position);
-  const currentStage = [...orderedStages].reverse().find((s) => unlockedStageIds.has(s.slug)) ?? orderedStages[0] ?? null;
+  const currentStageId = await resolveCurrentStageId(organizationId, orderedStages, unlockedStageIds);
+  const currentStage = orderedStages.find((s) => s.id === currentStageId) ?? orderedStages[0] ?? null;
 
   const growthItems = await getGrowthRecommendations(user.id, organizationId, user.role);
 

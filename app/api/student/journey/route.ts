@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
-import { getUnlockedStageIds } from "@/lib/student/stage-access";
+import { getUnlockedStageIds, resolveCurrentStageId } from "@/lib/student/stage-access";
 import { loadCareerStages } from "@/lib/career-stages/service";
 import { getJourneyForStudent } from "@/lib/learn-outcome/student";
 
@@ -21,7 +21,8 @@ export async function GET() {
     getUnlockedStageIds(auth.user!.id, organizationId)
   ]);
   const orderedStages = [...stages].sort((a, b) => a.position - b.position);
-  const currentStage = [...orderedStages].reverse().find((s) => unlockedStageIds.has(s.slug)) ?? orderedStages[0] ?? null;
+  const currentStageId = await resolveCurrentStageId(organizationId, orderedStages, unlockedStageIds);
+  const currentStage = orderedStages.find((s) => s.id === currentStageId) ?? orderedStages[0] ?? null;
   if (!currentStage) return NextResponse.json({ mode: "production", stage: null, journey: null });
 
   const journey = await getJourneyForStudent(auth.user!.id, organizationId, currentStage.id);

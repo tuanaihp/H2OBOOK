@@ -4,7 +4,7 @@ import { studentSkills } from "@/lib/student/experience";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 import { getAcademySkillProgress } from "@/lib/academy/student-course";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
-import { getUnlockedStageIds } from "@/lib/student/stage-access";
+import { getUnlockedStageIds, resolveCurrentStageId } from "@/lib/student/stage-access";
 import { loadCareerStages } from "@/lib/career-stages/service";
 
 export default async function StudentRoadmapPage() {
@@ -26,8 +26,8 @@ export default async function StudentRoadmapPage() {
     return { ...skill, progress, status: progress >= 100 ? "completed" as const : progress > 0 ? "active" as const : "locked" as const, evidence: value ? `${value.evidenceCount} bài học đã hoàn thành` : "Chưa có bằng chứng bài học" };
   });
   const mastery = Math.round(skills.reduce((sum, skill) => sum + skill.progress, 0) / Math.max(1, skills.length));
-  const stages = [...careerStages]
-    .sort((a, b) => a.position - b.position)
+  const orderedCareerStages = [...careerStages].sort((a, b) => a.position - b.position);
+  const stages = orderedCareerStages
     .map((stage) => ({
       id: stage.id, title: stage.title, description: stage.description || stage.subtitle,
       requirements: stage.skills,
@@ -35,7 +35,11 @@ export default async function StudentRoadmapPage() {
       // of getUnlockedStageIds (lib/content-access/facts.ts, /api/student/library) — not id.
       status: unlockedStageIds.has(stage.slug) ? "active" as const : "locked" as const
     }));
-  const currentStage = [...stages].reverse().find((stage) => stage.status === "active") ?? stages[0];
+  // "Current" prefers the highest-position unlocked stage that actually has a published journey —
+  // plain highest-unlocked would show a stage granted ahead of schedule with nothing built yet
+  // (see resolveCurrentStageId's comment for the real bug this fixed on 2026-08-14).
+  const currentStageId = organizationId ? await resolveCurrentStageId(organizationId, orderedCareerStages, unlockedStageIds) : null;
+  const currentStage = stages.find((stage) => stage.id === currentStageId) ?? stages[0];
 
   return <>
     <section className="h2o-student-page-head"><div><span>CAREER NAVIGATION</span><h1>Lộ trình nghề nghiệp của tôi</h1><p>Biết vị trí hiện tại, kỹ năng còn thiếu và điều kiện để mở mốc tiếp theo.</p></div><Link className="h2o-student-secondary" href="/student/mentor"><Sparkles />Hỏi Mentor về lộ trình</Link></section>
