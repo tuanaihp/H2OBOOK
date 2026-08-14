@@ -18,26 +18,6 @@ function mapVersion(row: ProfileVersionRow): CoachStageProfileVersion {
   };
 }
 
-/** milestone -> outcome -> version -> blueprint -> stage_id. learning_journey_missions has no direct stage_id column (migration 0050) — three small lookups, cheap and cached at the request scope by nothing needing to call it twice. */
-export async function resolveStageIdForMission(organizationId: string, missionId: string): Promise<string | null> {
-  const admin = createSupabaseAdminClient();
-  if (!admin) return null;
-  const mission = await admin.from("learning_journey_missions").select("milestone_id").eq("organization_id", organizationId).eq("id", missionId).maybeSingle();
-  const milestoneId = (mission.data as { milestone_id: string } | null)?.milestone_id;
-  if (!milestoneId) return null;
-  const milestone = await admin.from("learning_journey_milestones").select("outcome_id").eq("organization_id", organizationId).eq("id", milestoneId).maybeSingle();
-  const outcomeId = (milestone.data as { outcome_id: string } | null)?.outcome_id;
-  if (!outcomeId) return null;
-  const outcome = await admin.from("learning_journey_outcomes").select("version_id").eq("organization_id", organizationId).eq("id", outcomeId).maybeSingle();
-  const versionId = (outcome.data as { version_id: string } | null)?.version_id;
-  if (!versionId) return null;
-  const version = await admin.from("learning_journey_versions").select("blueprint_id").eq("organization_id", organizationId).eq("id", versionId).maybeSingle();
-  const blueprintId = (version.data as { blueprint_id: string } | null)?.blueprint_id;
-  if (!blueprintId) return null;
-  const blueprint = await admin.from("learning_journey_blueprints").select("stage_id").eq("organization_id", organizationId).eq("id", blueprintId).maybeSingle();
-  return (blueprint.data as { stage_id: string } | null)?.stage_id ?? null;
-}
-
 /** Only ever resolves via current_published_version_id — a draft is never surfaced to a student by construction, same convention learning_journey_blueprints' student-facing reads already rely on. */
 export async function getPublishedStageProfile(organizationId: string, stageId: string): Promise<CoachStageProfileVersion | null> {
   const admin = createSupabaseAdminClient();

@@ -14,6 +14,13 @@ export interface CoachKnowledgeScope {
   allowCrossStage?: boolean;
 }
 
+export interface CoachExtractionRule {
+  /** Matched case-insensitively as a substring of the learner's raw message — deterministic, not fuzzy/AI. */
+  pattern: string;
+  /** The canonical value written to memory when `pattern` matches (e.g. pattern "cô dâu" -> value "Bridal Makeup"). */
+  value: string;
+}
+
 export interface CoachMemoryFieldSchema {
   key: string;
   label: string;
@@ -22,6 +29,15 @@ export interface CoachMemoryFieldSchema {
   required?: boolean;
   requiresConfirmation?: boolean;
   description?: string;
+  /**
+   * Offline-mode extraction rules — the only way a free-text message becomes a structured value when
+   * no AI provider is configured. Without these, offline mode can only ever notice a field is
+   * "missing," never fill it in from what the learner actually typed (the exact bug found in real
+   * production data 2026-08-15: offline-mode Coach asked the same question forever because it had
+   * zero text-understanding capability, by original design). A field with no rules stays offline-
+   * unfillable until an admin configures them, or until AI/Hybrid mode is turned on for that Stage.
+   */
+  extractionRules?: CoachExtractionRule[];
 }
 
 export interface CoachStageProfile {
@@ -103,6 +119,10 @@ export interface CoachConversationMessage {
   role: "coach" | "learner" | "system";
   text: string;
   createdAt: string;
+  /** Client-generated id for the learner's own message, echoed back so a retried request (double
+   * click, React StrictMode, network retry) can be recognized as the same message rather than
+   * processed twice — never set on coach/system messages. */
+  clientMessageId?: string;
 }
 
 export interface CoachCandidateExtraction {
@@ -123,12 +143,32 @@ export interface CoachRuntimeContext {
   memory: LearnerMemoryValue[];
 }
 
+/**
+ * `in_progress`: at least one required field still missing. `awaiting_confirmation`: every required
+ * field has a value, waiting on the learner's explicit yes/no to the summary. `confirmed`: learner
+ * confirmed — this is the only state that may trigger the canonical Mission completion resolver.
+ * Never inferred from conversation text alone; always derived from real memory rows (STEP 3/STEP 8).
+ */
+export type CoachMissionState = "in_progress" | "awaiting_confirmation" | "confirmed";
+
 export interface CoachTurnResult {
   reply: string;
   candidates: CoachCandidateExtraction[];
   nextQuestion?: string | null;
   completionHints?: string[];
   referencedResourceIds?: string[];
+  missionState: CoachMissionState;
+  progressPercent: number;
+}
+
+/**
+ * Mission-level "learner confirmed the summary" is stored as one more learner_memory_values row
+ * under a synthetic, well-defined key — not a new table/column. namespace "mission" can never collide
+ * with a real Stage-declared namespace (career/style/skill/...), and the key is unique per Mission so
+ * two Missions on the same Stage never share a confirmation flag.
+ */
+export function missionConfirmedFieldKey(missionId: string): string {
+  return `mission.${missionId}.confirmed`;
 }
 
 /**

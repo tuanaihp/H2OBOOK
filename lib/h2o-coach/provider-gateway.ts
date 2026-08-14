@@ -1,6 +1,20 @@
 import "server-only";
 import { isGeminiConfigured, geminiModel } from "@/lib/brain/providers/gemini";
-import type { CoachCandidateExtraction, CoachRuntimeContext, CoachTurnResult } from "./types";
+import type { CoachCandidateExtraction, CoachRuntimeContext } from "./types";
+
+/**
+ * Deliberately narrower than CoachTurnResult — an AI draft is only ever "what to say" and "what
+ * fields it thinks it heard." missionState/progressPercent are never part of this type, because the
+ * model must never compute or influence them; lib/h2o-coach/service.ts always derives those
+ * deterministically from real memory rows after persisting, the same way for both offline and AI
+ * turns ("Không để LLM tự quản lý state của Mission").
+ */
+export interface AiTurnDraft {
+  reply: string;
+  candidates: CoachCandidateExtraction[];
+  nextQuestion?: string | null;
+  referencedResourceIds?: string[];
+}
 
 // Reuses the exact low-level Gemini call convention lib/brain/providers/gemini.ts already
 // established for H2O Brain's asset classifier (server-only fetch, JSON responseSchema, same
@@ -81,7 +95,7 @@ export async function generateCoachTurn(args: {
   context: CoachRuntimeContext;
   learnerMessage: string;
   knowledge: Array<{ id: string; title: string; excerpt?: string }>;
-}): Promise<CoachTurnResult | null> {
+}): Promise<AiTurnDraft | null> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
 
