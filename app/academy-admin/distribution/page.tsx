@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Award, BadgeCheck, GraduationCap, Search, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Award, BadgeCheck, GraduationCap, Search, Sparkles, Users } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import styles from "@/components/operations/operations.module.css";
@@ -9,6 +9,7 @@ type Course = { id: string; title: string };
 type Stage = { id: string; slug: string; title: string; indexLabel: string };
 type MembershipPlan = { slug: string; name: string };
 type Student = { id: string; name: string; email: string };
+type StudentListRow = { id: string; name: string; email: string; status: "active" | "paused" | "invited"; progress: number };
 type Grant = { id: string; userId: string; userName: string; resourceType: string; resourceId: string; status: string; expiresAt: string | null; reason: string | null };
 type StageGrant = { id: string; userId: string; userName: string; stageSlug: string; stageTitle: string; active: boolean; expiresAt: string | null; createdAt: string };
 type Stage1Eligibility = { stageId: string; eligible: boolean; missionsTotal: number; missionsDone: number };
@@ -22,6 +23,12 @@ export default function DistributionPage() {
   const [email, setEmail] = useState("");
   const [student, setStudent] = useState<Student | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  // Danh sách đủ toàn bộ học viên (2026-08-14) — trước đây chỉ có ô gõ email, phải nhớ đúng email
+  // mới tìm được. Giờ hiện cả danh sách để bấm chọn trực tiếp; ô gõ email vẫn giữ lại cho tra cứu
+  // nhanh khi danh sách dài. Cùng nguồn dữ liệu thật /api/academy/students trang "Học viên" đang dùng.
+  const [allStudents, setAllStudents] = useState<StudentListRow[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [listFilter, setListFilter] = useState("");
   const [courseId, setCourseId] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [reason, setReason] = useState("");
@@ -57,6 +64,13 @@ export default function DistributionPage() {
     const json = await res.json();
     if (res.ok) setStageGrants(json.grants ?? []);
   }
+  async function loadStudentList() {
+    setStudentsLoading(true);
+    const res = await fetch("/api/academy/students", { cache: "no-store" });
+    const json = await res.json().catch(() => null);
+    if (res.ok) setAllStudents(json.students ?? []);
+    setStudentsLoading(false);
+  }
 
   useEffect(() => {
     (async () => {
@@ -76,18 +90,29 @@ export default function DistributionPage() {
     })();
     loadGrants();
     loadStageGrants();
+    loadStudentList();
   }, []);
+
+  async function selectStudent(candidate: Student) {
+    setSearchError(null); setStudent(candidate); setEligibility(null); setIssueMessage(null);
+    const elig = await fetch(`/api/academy-admin/stage1-credential?studentId=${candidate.id}`);
+    const eligJson = await elig.json().catch(() => null);
+    if (elig.ok) setEligibility(eligJson);
+  }
 
   async function searchStudent() {
     setSearchError(null); setStudent(null); setEligibility(null); setIssueMessage(null);
     const res = await fetch(`/api/academy-admin/students/lookup?email=${encodeURIComponent(email)}`);
     const json = await res.json();
     if (!res.ok) { setSearchError(json.error === "STUDENT_NOT_FOUND" ? "Không tìm thấy học viên với email này." : json.error); return; }
-    setStudent(json.student);
-    const elig = await fetch(`/api/academy-admin/stage1-credential?studentId=${json.student.id}`);
-    const eligJson = await elig.json().catch(() => null);
-    if (elig.ok) setEligibility(eligJson);
+    await selectStudent(json.student);
   }
+
+  const filteredStudents = useMemo(() => {
+    const q = listFilter.trim().toLowerCase();
+    if (!q) return allStudents;
+    return allStudents.filter((s) => `${s.name} ${s.email}`.toLowerCase().includes(q));
+  }, [allStudents, listFilter]);
 
   async function issueCertificate() {
     if (!student || !eligibility) return;
@@ -159,6 +184,28 @@ export default function DistributionPage() {
       </div>
       {searchError && <p style={{ padding: "0 18px 12px", color: "#b22949", fontSize: 12 }}>{searchError}</p>}
       {student && <p style={{ padding: "0 18px 12px", fontSize: 12, color: "#177a54" }}>Đã chọn: <strong>{student.name}</strong> ({student.email})</p>}
+
+      <div style={{ padding: "0 18px 18px", borderTop: "1px solid #eef1f4", marginTop: 6, paddingTop: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <strong style={{ fontSize: 12 }}><Users size={13} style={{ verticalAlign: "-2px" }} /> Hoặc chọn thẳng từ danh sách ({filteredStudents.length} học viên)</strong>
+          <input value={listFilter} onChange={(e) => setListFilter(e.target.value)} placeholder="Lọc theo tên/email…" style={{ padding: 8, borderRadius: 8, border: "1px solid #dfe3e8", fontSize: 12, width: 220 }} />
+        </div>
+        {studentsLoading ? <p style={{ fontSize: 12, color: "#8d97a6" }}>Đang tải danh sách…</p>
+          : !filteredStudents.length ? <p style={{ fontSize: 12, color: "#8d97a6" }}>Không có học viên nào khớp.</p>
+          : <div style={{ maxHeight: 320, overflowY: "auto", display: "grid", gap: 6 }}>
+              {filteredStudents.map((s) => {
+                const isSelected = student?.id === s.id;
+                return <button key={s.id} onClick={() => selectStudent({ id: s.id, name: s.name, email: s.email })}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: isSelected ? "1px solid #a21caf" : "1px solid #eef1f4", background: isSelected ? "#fdf4ff" : "#fff", cursor: "pointer", textAlign: "left" }}>
+                  <span><strong style={{ fontSize: 12 }}>{s.name}</strong><br /><small style={{ color: "#8d97a6" }}>{s.email}</small></span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className={styles.badge} data-tone={s.status === "active" ? "success" : s.status === "invited" ? "warning" : "neutral"}>{s.status === "active" ? "Đang học" : s.status === "invited" ? "Đã mời" : "Tạm dừng"}</span>
+                    <small style={{ color: "#8d97a6" }}>{s.progress}%</small>
+                  </span>
+                </button>;
+              })}
+            </div>}
+      </div>
     </section>
 
     {student && (
