@@ -6,6 +6,19 @@
 
 ---
 
+**2026-08-15 — 🐛 Đã merge + deploy: Sửa 2 lỗi thật của H2O Coach Builder (hiện nhầm Giai đoạn cũ/test + crash khi mở tab Kiến thức của bản nháp mới), KHÔNG cần migration.**
+
+Ngay sau khi bạn bật cờ và vào thử `/academy-admin/coach-builder`, phát hiện 2 lỗi thật:
+
+1. **Danh sách Giai đoạn hiện nhầm dữ liệu cũ/test đã lưu trữ** — "Giai ddoanj test cho makeup", "Người mới bắt đầu", "Giai đoạn", "Có khách đầu tiên"... (đều `status: archived` trong database, không phải 6 Giai đoạn thật đang hoạt động). Nguyên nhân: hàm lấy danh sách Giai đoạn cho Coach Builder quên lọc theo trạng thái — đã sửa để dùng đúng hàm `loadCareerStages()` (chỉ lấy Giai đoạn `active`) giống mọi màn Admin khác trong hệ thống đang dùng.
+2. **Bấm vào 1 Giai đoạn chưa từng cấu hình → mở tab "2. Kiến thức sử dụng" → sập trang** với lỗi "Cannot read properties of undefined (reading 'join')". Nguyên nhân: khi tự tạo bản nháp đầu tiên cho 1 Giai đoạn, cột lưu "phạm vi kiến thức" trong database mặc định là rỗng hoàn toàn (`{}`), thiếu hẳn các trường con mà giao diện cần đọc — code chỉ kiểm tra "có tồn tại không" chứ chưa kiểm tra "có đủ trường con không". Đã sửa tận gốc: từ nay bản nháp mới luôn được tạo với đầy đủ cấu trúc, đồng thời mọi nơi đọc dữ liệu cũ đều tự vá lại nếu thiếu trường.
+
+Đã xác minh: `pnpm typecheck`/`lint`/`test` (230/230)/`build` sạch. Merge, push, deploy lại — bản deploy mới này cũng là bản đầu tiên thực sự có cờ `NEXT_PUBLIC_H2O_COACH_WORKSPACE_V1=true` bạn vừa thêm trên Vercel (lần deploy trước đó không có bản build mới nào gộp cả 2 thay đổi cùng lúc).
+
+**Về việc giao diện học viên chưa đổi:** đã kiểm tra trực tiếp bằng dữ liệu thật — Mission "Xác định hướng nghề Makeup" bạn đang xem đúng là đã được gắn Coach Profile Giai đoạn 1 đã áp dụng thật, chuỗi tra cứu Stage→Mission hoạt động đúng. Nếu sau lần deploy này vẫn chưa thấy đổi, nhiều khả năng là cache trình duyệt — thử Ctrl+Shift+R (tải lại bỏ cache) hoặc mở cửa sổ ẩn danh.
+
+---
+
 **2026-08-14 — 🤖 Đã merge + deploy: H2O Coach OS V1 (Coach Workspace hội thoại + Coach Builder cho Admin + rule engine offline thật + bộ nhớ học viên có cấu trúc), CÓ migration (0057, bạn đã tự chạy trong Supabase SQL Editor). Mặc định TẮT — chưa hiện gì cho học viên cho tới khi Admin bật và cấu hình.**
 
 Tích hợp từ folder 39 (`v5/39-H2OBOOK_H2O_COACH_OS_V1`) — nâng Mission Workspace từ giao diện điền form 4 tab thành "Coach Workspace": học viên nói chuyện tự nhiên, H2O đọc dữ liệu đã có từ Mission trước, hỏi phần còn thiếu, học viên xác nhận trước khi ghi vào hồ sơ chính thức. 4 bước cũ (Hiểu/Thực hiện/Minh chứng/Kết quả) vẫn là luồng backend, không mất gì — Coach chỉ là lớp giao diện mới nằm trên cùng dữ liệu thật.
