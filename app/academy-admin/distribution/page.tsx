@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { Award, BadgeCheck, GraduationCap, Search, Sparkles, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Award, BadgeCheck, CheckCircle2, GraduationCap, Search, Sparkles, Users, XCircle } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { academyAdminRoutes } from "@/lib/operations/routes";
 import styles from "@/components/operations/operations.module.css";
@@ -8,8 +8,8 @@ import styles from "@/components/operations/operations.module.css";
 type Course = { id: string; title: string };
 type Stage = { id: string; slug: string; title: string; indexLabel: string };
 type MembershipPlan = { slug: string; name: string };
-type Student = { id: string; name: string; email: string };
-type StudentListRow = { id: string; name: string; email: string; status: "active" | "paused" | "invited"; progress: number };
+type Student = { id: string; name: string; email: string; currentStageTitle?: string | null };
+type StudentListRow = { id: string; name: string; email: string; status: "active" | "paused" | "invited"; progress: number; currentStageTitle: string | null };
 type Grant = { id: string; userId: string; userName: string; resourceType: string; resourceId: string; status: string; expiresAt: string | null; reason: string | null };
 type StageGrant = { id: string; userId: string; userName: string; stageSlug: string; stageTitle: string; active: boolean; expiresAt: string | null; createdAt: string };
 type Stage1Eligibility = { stageId: string; eligible: boolean; missionsTotal: number; missionsDone: number };
@@ -53,6 +53,16 @@ export default function DistributionPage() {
   const [eligibility, setEligibility] = useState<Stage1Eligibility | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [issueMessage, setIssueMessage] = useState<string | null>(null);
+  // Toast rõ ràng (2026-08-14) — trước đây chỉ có dòng chữ nhỏ ngay dưới tiêu đề mục, dễ bị lướt
+  // qua. Giờ mọi lượt cấp quyền thành công/thất bại đều bật 1 khối thông báo nổi bật, tự ẩn sau vài
+  // giây, không cần cuộn lên xem.
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showToast(type: "success" | "error", text: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ type, text });
+    toastTimer.current = setTimeout(() => setToast(null), 5000);
+  }
 
   async function loadGrants() {
     const res = await fetch("/api/academy-admin/entitlements?resourceType=course");
@@ -120,8 +130,9 @@ export default function DistributionPage() {
     const res = await fetch("/api/academy-admin/stage1-credential", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentId: student.id, stageId: eligibility.stageId }) });
     const json = await res.json();
     setIssuing(false);
-    if (!res.ok) { setIssueMessage(json.error ?? "Không cấp được chứng nhận."); return; }
-    setIssueMessage(json.issued ? `Đã cấp chứng nhận: ${json.certificateNo}` : (json.reason ?? "Chưa đủ điều kiện."));
+    if (!res.ok) { setIssueMessage(json.error ?? "Không cấp được chứng nhận."); showToast("error", json.error ?? "Không cấp được chứng nhận."); return; }
+    const text = json.issued ? `Đã cấp chứng nhận: ${json.certificateNo}` : (json.reason ?? "Chưa đủ điều kiện.");
+    setIssueMessage(text); showToast(json.issued ? "success" : "error", text);
   }
 
   async function grantAccess() {
@@ -130,14 +141,16 @@ export default function DistributionPage() {
     const res = await fetch("/api/academy-admin/entitlements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: student.id, resourceType: "course", resourceId: courseId, expiresAt: expiresAt || undefined, reason }) });
     const json = await res.json();
     setSaving(false);
-    if (!res.ok) { setMessage(json.error ?? "Không cấp được quyền."); return; }
-    setMessage("Đã cấp quyền truy cập.");
+    if (!res.ok) { setMessage(json.error ?? "Không cấp được quyền."); showToast("error", json.error ?? "Không cấp được quyền."); return; }
+    const courseTitle = courses.find((c) => c.id === courseId)?.title ?? "khóa học";
+    setMessage("Đã cấp quyền truy cập."); showToast("success", `Đã cấp "${courseTitle}" cho ${student.name} — học viên sẽ nhận được thông báo.`);
     setReason(""); setExpiresAt("");
     await loadGrants();
   }
 
   async function revoke(grantId: string) {
     await fetch(`/api/academy-admin/entitlements/${grantId}/revoke`, { method: "POST" });
+    showToast("success", "Đã thu hồi quyền truy cập.");
     await loadGrants();
   }
 
@@ -147,15 +160,20 @@ export default function DistributionPage() {
     const res = await fetch("/api/academy-admin/stage-grants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: student.id, stageSlug, expiresAt: stageExpiresAt || undefined, reason: stageReason }) });
     const json = await res.json();
     setStageSaving(false);
-    if (!res.ok) { setStageMessage(json.error ?? "Không cấp được Giai đoạn."); return; }
+    if (!res.ok) { setStageMessage(json.error ?? "Không cấp được Giai đoạn."); showToast("error", json.error ?? "Không cấp được Giai đoạn."); return; }
+    const stageTitle = stages.find((s) => s.slug === stageSlug)?.title ?? "Giai đoạn";
     setStageMessage("Đã cấp quyền vào Giai đoạn — Giai đoạn đã cấp trước đó vẫn giữ nguyên.");
+    showToast("success", `Đã cấp "${stageTitle}" cho ${student.name} — Giai đoạn cũ vẫn giữ nguyên, học viên sẽ nhận được thông báo.`);
     setStageReason(""); setStageExpiresAt("");
     await loadStageGrants();
+    await loadStudentList();
   }
 
   async function revokeStage(grantId: string) {
     await fetch(`/api/academy-admin/stage-grants/${grantId}/revoke`, { method: "POST" });
+    showToast("success", "Đã thu hồi Giai đoạn.");
     await loadStageGrants();
+    await loadStudentList();
   }
 
   async function grantMembership() {
@@ -164,12 +182,20 @@ export default function DistributionPage() {
     const res = await fetch("/api/academy-admin/membership-grants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: student.id, planSlug, expiresAt: membershipExpiresAt || undefined, reason: membershipReason }) });
     const json = await res.json();
     setMembershipSaving(false);
-    if (!res.ok) { setMembershipMessage(json.error ?? "Không cấp được Membership."); return; }
+    if (!res.ok) { setMembershipMessage(json.error ?? "Không cấp được Membership."); showToast("error", json.error ?? "Không cấp được Membership."); return; }
+    const planName = membershipPlans.find((p) => p.slug === planSlug)?.name ?? "Membership";
     setMembershipMessage("Đã cấp Membership — có hiệu lực ngay, mở toàn bộ Giai đoạn.");
+    showToast("success", `Đã cấp gói "${planName}" cho ${student.name} — có hiệu lực ngay, học viên sẽ nhận được thông báo.`);
     setMembershipReason(""); setMembershipExpiresAt("");
+    await loadStudentList();
   }
 
   return <SimpleOperationsShell title="Academy Control Center" subtitle="Phân phối & cấp quyền" homeHref="/academy-admin" routes={academyAdminRoutes} accentLabel="Academy Admin">
+    {toast && <div style={{ position: "fixed", top: 20, right: 20, zIndex: 100, maxWidth: 380, display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 16px", borderRadius: 12, boxShadow: "0 12px 32px rgba(15,23,42,0.18)", background: toast.type === "success" ? "#e8f8f1" : "#ffe9ec", border: `1px solid ${toast.type === "success" ? "#a7e3c8" : "#f3b7c1"}` }}>
+      {toast.type === "success" ? <CheckCircle2 size={18} color="#177a54" style={{ flexShrink: 0, marginTop: 1 }} /> : <XCircle size={18} color="#b22949" style={{ flexShrink: 0, marginTop: 1 }} />}
+      <span style={{ fontSize: 12, color: toast.type === "success" ? "#0f5c3d" : "#8a1f34", lineHeight: 1.5 }}>{toast.text}</span>
+      <button onClick={() => setToast(null)} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "#8d97a6", fontSize: 14, lineHeight: 1 }}>✕</button>
+    </div>}
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>PHÂN PHỐI &amp; CẤP QUYỀN</span><h1>Cấp quyền truy cập thủ công</h1><p>Tìm học viên theo email, chọn khóa học/giai đoạn/membership và ghi rõ lý do — mọi thao tác đều được ghi lại (audit).</p></div>
     </header>
@@ -183,7 +209,7 @@ export default function DistributionPage() {
         <button className={`${styles.button} ${styles.buttonPrimary}`} onClick={searchStudent}><Search size={14} />Tìm</button>
       </div>
       {searchError && <p style={{ padding: "0 18px 12px", color: "#b22949", fontSize: 12 }}>{searchError}</p>}
-      {student && <p style={{ padding: "0 18px 12px", fontSize: 12, color: "#177a54" }}>Đã chọn: <strong>{student.name}</strong> ({student.email})</p>}
+      {student && <p style={{ padding: "0 18px 12px", fontSize: 12, color: "#177a54" }}>Đã chọn: <strong>{student.name}</strong> ({student.email}) — Giai đoạn hiện tại: <strong>{student.currentStageTitle ?? "Chưa có"}</strong></p>}
 
       <div style={{ padding: "0 18px 18px", borderTop: "1px solid #eef1f4", marginTop: 6, paddingTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
@@ -195,10 +221,11 @@ export default function DistributionPage() {
           : <div style={{ maxHeight: 320, overflowY: "auto", display: "grid", gap: 6 }}>
               {filteredStudents.map((s) => {
                 const isSelected = student?.id === s.id;
-                return <button key={s.id} onClick={() => selectStudent({ id: s.id, name: s.name, email: s.email })}
+                return <button key={s.id} onClick={() => selectStudent({ id: s.id, name: s.name, email: s.email, currentStageTitle: s.currentStageTitle })}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: isSelected ? "1px solid #a21caf" : "1px solid #eef1f4", background: isSelected ? "#fdf4ff" : "#fff", cursor: "pointer", textAlign: "left" }}>
                   <span><strong style={{ fontSize: 12 }}>{s.name}</strong><br /><small style={{ color: "#8d97a6" }}>{s.email}</small></span>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className={styles.badge} data-tone="purple">{s.currentStageTitle ?? "Chưa có Giai đoạn"}</span>
                     <span className={styles.badge} data-tone={s.status === "active" ? "success" : s.status === "invited" ? "warning" : "neutral"}>{s.status === "active" ? "Đang học" : s.status === "invited" ? "Đã mời" : "Tạm dừng"}</span>
                     <small style={{ color: "#8d97a6" }}>{s.progress}%</small>
                   </span>

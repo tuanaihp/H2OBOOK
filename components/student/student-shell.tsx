@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Bell, BookOpen, Bot, Brain, Briefcase, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
+import { BookOpen, Bot, Brain, Briefcase, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
 import { buildCompactNavigation, resolveActiveItem, toAccountRole } from "@/lib/student/compact-navigation";
 import { StudentDataProvider, useStudentName, useStudentProgress } from "./student-data";
+import { NotificationBell } from "./notification-bell";
 
 // Compact Navigation Upgrade V2: HOME / LEARN / CREATE (if unlocked) / BUSINESS instead of the
 // previous flat 8-item list. Group membership and unlock rules live in
@@ -101,7 +102,7 @@ function StudentShellBody({ children, currentUser }: { children: React.ReactNode
       <div className="h2o-student-sidebar-bottom"><Link href="/academy/courses"><BookOpen/>Khám phá thêm khóa học</Link><form action="/api/auth/logout" method="post"><button type="submit"><LogOut/>Đăng xuất</button></form></div>
     </aside>
     <main className="h2o-student-main">
-      <header className="h2o-student-topbar"><button className="h2o-student-mobile-menu" aria-label="Mở menu"><Menu/></button><div className="h2o-student-search"><Search/><input placeholder="Tìm bài học, sách hoặc kỹ năng..."/><kbd>⌘ K</kbd></div><NeuralHeaderSignal compact/><Link href="/student/mentor" className="h2o-student-mentor-quick"><Sparkles/>Hỏi H2O Mentor</Link><button className="h2o-student-icon-btn"><Bell/><i>2</i></button><Link href="/student/profile" className="h2o-student-user"><CircleUserRound/><span><strong>{studentName}</strong><small>Academy Student</small></span><ChevronRight/></Link></header>
+      <header className="h2o-student-topbar"><button className="h2o-student-mobile-menu" aria-label="Mở menu"><Menu/></button><div className="h2o-student-search"><Search/><input placeholder="Tìm bài học, sách hoặc kỹ năng..."/><kbd>⌘ K</kbd></div><NeuralHeaderSignal compact/><Link href="/student/mentor" className="h2o-student-mentor-quick"><Sparkles/>Hỏi H2O Mentor</Link><NotificationBell/><Link href="/student/profile" className="h2o-student-user"><CircleUserRound/><span><strong>{studentName}</strong><small>Academy Student</small></span><ChevronRight/></Link></header>
       <div className="h2o-student-content">{children}</div>
     </main>
     <nav className="h2o-student-mobile-nav">{flatItems.slice(0, 5).map((item) => { const Icon = ITEM_ICONS[item.id] ?? Compass; return <Link key={item.id} href={item.href} className={cn(item.id === activeItemId ? "active" : "")} aria-current={item.id === activeItemId ? "page" : undefined}><Icon/><span>{item.label.replace(" của tôi", "").replace(" & đánh giá", "")}</span></Link>; })}</nav>

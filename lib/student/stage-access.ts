@@ -37,3 +37,45 @@ export async function getUnlockedStageIds(userId: string, organizationId: string
   for (const grant of grants ?? []) unlocked.add(String(grant.feature_slug));
   return unlocked;
 }
+
+export interface CurrentStageLabel { title: string; indexLabel: string }
+
+/**
+ * Batched sibling of getUnlockedStageIds() for an admin list (2026-08-14, /academy-admin/
+ * distribution) — one query per table for the whole student list instead of 3 queries per row.
+ * Same unlock rule (first stage free / active membership unlocks all / manual grant), "current"
+ * meaning the highest-position stage each student has unlocked — matches what
+ * /api/student/journey shows that same student as their own current stage, so the admin list and
+ * the student's own view never disagree about what "current" means.
+ */
+export async function getCurrentStageLabelsForStudents(organizationId: string, userIds: string[]): Promise<Map<string, CurrentStageLabel | null>> {
+  const result = new Map<string, CurrentStageLabel | null>();
+  if (!userIds.length) return result;
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return result;
+
+  const nowIso = new Date().toISOString();
+  const [{ data: stageRows }, { data: memberships }, { data: grants }] = await Promise.all([
+    supabase.from("career_stages").select("slug,position,title,index_label").eq("organization_id", organizationId).eq("status", "active").order("position", { ascending: true }),
+    supabase.from("memberships").select("user_id").eq("organization_id", organizationId).in("user_id", userIds).eq("status", "active").or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+    supabase.from("business_feature_grants").select("user_id,feature_slug").eq("organization_id", organizationId).in("user_id", userIds).eq("source_type", "manual_grant").is("revoked_at", null).or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+  ]);
+
+  const stages = (stageRows ?? []) as { slug: string; position: number; title: string; index_label: string | null }[];
+  const membersWithActiveMembership = new Set(((memberships ?? []) as { user_id: string }[]).map((row) => row.user_id));
+  const grantsByUser = new Map<string, Set<string>>();
+  for (const grant of (grants ?? []) as { user_id: string; feature_slug: string }[]) {
+    if (!grantsByUser.has(grant.user_id)) grantsByUser.set(grant.user_id, new Set());
+    grantsByUser.get(grant.user_id)!.add(grant.feature_slug);
+  }
+
+  for (const userId of userIds) {
+    const unlockedSlugs = new Set<string>();
+    if (stages[0]) unlockedSlugs.add(stages[0].slug);
+    if (membersWithActiveMembership.has(userId)) for (const stage of stages) unlockedSlugs.add(stage.slug);
+    for (const slug of grantsByUser.get(userId) ?? []) unlockedSlugs.add(slug);
+    const current = [...stages].reverse().find((s) => unlockedSlugs.has(s.slug));
+    result.set(userId, current ? { title: current.title, indexLabel: current.index_label ?? "" } : null);
+  }
+  return result;
+}
