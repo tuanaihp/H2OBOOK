@@ -130,3 +130,16 @@ export interface CoachTurnResult {
   completionHints?: string[];
   referencedResourceIds?: string[];
 }
+
+/**
+ * knowledge_scope's DB default is bare '{}'::jsonb (migration 0057) — a version created without an
+ * explicit value (e.g. admin.ts's getOrCreateProfile first draft) has no resourceIds/
+ * allowMissionBindings/allowStageCurriculum keys at all, not just falsy ones. `?? fallback` only
+ * catches null/undefined, not an incomplete object — every reader (admin.ts, repository.ts) must go
+ * through this instead of null-coalescing the raw column directly, or a fresh unconfigured draft
+ * crashes the moment its Knowledge tab renders (`resourceIds.join(...)` on undefined — found in real
+ * production data 2026-08-15).
+ */
+export function normalizeKnowledgeScope(value: Partial<CoachKnowledgeScope> | null | undefined): CoachKnowledgeScope {
+  return { resourceIds: value?.resourceIds ?? [], allowMissionBindings: value?.allowMissionBindings ?? true, allowStageCurriculum: value?.allowStageCurriculum ?? true };
+}
