@@ -6,6 +6,25 @@
 
 ---
 
+**2026-08-14 — 🤖 Đã merge + deploy: H2O Coach OS V1 (Coach Workspace hội thoại + Coach Builder cho Admin + rule engine offline thật + bộ nhớ học viên có cấu trúc), CÓ migration (0057, bạn đã tự chạy trong Supabase SQL Editor). Mặc định TẮT — chưa hiện gì cho học viên cho tới khi Admin bật và cấu hình.**
+
+Tích hợp từ folder 39 (`v5/39-H2OBOOK_H2O_COACH_OS_V1`) — nâng Mission Workspace từ giao diện điền form 4 tab thành "Coach Workspace": học viên nói chuyện tự nhiên, H2O đọc dữ liệu đã có từ Mission trước, hỏi phần còn thiếu, học viên xác nhận trước khi ghi vào hồ sơ chính thức. 4 bước cũ (Hiểu/Thực hiện/Minh chứng/Kết quả) vẫn là luồng backend, không mất gì — Coach chỉ là lớp giao diện mới nằm trên cùng dữ liệu thật.
+
+**Đã làm:**
+- Migration 0057 (additive-only, 5 bảng mới): cấu hình Coach theo từng Giai đoạn có versioning y hệt cách "Bản đồ kết quả học viên" đang làm (Nhân bản → chỉnh Draft → Áp dụng → có thể rollback), cấu hình coaching theo từng Mission (câu hỏi, field cần thu, công cụ), bộ nhớ học viên có cấu trúc theo namespace (career.*, style.*...) kèm trạng thái đề xuất/đã xác nhận/từ chối, lịch sử hội thoại theo từng Mission.
+- **Rule engine Offline chạy thật 100%, không cần AI** — H2O vẫn hỏi đúng câu hỏi còn thiếu dựa trên cấu hình Admin đặt, dù chưa bật AI nào.
+- **Chế độ AI/Hybrid đã viết sẵn** (dùng lại đúng cách gọi Gemini mà H2O Brain đang dùng) nhưng **`GEMINI_API_KEY` chưa được cấu hình** ở cả local lẫn Vercel production — đã kiểm tra kỹ trước khi code theo đúng yêu cầu "chỉ tích hợp AI provider nếu đã cấu hình". Khi nào bạn thêm key, chế độ Hybrid/AI sẽ tự chạy được, không cần sửa code.
+- **H2O Coach Builder** (Admin, chỉ owner/admin) tại `/academy-admin/coach-builder` — cấu hình Vai trò Coach, Kiến thức sử dụng, Mission Coaching (bao gồm Công cụ & Quy tắc), Dữ liệu cần ghi nhớ, Chế độ AI, và quản lý phiên bản.
+- **H2O Coach Workspace** (Học viên) — giao diện 3 cột (Hành trình / Hội thoại với Coach / Hồ sơ đang hình thành), chỉ hiện thay cho 4 tab cũ khi Giai đoạn đó ĐÃ được Admin cấu hình và áp dụng thật — nếu chưa cấu hình, học viên vẫn thấy giao diện 4 tab như trước, không có gì thay đổi.
+
+**Mặc định TẮT:** cờ `NEXT_PUBLIC_H2O_COACH_WORKSPACE_V1` chưa bật — đây là tính năng thí điểm theo đúng kế hoạch của gói tích hợp ("Phase 1: chỉ Admin dùng Builder, mở 100% Giai đoạn 1 sau khi QA"), không tự động thay đổi trải nghiệm học viên hiện tại.
+
+**Đã xác minh bằng dữ liệu thật:** tạo thử 1 hồ sơ Coach cho Giai đoạn → tạo bản nháp v1 → gắn cấu hình cho 1 Mission thật → áp dụng v1 → nhân bản sang v2 → áp dụng v2 (v1 tự lưu trữ) → **rollback** bằng cách áp dụng lại v1 (đúng luồng "Nhân bản → Draft → Áp dụng → rollback" gói yêu cầu) → thử ghi 1 dữ liệu bộ nhớ đề xuất rồi xác nhận → thử ghi cấu hình Mission với id giả (đúng luật phải bị từ chối) → xóa sạch dữ liệu thử, xác nhận 0 dòng còn sót. Kiểm tra lại Giai đoạn 01 và tổng số Mission không đổi — xác nhận migration không đụng gì tới Journey/Mission/Progress/Hoàn thành hiện có.
+
+Merge, push, deploy, health check ✅. Chi tiết đầy đủ: `docs/h2o-coach-v1/01_PRODUCTION_AUDIT.md`, `docs/h2o-coach-v1/FINAL_REPORT.md`.
+
+---
+
 **2026-08-14 — 🐛 Đã merge + deploy: Sửa lỗi tài khoản được cấp Giai đoạn 2/3 trước hạn bị kẹt, không vào được Giai đoạn 1, KHÔNG cần migration.**
 
 Bạn báo: tài khoản "Max Crypto" được cấp cả Giai đoạn 2 và 3, nhưng vào "Hành trình của tôi" lại hiện "Giai đoạn này đang được xây dựng hành trình" — không vào được chi tiết Giai đoạn 1 dù Giai đoạn 1 đã xây xong từ lâu.
