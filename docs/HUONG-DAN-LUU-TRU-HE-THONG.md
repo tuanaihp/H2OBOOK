@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-14 — 🧠 Đã merge + deploy: Learning Journey Intelligence V1 (Nhật ký thực hành 90 ngày + H2OBrain Student Context + Capability Snapshot), CÓ migration (0056, bạn đã tự chạy trong Supabase SQL Editor).**
+
+Tích hợp từ folder 38 (`v5/38-h2obook_learning_intelligence_v1`) — thêm một lớp "Learning Memory" ghi lại 90 ngày thực hành thật (hôm nay luyện gì, ảnh/video, kỹ năng đang luyện, tự chấm điểm, điểm giáo viên, thời gian luyện, lỗi lặp lại, nhận xét, việc cần làm tiếp) để nuôi H2OBrain đánh giá năng lực — xây **thêm lên trên** Journey hiện có, không đụng vào Stage/Mission/Checkpoint/Progress/Unlock.
+
+**Audit trước khi code phát hiện:** bảng `learner_experiences` (có sẵn từ rất sớm, chưa từng được dùng ở bất kỳ tính năng nào trong suốt phiên làm việc này) đã có gần đúng hình dạng cần cho Nhật ký thực hành — sát hơn hẳn so với `learner_notes` mà tính năng "Nhật ký thực hành" ở folder 36 đang dùng. Đã kiểm tra: cả hai bảng đều **0 dòng dữ liệu thật** — nên chuyển đổi an toàn, không cần dời dữ liệu cũ.
+
+**Đã làm:**
+- Migration 0056 (additive-only): mở rộng `learner_experiences` để gắn được vào Mission (`mission_id`) thay vì bắt buộc phải thuộc Khoảng không gian kiến thức, thêm cột `journey_day` (Ngày 1-90), `best_result`, `suspected_reason`, `self_score`, `instructor_score`, `practice_minutes`. Thêm bảng mới `learning_capability_snapshots` cho báo cáo năng lực Weekly/Day30/Day60/Day90.
+- **Chuyển "Nhật ký thực hành" (folder 36) từ `learner_notes` sang `learner_experiences`** — giữ nguyên API cũ (`/api/student/practice`) để không phá bất kỳ ai đang gọi, chỉ đổi bảng lưu bên trong. Giao diện Nhật ký thực hành nâng cấp: chọn kỹ năng đang luyện (dùng đúng 9 kỹ năng đã có sẵn ở Hộ chiếu kỹ năng, không tạo danh sách kỹ năng mới song song), tự chấm điểm, điều làm tốt nhất, điều chưa tốt, nguyên nhân, việc cần làm tiếp theo, số phút luyện tập — cùng với upload ảnh/video như cũ.
+- API mới: `/api/student/learning-journey/log` (Nhật ký đầy đủ), `/api/h2obrain/student-context` (dữ liệu tổng hợp thật cho AI diễn giải — không để AI tự bịa điểm số), `/api/student/learning-journey/snapshot` (tạo báo cáo năng lực theo yêu cầu).
+- Quy tắc trung thực: nếu chưa đủ ít nhất 3 lần thực hành thật trong kỳ, báo cáo năng lực hiện "Chưa đủ Evidence để đánh giá", không tự tạo điểm giả.
+
+**Đã xác minh bằng dữ liệu thật:** ghi thử 1 dòng đầy đủ các cột mới, ghi kỹ năng luyện tập 2 lần (kiểm tra đường ghi-đè hoạt động đúng), tạo thử 1 báo cáo năng lực, thử ghi 1 dòng thiếu cả 2 loại gắn kết (phải bị từ chối đúng luật ràng buộc), sau đó xóa sạch toàn bộ dữ liệu thử — xác nhận 0 dòng còn sót. Kiểm tra lại Giai đoạn 01 vẫn "active" và số lượng Mission không đổi (58) — xác nhận migration không đụng gì tới Journey Core.
+
+Merge, push, deploy, health check ✅. Chi tiết đầy đủ: `docs/H2O_LEARNING_JOURNEY_AUDIT.md`, `docs/learning-journey-intelligence-v1/FINAL_REPORT.md`.
+
+---
+
 **2026-08-14 — 🔔 Đã merge + deploy: Thông báo thật cho học viên + hiện Giai đoạn hiện tại trong danh sách + hiệu ứng xác nhận rõ ràng, KHÔNG cần migration.**
 
 Bạn báo 3 việc sau khi dùng tính năng cấp Giai đoạn/Membership mới: (1) danh sách học viên không hiện đang ở Giai đoạn nào, (2) cấp quyền xong không có hiệu ứng thông báo rõ ràng, (3) học viên không nhận được thông báo gì khi tài khoản được nâng cấp.
