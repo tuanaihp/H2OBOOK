@@ -1,20 +1,34 @@
 "use client";
 import { useEffect, useState } from "react";
 import { resolveAssetUrl, uploadAsset } from "@/lib/assets/asset-client";
+import { JOURNEY_SKILLS } from "@/lib/learning-journey/skill-taxonomy";
 
-type Entry = { id: string; date: string; textNote: string; tags: string[]; assetIds: string[] };
-const TAGS = ["Nền", "Mắt", "Mày", "Môi", "Tóc", "Before/After"];
+interface Entry {
+  id: string; journeyDay: number | null; practicedToday: string; bestResult: string; problemText: string;
+  suspectedReason: string; nextAction: string; practiceMinutes: number | null; selfScore: number | null;
+  instructorScore: number | null; instructorFeedback: string | null; assetIds: string[]; skillKeys: string[]; createdAt: string;
+}
 const MAX_ASSETS_PER_ENTRY = 4;
 
-// Daily Practice Journal (docs/stage1-learning-os-v1). Photo/video attach via the existing student
-// upload pipeline (lib/assets/asset-client.ts's uploadAsset — same presigned-URL/quota/scan path the
-// Reader and Brand Kit already use, role "student" already allowed server-side). Teacher review is
-// real schema-adjacent (learner_notes) but out of scope — spec marks it optional ("nếu có").
+/**
+ * Daily Practice Journal / Learning Journey Intelligence V1 (docs/H2O_LEARNING_JOURNEY_AUDIT.md).
+ * Posts to /api/student/learning-journey/log (learner_experiences-backed), not the folder-36
+ * facade /api/student/practice — that route stays intact for anyone still calling its narrower
+ * shape, this component now speaks the richer V1 contract directly. Photo/video attach reuses the
+ * same student upload pipeline as before (lib/assets/asset-client.ts's uploadAsset).
+ */
 export function DailyPracticeLogger({ missionId }: { missionId: string }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [note, setNote] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [practicedToday, setPracticedToday] = useState("");
+  const [bestResult, setBestResult] = useState("");
+  const [problemText, setProblemText] = useState("");
+  const [suspectedReason, setSuspectedReason] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [selfScore, setSelfScore] = useState(70);
+  const [practiceMinutes, setPracticeMinutes] = useState<string>("");
+  const [skillKeys, setSkillKeys] = useState<string[]>([]);
+  const [showMore, setShowMore] = useState(false);
   const [pendingAssets, setPendingAssets] = useState<{ assetId: string; previewUrl: string; fileName?: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -22,7 +36,7 @@ export function DailyPracticeLogger({ missionId }: { missionId: string }) {
 
   async function load() {
     setLoading(true);
-    const res = await fetch(`/api/student/practice?missionId=${missionId}`, { cache: "no-store" });
+    const res = await fetch(`/api/student/learning-journey/log?missionId=${missionId}`, { cache: "no-store" });
     const json = await res.json().catch(() => null);
     setEntries(json?.entries ?? []);
     setLoading(false);
@@ -48,26 +62,56 @@ export function DailyPracticeLogger({ missionId }: { missionId: string }) {
     }
   }
   function removePendingAsset(assetId: string) { setPendingAssets((v) => v.filter((a) => a.assetId !== assetId)); }
+  function toggleSkill(key: string) { setSkillKeys((v) => v.includes(key) ? v.filter((x) => x !== key) : [...v, key]); }
 
   async function save() {
-    if (!note.trim()) return;
+    if (!practicedToday.trim()) return;
     setBusy(true); setMessage(null);
-    const res = await fetch("/api/student/practice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ missionId, textNote: note, tags, assetIds: pendingAssets.map((a) => a.assetId) }) });
+    const res = await fetch("/api/student/learning-journey/log", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        missionId, practicedToday, bestResult, problemText, suspectedReason, nextAction,
+        selfScore, practiceMinutes: practiceMinutes ? Number(practiceMinutes) : undefined,
+        skillKeys, assetIds: pendingAssets.map((a) => a.assetId)
+      })
+    });
     const json = await res.json().catch(() => null);
     setBusy(false);
     if (!res.ok) { setMessage(json?.error ?? "Không lưu được nhật ký."); return; }
-    setNote(""); setTags([]); setPendingAssets([]);
+    setPracticedToday(""); setBestResult(""); setProblemText(""); setSuspectedReason(""); setNextAction("");
+    setSelfScore(70); setPracticeMinutes(""); setSkillKeys([]); setPendingAssets([]); setShowMore(false);
     await load();
   }
 
   return <div className="h2o-sr-section">
     <h4>Nhật ký thực hành</h4>
-    <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Hôm nay học gì? Điều gì làm tốt? Điều gì cần sửa?"
+    <textarea value={practicedToday} onChange={(e) => setPracticedToday(e.target.value)} rows={3} placeholder="Hôm nay thực hành gì?"
       style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 13, marginTop: 8 }} />
+
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-      {TAGS.map((tag) => <button type="button" key={tag} onClick={() => setTags((v) => v.includes(tag) ? v.filter((x) => x !== tag) : [...v, tag])}
-        style={{ borderRadius: 999, border: tags.includes(tag) ? "1px solid #2563eb" : "1px solid #dfe3e8", background: tags.includes(tag) ? "#eff6ff" : "#fff", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>{tag}</button>)}
+      {JOURNEY_SKILLS.map((skill) => <button type="button" key={skill.key} onClick={() => toggleSkill(skill.key)}
+        style={{ borderRadius: 999, border: skillKeys.includes(skill.key) ? "1px solid #2563eb" : "1px solid #dfe3e8", background: skillKeys.includes(skill.key) ? "#eff6ff" : "#fff", padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>{skill.label}</button>)}
     </div>
+
+    <div style={{ marginTop: 10 }}>
+      <label style={{ fontSize: 11, color: "#667085" }}>Tự chấm điểm hôm nay: <b>{selfScore}</b>/100</label>
+      <input type="range" min={0} max={100} value={selfScore} onChange={(e) => setSelfScore(Number(e.target.value))} style={{ width: "100%" }} />
+    </div>
+
+    {!showMore && <button type="button" onClick={() => setShowMore(true)} style={{ marginTop: 8, fontSize: 11, border: "none", background: "none", color: "#2563eb", cursor: "pointer", padding: 0 }}>+ Thêm chi tiết (điều tốt nhất, điều chưa tốt, thời gian…)</button>}
+
+    {showMore && <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+      <textarea value={bestResult} onChange={(e) => setBestResult(e.target.value)} rows={2} placeholder="Điều làm tốt nhất hôm nay?"
+        style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 13 }} />
+      <textarea value={problemText} onChange={(e) => setProblemText(e.target.value)} rows={2} placeholder="Điều gì chưa tốt / cần sửa?"
+        style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 13 }} />
+      <textarea value={suspectedReason} onChange={(e) => setSuspectedReason(e.target.value)} rows={2} placeholder="Nguyên nhân, nếu biết?"
+        style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 13 }} />
+      <textarea value={nextAction} onChange={(e) => setNextAction(e.target.value)} rows={2} placeholder="Việc cần làm tiếp theo?"
+        style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 13 }} />
+      <input type="number" min={0} value={practiceMinutes} onChange={(e) => setPracticeMinutes(e.target.value)} placeholder="Số phút đã luyện tập"
+        style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #dfe3e8", fontSize: 13 }} />
+    </div>}
 
     <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
       {pendingAssets.map((a) => <span key={a.assetId} style={{ display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 8, border: "1px solid #dfe3e8", padding: "3px 6px", fontSize: 11 }}>
@@ -82,16 +126,19 @@ export function DailyPracticeLogger({ missionId }: { missionId: string }) {
 
     {message && <p style={{ fontSize: 11, color: "#b42318", marginTop: 6 }}>{message}</p>}
     <div className="h2o-sr-cta" style={{ marginTop: 8 }}>
-      <button className="h2o-sr-btn primary" disabled={busy || uploading || !note.trim()} onClick={save}>Lưu nhật ký</button>
+      <button className="h2o-sr-btn primary" disabled={busy || uploading || !practicedToday.trim()} onClick={save}>Lưu nhật ký</button>
     </div>
 
     {!loading && entries.length > 0 && <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
       {entries.map((e) => <div key={e.id} className="h2o-sr-task">
         <span style={{ fontSize: 14 }}>📝</span>
         <div>
-          <b>{new Date(e.date).toLocaleDateString("vi-VN")}</b>
-          <p>{e.textNote}</p>
-          {e.tags.length > 0 && <small>{e.tags.join(" · ")}</small>}
+          <b>{new Date(e.createdAt).toLocaleDateString("vi-VN")}{e.journeyDay ? ` · Ngày ${e.journeyDay}/90` : ""}{e.selfScore != null ? ` · Tự chấm ${e.selfScore}/100` : ""}</b>
+          <p>{e.practicedToday}</p>
+          {e.bestResult && <small>✓ Tốt nhất: {e.bestResult}</small>}
+          {e.problemText && <small>△ Chưa tốt: {e.problemText}</small>}
+          {e.instructorFeedback && <small>👩‍🏫 Giáo viên: {e.instructorFeedback}{e.instructorScore != null ? ` (${e.instructorScore}/100)` : ""}</small>}
+          {e.skillKeys.length > 0 && <small>{e.skillKeys.map((k) => JOURNEY_SKILLS.find((s) => s.key === k)?.label ?? k).join(" · ")}</small>}
           {e.assetIds.length > 0 && <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
             {e.assetIds.map((assetId) => <EntryAssetLink key={assetId} assetId={assetId} />)}
           </div>}
