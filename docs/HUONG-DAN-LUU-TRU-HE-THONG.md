@@ -6,6 +6,27 @@
 
 ---
 
+**2026-08-15 — 🧠 Đã merge + deploy: Sửa tận gốc pipeline Mission Coach / H2O Brain Memory (không phải vá prompt), KHÔNG cần migration.**
+
+Bạn báo đúng bug thật với bằng chứng cụ thể: học viên trả lời "cô dâu" / "tôi muốn theo cô dâu phong cách Hàn Quốc" nhưng H2O Coach hỏi lại y hệt câu cũ, trong khi H2O Brain Memory bên phải vẫn "Chưa xác định" và Mission Progress lại báo 100%.
+
+**Root cause thật (đã audit + query production trước khi sửa, không đoán):**
+- Chế độ Offline (đang dùng cho Giai đoạn 1 vì `GEMINI_API_KEY` chưa cấu hình) **chưa từng có khả năng đọc hiểu văn bản tự do** — code gốc chỉ kiểm tra field nào đã "confirmed", không bao giờ trích xuất giá trị từ tin nhắn. Học viên gõ gì cũng bị bỏ qua → field không bao giờ được set → câu hỏi không bao giờ đổi.
+- Thanh Progress trong Coach Workspace đang lấy nhầm từ công thức **cũ** của Mission Workspace 4-tab (block/action bắt buộc) — không liên quan gì tới H2O Brain Memory. Mission này có 0 block bắt buộc trong hệ thống cũ nên công thức mặc định trả về 100%, dù Coach memory rỗng hoàn toàn. Đây là 2 nguồn trạng thái không đồng bộ, không phải 1 bug.
+
+**Đã sửa tận gốc pipeline (không chỉ sửa câu prompt):**
+- Thêm cơ chế trích xuất dữ liệu **Offline thật** — so khớp từ khoá xác định (admin cấu hình được qua Coach Builder), không đoán mò, không cần AI. Một tin nhắn có thể điền nhiều field cùng lúc.
+- Progress giờ tính đúng theo số field bắt buộc đã xác nhận thật / tổng số yêu cầu (bao gồm cả bước xác nhận cuối) — không còn dùng công thức cũ không liên quan.
+- Thêm bước **xác nhận tổng kết**: khi đủ field, H2O tóm tắt lại và hỏi "Đây có đúng không?" — chỉ khi học viên xác nhận mới tính Mission hoàn thành thật (gọi đúng cơ chế hoàn thành sẵn có của hệ thống, không tạo luồng hoàn thành song song).
+- Chống xử lý trùng khi bấm gửi 2 lần / mất mạng thử lại.
+- Dùng lại đúng hàm kiểm tra quyền truy cập Mission có sẵn — vá luôn 1 lỗ hổng là Coach trước đây chưa kiểm tra Mission có bị khoá hay không.
+
+**Đã xác minh:** 24 test mới (khớp đúng các tình huống bạn liệt kê: trả lời 1 field, trả lời nhiều field 1 lúc, không lặp câu hỏi, xác nhận tổng kết, tính đúng %) + 245/245 test toàn hệ thống, typecheck/lint/build sạch. Đã cập nhật lại cấu hình Coach thật của Giai đoạn 1 (bản v2) với quy tắc nhận diện thật cho 3 field, xác minh trực tiếp trên production. Không cần migration — mọi thay đổi đều nằm trong cấu trúc dữ liệu JSON có sẵn.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-15 — 🐛 Đã merge + deploy: Sửa 2 lỗi thật của H2O Coach Builder (hiện nhầm Giai đoạn cũ/test + crash khi mở tab Kiến thức của bản nháp mới), KHÔNG cần migration.**
 
 Ngay sau khi bạn bật cờ và vào thử `/academy-admin/coach-builder`, phát hiện 2 lỗi thật:
