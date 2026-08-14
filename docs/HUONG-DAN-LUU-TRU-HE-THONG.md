@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-14 — 🔔 Đã merge + deploy: Thông báo thật cho học viên + hiện Giai đoạn hiện tại trong danh sách + hiệu ứng xác nhận rõ ràng, KHÔNG cần migration.**
+
+Bạn báo 3 việc sau khi dùng tính năng cấp Giai đoạn/Membership mới: (1) danh sách học viên không hiện đang ở Giai đoạn nào, (2) cấp quyền xong không có hiệu ứng thông báo rõ ràng, (3) học viên không nhận được thông báo gì khi tài khoản được nâng cấp.
+
+**Phát hiện lớn khi audit việc 3:** chuông thông báo 🔔 trên giao diện học viên **từ trước tới giờ chỉ hiện số "2" viết cứng trong code**, không đọc dữ liệu thật nào cả. Trong khi đó bảng `notifications` (đã có từ rất sớm, có RLS đúng chuẩn — mỗi học viên chỉ đọc được thông báo của mình) **chưa từng có màn hình nào ghi vào hoặc đọc từ đó** — tồn tại sẵn, đúng cấu trúc, nhưng bị bỏ quên hoàn toàn.
+
+**Đã làm:**
+- **Chuông thông báo giờ là thật** — đọc đúng bảng `notifications`, hiện đúng số chưa đọc, bấm vào xem danh sách, bấm 1 thông báo để đánh dấu đã đọc và đi thẳng tới đúng trang liên quan.
+- Mỗi lần Admin cấp **Khóa học / Giai đoạn / Membership** ở `/academy-admin/distribution`, học viên tương ứng **tự động nhận 1 thông báo thật** nói rõ vừa được cấp gì.
+- **Hiệu ứng xác nhận rõ ràng cho Admin** — mọi lượt cấp/thu hồi quyền giờ hiện 1 khối thông báo nổi bật góc phải màn hình (xanh = thành công, đỏ = lỗi), tự ẩn sau vài giây, nói rõ đã cấp gì cho ai.
+- **Danh sách học viên ở Bước 1** giờ hiện thêm nhãn Giai đoạn hiện tại cho từng người — tính đúng theo luật mở khóa thật (Giai đoạn đầu miễn phí / có Membership thì mở hết / được cấp riêng), cùng công thức trang tổng quan học viên đang dùng nên không bao giờ lệch nhau. Tự cập nhật ngay sau khi cấp Giai đoạn/Membership, không cần tải lại trang.
+
+Không migration — cả 3 bảng liên quan (`notifications`, `business_feature_grants`, `memberships`) đều đã có sẵn từ trước, chỉ thiếu người đọc/ghi.
+
+Merge, deploy, health check ✅.
+
+---
+
 **2026-08-14 — 🔓 Đã merge + deploy: Cấp Giai đoạn & Membership thủ công cho học viên — vá đúng lỗ hổng bạn báo, KHÔNG cần migration.**
 
 Bạn báo: màn "Thêm học viên" chỉ cấp được Khóa học, không có lựa chọn Giai đoạn, và học viên đã cấp trước đó chưa từng được nâng cấp Giai đoạn/Membership.
