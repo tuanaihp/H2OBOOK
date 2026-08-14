@@ -197,10 +197,22 @@ export async function grantAcademyAccess(admin: AdminClient, input: {
   targetSlug: string;
   sourceType: string;
   sourceId?: string | null;
+  /**
+   * Membership status/expiry override — default (omitted) preserves the exact self-serve invite
+   * behavior this function always had: a 7-day trial. Only /academy-admin/distribution's manual
+   * "Cấp Membership" (2026-08-14) passes { status: "active" }: an Admin who explicitly decided to
+   * grant membership (VIP/đối tác/hỗ trợ sự cố — same reasoning as the manual course/stage grants
+   * already in that panel, which are immediate access, never trials) — not a self-serve signup that
+   * should default to a time-boxed trial.
+   */
+  membershipGrant?: { status: "trial" | "active"; expiresAt?: string | null };
 }) {
   const product = await ensureAcademyCatalogProduct(admin, input.organizationId, input.targetType, input.targetSlug);
   const resourceId = String(product.reference_id ?? product.id);
-  const trialExpiresAt = input.targetType === "membership" ? new Date(Date.now() + 7 * 86_400_000).toISOString() : null;
+  const membershipStatus = input.membershipGrant?.status ?? "trial";
+  const membershipExpiresAt = input.targetType === "membership"
+    ? (input.membershipGrant ? (input.membershipGrant.expiresAt ?? null) : new Date(Date.now() + 7 * 86_400_000).toISOString())
+    : null;
   const { data: existing } = await admin.from("entitlements").select("id").eq("user_id", input.userId)
     .eq("resource_type", input.targetType).eq("resource_id", resourceId).eq("status", "active").maybeSingle();
   if (!existing) {
@@ -213,7 +225,7 @@ export async function grantAcademyAccess(admin: AdminClient, input: {
       source_type: input.sourceType,
       source_id: input.sourceId ?? null,
       starts_at: new Date().toISOString(),
-      expires_at: trialExpiresAt,
+      expires_at: membershipExpiresAt,
       status: "active"
     });
     if (error) throw new Error(error.message);
@@ -229,11 +241,16 @@ export async function grantAcademyAccess(admin: AdminClient, input: {
         price: Number(product.price),
         currency: product.currency ?? "VND",
         billing_interval: product.billing_interval ?? "month",
-        status: "trial",
+        status: membershipStatus,
         starts_at: new Date().toISOString(),
-        renews_at: trialExpiresAt,
-        expires_at: trialExpiresAt
+        renews_at: membershipExpiresAt,
+        expires_at: membershipExpiresAt
       });
+      if (error) throw new Error(error.message);
+    } else if (input.membershipGrant) {
+      // Manual grant on an existing trial/active membership: bring it up to the Admin's decision
+      // (e.g. converting a lapsed trial to a real active grant) rather than silently no-op'ing.
+      const { error } = await admin.from("memberships").update({ status: membershipStatus, expires_at: membershipExpiresAt, renews_at: membershipExpiresAt }).eq("id", membership.id);
       if (error) throw new Error(error.message);
     }
   }
