@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-14 — 🔓 Đã merge + deploy: Cấp Giai đoạn & Membership thủ công cho học viên — vá đúng lỗ hổng bạn báo, KHÔNG cần migration.**
+
+Bạn báo: màn "Thêm học viên" chỉ cấp được Khóa học, không có lựa chọn Giai đoạn, và học viên đã cấp trước đó chưa từng được nâng cấp Giai đoạn/Membership.
+
+**Audit ra đúng nguyên nhân:** hệ thống mở khóa Giai đoạn cho học viên đã có sẵn 3 luật (Giai đoạn đầu miễn phí / có Membership thì mở hết / cấp riêng từng Giai đoạn) — nhưng luật thứ 3 (cấp riêng từng Giai đoạn) **có sẵn bảng dữ liệu, có sẵn chỗ đọc, nhưng chưa từng có màn hình nào ghi vào đó** — y hệt kiểu lỗ hổng "nút chưa nối" đã gặp nhiều lần trong dự án này. Vì "Thêm học viên" chỉ cấp Khóa học, không đụng tới Membership, nên học viên đã cấp trước đó đúng là chưa từng được mở thêm Giai đoạn nào ngoài Giai đoạn 1 miễn phí.
+
+**Đã vá:** trang `/academy-admin/distribution` giờ có thêm 2 bước mới bên cạnh cấp Khóa học:
+- **Cấp Giai đoạn** — chọn đúng 1 Giai đoạn thật, có lý do bắt buộc, có thể đặt ngày hết hạn. **Cấp Giai đoạn mới không bao giờ làm mất Giai đoạn đã cấp trước đó** — cơ chế chỉ cộng dồn, không tự xóa.
+- **Cấp Membership** — chọn đúng gói thật (Knowledge Library / Academy Pro / Beauty Business), có hiệu lực **ngay lập tức** (không phải bản dùng thử 7 ngày như luồng mời tự động) — vì Admin đã chủ động quyết định cấp thì phải có tác dụng thật ngay, không lo "1 tuần sau tự mất mà không ai để ý".
+
+Có thêm danh sách "Lịch sử cấp Giai đoạn thủ công" kèm nút Thu hồi, cùng kiểu với lịch sử cấp Khóa học đã có.
+
+**Phát hiện thêm khi audit (chưa xử lý — cần bạn xác nhận):** Giai đoạn 01 "Nền tảng nghề Makeup" — nơi 2 học viên thật đang học — đang có trạng thái **"hidden"** trong hệ thống, không phải "active". Điều này có thể khiến 1 số màn tổng quan (ví dụ tóm tắt "Giai đoạn hiện tại" trên Hành trình/Trang chủ) tính nhầm sang Giai đoạn 02 làm Giai đoạn hiện tại của học viên, dù Mission Workspace (nơi học viên thật sự làm bài) vẫn đọc đúng Giai đoạn 01. Chưa tự sửa vì không chắc "hidden" là cố ý hay sai sót — sẽ hỏi riêng.
+
+Merge, deploy, health check ✅. Không migration — dùng lại đúng bảng `business_feature_grants` đã có sẵn từ trước (module 13), chỉ thêm màn hình ghi vào đó.
+
+---
+
 **2026-08-13 — 🧭 Đã merge + deploy: Mission Workspace V2 (folder 37) — "còn thiếu gì" rõ ràng ở tab Kết quả, Minh chứng đổi hình theo từng loại Mission, KHÔNG cần migration.**
 
 Đọc đủ 18/18 file gói nguồn trước khi làm. Gói nguồn yêu cầu nâng `/student/missions/[missionId]` thành luồng 4 bước rõ ràng, và sửa cho đúng nguyên tắc "Sẵn sàng (Readiness) khác Hoàn thành (Completion)".
