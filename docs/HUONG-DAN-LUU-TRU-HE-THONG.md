@@ -18,7 +18,7 @@ Bạn báo: màn "Thêm học viên" chỉ cấp được Khóa học, không c�
 
 Có thêm danh sách "Lịch sử cấp Giai đoạn thủ công" kèm nút Thu hồi, cùng kiểu với lịch sử cấp Khóa học đã có.
 
-**Phát hiện thêm khi audit (chưa xử lý — cần bạn xác nhận):** Giai đoạn 01 "Nền tảng nghề Makeup" — nơi 2 học viên thật đang học — đang có trạng thái **"hidden"** trong hệ thống, không phải "active". Điều này có thể khiến 1 số màn tổng quan (ví dụ tóm tắt "Giai đoạn hiện tại" trên Hành trình/Trang chủ) tính nhầm sang Giai đoạn 02 làm Giai đoạn hiện tại của học viên, dù Mission Workspace (nơi học viên thật sự làm bài) vẫn đọc đúng Giai đoạn 01. Chưa tự sửa vì không chắc "hidden" là cố ý hay sai sót — sẽ hỏi riêng.
+**Phát hiện thêm khi audit — đã hỏi và sửa luôn:** Giai đoạn 01 "Nền tảng nghề Makeup" — nơi 2 học viên thật đang học — đang có trạng thái **"hidden"** trong hệ thống, không phải "active". Điều này khiến 1 số màn tổng quan (tóm tắt "Giai đoạn hiện tại" trên Hành trình/Trang chủ, đọc qua `getUnlockedStageIds`) tính nhầm sang Giai đoạn 02 làm Giai đoạn hiện tại của học viên — dù Mission Workspace (nơi học viên thật sự làm bài, đọc trực tiếp không qua luật này) vẫn đúng. Đã hỏi bạn — xác nhận là sai sót — đã sửa lại `status: "active"` (đúng theo logic hàm `publishStage()` có sẵn: chỉ set `published_at` lần đầu, không đụng gì khác). Đã xác nhận lại bằng dữ liệu thật: Giai đoạn 01 giờ đứng đúng vị trí đầu tiên trong danh sách 6 Giai đoạn active. Đây là sửa dữ liệu, không phải code — có tác dụng ngay, không cần deploy.
 
 Merge, deploy, health check ✅. Không migration — dùng lại đúng bảng `business_feature_grants` đã có sẵn từ trước (module 13), chỉ thêm màn hình ghi vào đó.
 
