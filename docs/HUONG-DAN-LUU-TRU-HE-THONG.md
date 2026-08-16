@@ -6,6 +6,28 @@
 
 ---
 
+**2026-08-16 — 📚 Đã merge + deploy: Cổng API (AI Provider Gateway) + Cổng nạp kiến thức (Admin Knowledge Gateway), CÓ 2 migration (0058, 0059, bạn đã tự chạy trong Supabase SQL Editor).**
+
+Tích hợp folder mới cho 2 yêu cầu: (1) "Cổng API" — nơi lưu API key của các nhà cung cấp AI (Gemini/OpenAI/Grok); (2) folder 40 "Admin Knowledge Gateway" — nơi Admin tự viết/nạp kiến thức chính thức cho H2O Coach dùng.
+
+**Cổng API** (`/api-gateway`, ngay dưới "Enterprise & API"):
+- Lưu API key có mã hoá thật (AES-256-GCM, dùng lại đúng cơ chế đã có sẵn cho Webhook từ trước — không phát minh cách mã hoá mới).
+- "Kiểm tra kết nối" gọi API thật của từng nhà cung cấp để xác nhận key đúng — không phải hiệu ứng giả.
+- **Đã nói rõ với bạn và không làm:** "video" (Gemini/OpenAI/Grok chưa có API công khai đơn giản cho việc này) và "đăng nhập bằng tài khoản ChatGPT cá nhân" (không phải cơ chế chính thức của OpenAI, vi phạm điều khoản dịch vụ).
+- **Quan trọng:** biến môi trường `ENCRYPTION_KEY` bạn vẫn **chưa thêm vào Vercel** — nút "Lưu kết nối" sẽ báo lỗi rõ ràng cho tới khi thêm (không sập trang). Việc này cũng vá luôn nút "Tạo webhook" ở Enterprise & API đang lỗi từ trước. Giá trị ngẫu nhiên tôi đã tạo sẵn ở tin nhắn trước.
+
+**Cổng nạp kiến thức** (`/academy-admin/knowledge`):
+- **Phát hiện quan trọng khi audit:** bảng `curriculum_documents` (có sẵn từ rất lâu) chính là "Knowledge Unit" mà gói tích hợp muốn — nhưng **chưa từng có màn hình nào cho Admin tự viết/nạp nội dung**, chỉ có script chạy nền lúc khởi tạo dữ liệu. Đây là lỗ hổng thật đã vá — không tạo bảng kiến thức song song.
+- Vòng đời: Viết nháp → Publish → chỉ nội dung đã Publish mới được H2O Coach dùng làm kiến thức chính thức — sửa nháp không ảnh hưởng tới nội dung học viên/Coach đang thấy.
+- 2 chế độ nạp thật 100%: "Viết trực tiếp" và "Từ thư viện" (liên kết tài liệu có sẵn, không nhân bản file). Chế độ Tài liệu/Video/URL: nhận file thật nhưng **chưa tự động trích xuất văn bản** — Admin dán nội dung thủ công cho bản này, tự động hoá là bước tiếp theo.
+- **Đã bắt được 1 lỗi thật khi tự kiểm tra trước khi deploy:** danh sách loại tài liệu trên giao diện có 1 lựa chọn ("Kỹ thuật") không khớp với ràng buộc thật của database — lưu sẽ báo lỗi. Đã sửa trước khi bạn kịp gặp phải.
+
+Đã xác minh bằng dữ liệu thật: tạo nháp → publish v1 → xác nhận Coach tìm thấy đúng nội dung đã publish → tạo nháp v2 → xác nhận nội dung học viên đang thấy vẫn là v1 (sửa nháp không rò rỉ) → xóa sạch dữ liệu thử. `pnpm typecheck`/`lint`/`test` (245/245)/`build` sạch.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-15 — 🧠 Đã merge + deploy: Sửa tận gốc pipeline Mission Coach / H2O Brain Memory (không phải vá prompt), KHÔNG cần migration.**
 
 Bạn báo đúng bug thật với bằng chứng cụ thể: học viên trả lời "cô dâu" / "tôi muốn theo cô dâu phong cách Hàn Quốc" nhưng H2O Coach hỏi lại y hệt câu cũ, trong khi H2O Brain Memory bên phải vẫn "Chưa xác định" và Mission Progress lại báo 100%.
