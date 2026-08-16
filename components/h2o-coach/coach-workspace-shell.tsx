@@ -99,10 +99,21 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
           // The currently-open Mission reflects the live Coach state instead of the page-load
           // snapshot — confirming just now flips this to "done" without waiting for a refresh.
           const state = item.id === props.missionId && missionState === "confirmed" ? "done" : item.state;
-          return <div key={item.id} className={`h2o-coach-journey-item state-${state}`}>
+          const label = <>
             <small>{state === "done" ? "✓ Đã hoàn thành" : state === "current" ? "● Bạn đang ở đây" : state === "locked" ? "🔒 Chưa mở" : "Chưa bắt đầu"}</small>
             <strong>{item.title}</strong>
-          </div>;
+          </>;
+          const className = `h2o-coach-journey-item state-${state}`;
+          // Bug found 2026-08-16: this list rendered as plain <div>s with no navigation at all, unlike
+          // the older 4-tab Mission Workspace's sibling rail (mission-workspace-client.tsx) which lets
+          // the learner click into any unlocked sibling Mission — a learner who just finished this one
+          // had no way to move to the next Mission except editing the URL by hand. The current Mission
+          // stays a non-link (there's nowhere useful to navigate to from itself); locked ones stay
+          // non-links too since there's nothing to open yet.
+          if (item.id === props.missionId || state === "locked") {
+            return <div key={item.id} className={className}>{label}</div>;
+          }
+          return <Link key={item.id} href={`/student/missions/${item.id}`} className={className}>{label}</Link>;
         })}
       </div>
       {props.resources.length > 0 && <div className="h2o-coach-journey-resources">
