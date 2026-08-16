@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-16 — 🐛 Đã merge + deploy: Sửa "Hồ sơ đang hình thành" bên phải không tự cập nhật ngay sau khi trả lời, dù giá trị đã lưu đúng, KHÔNG cần migration.**
+
+Bạn báo đúng: màn hình chat hiện Coach đã tổng hợp đúng "Khách hàng mục tiêu: nữ 18 tuổi" và bạn đã bấm "Đúng rồi" (Mission báo 100% hoàn thành), nhưng bảng "H2O Brain Memory" bên phải vẫn ghi "Chưa xác định" cho đúng field đó.
+
+**Nguyên nhân thật:** server đã lưu đúng giá trị vào database (vì vậy nội dung tóm tắt trong khung chat hiển thị đúng — khung chat được server dựng lại từ dữ liệu vừa lưu). Nhưng API trả lời cho trình duyệt lại luôn gửi kèm danh sách "vừa trích xuất được gì" là rỗng (lỗi lập trình: 1 hàm nội bộ luôn trả về mảng rỗng cho phần này, chỉ dùng để soạn câu "Đã hiểu..." chứ không hề gửi lại giá trị thật). Bảng bên phải trên trình duyệt chỉ tự cập nhật dựa vào đúng danh sách đó — nên nó không bao giờ nhận được giá trị mới, phải tải lại cả trang mới thấy đúng.
+
+**Đã sửa:** trả về đúng danh sách giá trị vừa trích xuất/lưu thật của lượt trả lời đó, thay vì mảng rỗng — bảng bên phải giờ cập nhật ngay lập tức, không cần tải lại trang.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`test:sql` (19 bảng)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn thử lại một lượt hội thoại mới (Mission khác hoặc học viên khác) và xác nhận bảng bên phải cập nhật ngay khi bạn trả lời** — đây là sửa lỗi hiển thị phía trình duyệt nên tôi không thể tự bấm nút trong trình duyệt thật để xác minh cuối cùng.
+
+---
+
 **2026-08-16 — 🤖 Đã merge + deploy: Tự động trích xuất văn bản (DOCX/URL) + AI gợi ý metadata cho Cổng nạp kiến thức, KHÔNG cần migration.**
 
 Trả lời câu hỏi "tải tài liệu lên có tự động phân tích và nạp vào Coach không": **có, đã làm cho DOCX và URL — riêng Ảnh thì KHÔNG làm được, xin nói rõ lý do bên dưới.**
