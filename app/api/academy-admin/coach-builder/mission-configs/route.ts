@@ -10,7 +10,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Body | null;
   if (!body?.profileVersionId || !body.missionId) return NextResponse.json({ error: "PROFILE_VERSION_AND_MISSION_REQUIRED" }, { status: 400 });
   const result = await upsertMissionConfig(access!, body.profileVersionId, body.missionId, {
-    objective: body.objective ?? "", requiredFields: body.requiredFields ?? [], questions: body.questions ?? [], tools: body.tools ?? [], resultTemplate: body.resultTemplate
+    objective: body.objective ?? "", coachInstructions: body.coachInstructions, requiredFields: body.requiredFields ?? [], questions: body.questions ?? [], tools: body.tools ?? [],
+    resultTemplate: body.resultTemplate, rubric: body.rubric, evidenceRequirements: body.evidenceRequirements
   });
   return result.ok ? NextResponse.json(result.data, { status: 201 }) : NextResponse.json({ error: result.error }, { status: 400 });
 }

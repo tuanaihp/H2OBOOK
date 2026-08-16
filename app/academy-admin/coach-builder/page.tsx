@@ -11,7 +11,7 @@ interface MemoryField { key: string; label: string; namespace: string; type: str
 interface Condition { field: string; op: "missing" | "present" | "eq" | "neq" | "contains"; value?: string }
 interface QuestionRule { id: string; when: Condition[]; prompt: string; targetField?: string; priority: number }
 interface ToolBinding { toolKey: string; label: string; href?: string; required?: boolean }
-interface MissionConfig { id: string; missionId: string; objective: string; requiredFields: string[]; questions: QuestionRule[]; tools: ToolBinding[] }
+interface MissionConfig { id: string; missionId: string; objective: string; coachInstructions?: string; requiredFields: string[]; questions: QuestionRule[]; tools: ToolBinding[]; rubric?: Record<string, unknown>; evidenceRequirements?: Record<string, unknown>[] }
 interface KnowledgeScope { resourceIds: string[]; allowMissionBindings: boolean; allowStageCurriculum: boolean }
 interface VersionDetail {
   id: string; profileId: string; versionNumber: number; status: "draft" | "published" | "archived";
@@ -101,10 +101,15 @@ export default function CoachBuilderPage() {
     else setMessage(json.error ?? "Không áp dụng được.");
   }
 
-  async function saveMissionConfig(missionId: string, patch: Partial<Pick<MissionConfig, "objective" | "requiredFields" | "questions" | "tools">>) {
+  async function saveMissionConfig(missionId: string, patch: Partial<Pick<MissionConfig, "objective" | "coachInstructions" | "requiredFields" | "questions" | "tools" | "rubric" | "evidenceRequirements">>) {
     if (!detail || !editable) return;
     const existing = detail.missionConfigs.find((m) => m.missionId === missionId);
-    const body = { profileVersionId: detail.id, missionId, objective: patch.objective ?? existing?.objective ?? "", requiredFields: patch.requiredFields ?? existing?.requiredFields ?? [], questions: patch.questions ?? existing?.questions ?? [], tools: patch.tools ?? existing?.tools ?? [] };
+    const body = {
+      profileVersionId: detail.id, missionId, objective: patch.objective ?? existing?.objective ?? "",
+      coachInstructions: patch.coachInstructions ?? existing?.coachInstructions ?? "",
+      requiredFields: patch.requiredFields ?? existing?.requiredFields ?? [], questions: patch.questions ?? existing?.questions ?? [], tools: patch.tools ?? existing?.tools ?? [],
+      rubric: patch.rubric ?? existing?.rubric ?? {}, evidenceRequirements: patch.evidenceRequirements ?? existing?.evidenceRequirements ?? []
+    };
     setBusy(true);
     const { ok, json } = await api<{ id: string }>("/api/academy-admin/coach-builder/mission-configs", { method: "POST", body: JSON.stringify(body) });
     setBusy(false);
@@ -246,11 +251,24 @@ function MemorySchemaEditor({ schema, editable, onChange }: { schema: MemoryFiel
   </div>;
 }
 
-function MissionConfigEditor({ missionId, config, memorySchema, editable, onSave }: { missionId: string; config?: MissionConfig; memorySchema: MemoryField[]; editable: boolean; onSave: (patch: Partial<Pick<MissionConfig, "objective" | "requiredFields" | "questions" | "tools">>) => void }) {
+function MissionConfigEditor({ missionId, config, memorySchema, editable, onSave }: { missionId: string; config?: MissionConfig; memorySchema: MemoryField[]; editable: boolean; onSave: (patch: Partial<Pick<MissionConfig, "objective" | "coachInstructions" | "requiredFields" | "questions" | "tools" | "rubric" | "evidenceRequirements">>) => void }) {
   const [objective, setObjective] = useState(config?.objective ?? "");
+  const [coachInstructions, setCoachInstructions] = useState(config?.coachInstructions ?? "");
   const [requiredFields, setRequiredFields] = useState<string[]>(config?.requiredFields ?? []);
   const [questions, setQuestions] = useState<QuestionRule[]>(config?.questions ?? []);
   const [tools, setTools] = useState<ToolBinding[]>(config?.tools ?? []);
+  const [rubricText, setRubricText] = useState(JSON.stringify(config?.rubric ?? {}, null, 2));
+  const [evidenceText, setEvidenceText] = useState(JSON.stringify(config?.evidenceRequirements ?? [], null, 2));
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  function saveRubric() {
+    try { onSave({ rubric: JSON.parse(rubricText || "{}") }); setJsonError(null); }
+    catch { setJsonError("Rubric không phải JSON hợp lệ."); }
+  }
+  function saveEvidence() {
+    try { onSave({ evidenceRequirements: JSON.parse(evidenceText || "[]") }); setJsonError(null); }
+    catch { setJsonError("Evidence Requirements không phải JSON hợp lệ."); }
+  }
 
   function toggleField(key: string) { const next = requiredFields.includes(key) ? requiredFields.filter((f) => f !== key) : [...requiredFields, key]; setRequiredFields(next); onSave({ requiredFields: next }); }
   function addQuestion() { const next = [...questions, { id: crypto.randomUUID(), when: [{ field: memorySchema[0]?.key ?? "", op: "missing" as const }], prompt: "", priority: questions.length }]; setQuestions(next); onSave({ questions: next }); }
@@ -261,7 +279,10 @@ function MissionConfigEditor({ missionId, config, memorySchema, editable, onSave
   function removeTool(i: number) { const next = tools.filter((_, idx) => idx !== i); setTools(next); onSave({ tools: next }); }
 
   return <div key={missionId} style={{ display: "grid", gap: 16, marginTop: 14, maxWidth: 760 }}>
-    <label style={fieldLabelStyle}>Mục tiêu Mission (objective)<input value={objective} disabled={!editable} style={inputStyle} onChange={(e) => setObjective(e.target.value)} onBlur={() => onSave({ objective })} /></label>
+    <label style={fieldLabelStyle}>Mục tiêu Mission (objective — học viên nhìn thấy)<input value={objective} disabled={!editable} style={inputStyle} onChange={(e) => setObjective(e.target.value)} onBlur={() => onSave({ objective })} /></label>
+    <label style={fieldLabelStyle}>Hướng dẫn riêng cho Coach (nội bộ, không đọc nguyên văn cho học viên)
+      <textarea rows={2} value={coachInstructions} disabled={!editable} style={inputStyle} onChange={(e) => setCoachInstructions(e.target.value)} onBlur={() => onSave({ coachInstructions })} />
+    </label>
 
     <div>
       <span style={{ ...fieldLabelStyle, display: "block", marginBottom: 6 } as React.CSSProperties}>Dữ liệu cần thu (từ Bản đồ ghi nhớ)</span>
@@ -295,5 +316,15 @@ function MissionConfigEditor({ missionId, config, memorySchema, editable, onSave
       </div>)}
       {editable && <button onClick={addTool} style={{ fontSize: 12, border: "1px dashed #9aa4b2", borderRadius: 10, padding: "6px 12px", background: "none", cursor: "pointer" }}>+ Thêm công cụ</button>}
     </div>
+
+    <div>
+      <span style={{ ...fieldLabelStyle, display: "block", marginBottom: 6 } as React.CSSProperties}>Rubric (JSON — tiêu chí chấm, chỉ tham khảo cho Coach, không tự động chấm điểm)</span>
+      <textarea rows={4} value={rubricText} disabled={!editable} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} onChange={(e) => setRubricText(e.target.value)} onBlur={saveRubric} />
+    </div>
+    <div>
+      <span style={{ ...fieldLabelStyle, display: "block", marginBottom: 6 } as React.CSSProperties}>Evidence Requirements (JSON array — yêu cầu bằng chứng gợi ý, không thay thế cơ chế Minh chứng đã có)</span>
+      <textarea rows={4} value={evidenceText} disabled={!editable} style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} onChange={(e) => setEvidenceText(e.target.value)} onBlur={saveEvidence} />
+    </div>
+    {jsonError && <p style={{ fontSize: 12, color: "#b42318" }}>{jsonError}</p>}
   </div>;
 }
