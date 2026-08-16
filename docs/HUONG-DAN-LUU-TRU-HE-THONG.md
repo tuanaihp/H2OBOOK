@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-16 — 🤖 Đã merge + deploy: Tự động trích xuất văn bản (DOCX/URL) + AI gợi ý metadata cho Cổng nạp kiến thức, KHÔNG cần migration.**
+
+Trả lời câu hỏi "tải tài liệu lên có tự động phân tích và nạp vào Coach không": **có, đã làm cho DOCX và URL — riêng Ảnh thì KHÔNG làm được, xin nói rõ lý do bên dưới.**
+
+**Đã làm:**
+- Ở `/academy-admin/knowledge`, chế độ "Tài liệu (DOCX)": chọn file .docx thật → hệ thống trích văn bản thật (dùng mammoth, thư viện đã có sẵn trong dự án cho việc đọc Word) → tự điền vào form "Viết trực tiếp" để bạn xem lại trước khi lưu.
+- Chế độ "URL": dán link thật → hệ thống tải trang thật (có chặn địa chỉ nội bộ/riêng tư, dùng lại đúng cơ chế đã có cho import HTML) và trích văn bản.
+- Nếu bạn đã lưu API key AI ở "Cổng API" (Gemini hoặc OpenAI), hệ thống còn gọi AI gợi ý thêm tiêu đề/tóm tắt/loại tài liệu dựa trên văn bản thật vừa trích — **không bắt buộc**, chưa cấu hình vẫn dùng được bình thường, chỉ là không có gợi ý tự động. AI không tự lưu hay tự publish gì cả — bạn luôn là người bấm lưu.
+
+**KHÔNG làm được — Ảnh/PDF (khác với lựa chọn bạn đã chọn trước đó):** Sau khi kiểm tra thật, dự án **chưa có thư viện đọc chữ trong ảnh (OCR)** nào cả. Đường OCR duy nhất đã thiết kế sẵn trong hệ thống (`lib/input/image-import.ts`) cần một máy chủ Python riêng (biến môi trường `DOCUMENT_WORKER_URL`) — máy chủ này **chưa được triển khai**, cả ở máy tôi lẫn trên Vercel production. Tôi cân nhắc thêm thư viện OCR chạy trực tiếp trên server (tesseract.js) nhưng quyết định KHÔNG làm vì rủi ro thật trên Vercel serverless (tải dữ liệu ngôn ngữ nặng lúc khởi động, dễ timeout/lỗi) và sẽ tạo ra 2 hệ thống OCR cạnh tranh nhau thay vì 1. Màn hình "Ảnh / PDF" hiện báo rõ "chưa hỗ trợ" thay vì giả vờ chạy được. PDF/PPTX cũng chưa làm, cùng lý do hạ tầng.
+
+Đã xác minh: `pnpm typecheck`/`lint` (0 lỗi)/`test` (249/249)/`test:sql` (19 bảng)/`build` sạch. Không có migration, không đổi schema.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-16 — 🐛 Đã merge + deploy: Sửa Coach vẫn hỏi lặp lại khi học viên trả lời đúng nhưng không khớp từ khoá đã cấu hình, KHÔNG cần migration.**
 
 Bạn báo đúng: hỏi "Nhóm khách hàng mục tiêu là ai?", học viên trả lời "gái mới lớn", "18 tuổi nữ", "nữ 18 đến 30" — Coach vẫn hỏi lại y hệt. Khác với lỗi hôm trước (offline mode chưa biết đọc gì cả), lần này **"Hướng nghề" đã nhận đúng** (cô dâu → Bridal Makeup) — chỉ riêng "Khách hàng mục tiêu" bị kẹt vì danh sách từ khoá tôi cấu hình sẵn ("khách trẻ", "22-28", "cao cấp"...) không khớp với cách học viên thật sự trả lời.
