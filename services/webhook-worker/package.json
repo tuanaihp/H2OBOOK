@@ -2,5 +2,5 @@
   "name": "h2obook-webhook-worker",
   "private": true,
   "type": "module",
-  "dependencies": { "@supabase/supabase-js": "^2.49.8" }
+  "dependencies": { "@supabase/supabase-js": "^2.112.3" }
 }
