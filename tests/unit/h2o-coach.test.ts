@@ -21,6 +21,7 @@ const memorySchema: CoachMemoryFieldSchema[] = [
 function missionConfig(overrides: Partial<MissionCoachConfig> = {}): MissionCoachConfig {
   return {
     id: "mc1", profileVersionId: "pv1", missionId: MISSION_ID, objective: "Xác định hướng nghề Makeup",
+    coachInstructions: "", rubric: {}, evidenceRequirements: [],
     requiredFields: ["career.direction", "career.target_customer"],
     questions: [
       { id: "q1", when: [{ field: "career.direction", op: "missing" }], prompt: "Bạn muốn theo hướng Makeup nào?", priority: 2 },

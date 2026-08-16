@@ -50,6 +50,11 @@ export const academyAdminRoutes = [
   // third source of truth for Curriculum or Journey data.
   { href: "/academy-admin/data-link", label: "Liên kết dữ liệu", icon: Link2 },
   { href: "/academy-admin/content", label: "Kho nội dung Academy", icon: LibraryBig },
+  // Admin Knowledge Gateway V1 (docs/knowledge-gateway-v1) — the first real authoring UI
+  // curriculum_documents has ever had (previously only a seed script wrote to it). Distinct from
+  // "Kho nội dung Academy" above, which is an explicitly read-only index of OTHER tables
+  // (books/publications/templates/knowledge spaces/assets), not curriculum_documents itself.
+  { href: "/academy-admin/knowledge", label: "Cổng nạp kiến thức", icon: FileInput },
   { href: "/academy-admin/brain", label: "H2O Brain", icon: Brain },
   // H2O Coach OS V1 (docs/h2o-coach-v1) — a separate domain from H2O Brain above: Brain curates
   // admin-facing content/knowledge, Coach Builder configures per-Stage STUDENT coaching (role,

@@ -96,10 +96,16 @@ export interface MissionCoachConfig {
   missionId: string;
   profileVersionId: string;
   objective: string;
+  /** Admin-internal behavior guidance (tone, do/don't) — distinct from `objective`, which is the student-facing framing of what the Mission is for. Folds into the system prompt, never shown to the learner as-is. */
+  coachInstructions: string;
   requiredFields: string[];
   questions: CoachQuestionRule[];
   tools: CoachToolBinding[];
   resultTemplate?: CoachResultTemplate;
+  /** Free-form grading criteria an admin defines for this Mission — surfaced to the Coach for context, never used to auto-score; only informs its language. */
+  rubric: Record<string, unknown>;
+  /** Structured evidence expectations (e.g. "1 ảnh trước/sau") beyond the free-text evidence the 4-tab Mission Workspace already collects — advisory to the Coach, not a second evidence-collection mechanism. */
+  evidenceRequirements: Record<string, unknown>[];
 }
 
 export interface LearnerMemoryValue {

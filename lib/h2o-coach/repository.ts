@@ -30,11 +30,16 @@ export async function getPublishedStageProfile(organizationId: string, stageId: 
 }
 
 interface MissionConfigRow {
-  id: string; profile_version_id: string; mission_id: string; objective: string; required_fields: string[];
+  id: string; profile_version_id: string; mission_id: string; objective: string; coach_instructions: string | null; required_fields: string[];
   questions: MissionCoachConfig["questions"]; tools: MissionCoachConfig["tools"]; result_template: MissionCoachConfig["resultTemplate"] | null;
+  rubric: Record<string, unknown> | null; evidence_requirements: Record<string, unknown>[] | null;
 }
 function mapMissionConfig(row: MissionConfigRow): MissionCoachConfig {
-  return { id: row.id, profileVersionId: row.profile_version_id, missionId: row.mission_id, objective: row.objective, requiredFields: row.required_fields ?? [], questions: row.questions ?? [], tools: row.tools ?? [], resultTemplate: row.result_template ?? undefined };
+  return {
+    id: row.id, profileVersionId: row.profile_version_id, missionId: row.mission_id, objective: row.objective,
+    coachInstructions: row.coach_instructions ?? "", requiredFields: row.required_fields ?? [], questions: row.questions ?? [],
+    tools: row.tools ?? [], resultTemplate: row.result_template ?? undefined, rubric: row.rubric ?? {}, evidenceRequirements: row.evidence_requirements ?? []
+  };
 }
 
 export async function getMissionConfig(organizationId: string, profileVersionId: string, missionId: string): Promise<MissionCoachConfig | null> {
@@ -50,6 +55,12 @@ export async function getMissionConfig(organizationId: string, profileVersionId:
  * items total — the performance guidance explicitly says not to load the whole curriculum per turn.
  * Cross-stage grounding (§7's optional 4th tier) is not built: no admin policy toggle for it exists
  * in this pass's config shape, so it is simply never enabled rather than half-implemented.
+ *
+ * curriculum_documents rows are only included when editorial_status='published' (docs/knowledge-
+ * gateway-v1) — a Knowledge Gateway draft the admin hasn't published yet must never leak into a live
+ * Coach conversation, same "official knowledge only when published" rule the source spec requires.
+ * career_stage_resources placements are unaffected — that table has no editorial_status column, its
+ * existing status='active' check already governs visibility.
  */
 export async function getKnowledgeContext(organizationId: string, stageId: string, missionId: string, scope: CoachKnowledgeScope): Promise<Array<{ id: string; title: string; excerpt?: string }>> {
   const admin = createSupabaseAdminClient();
@@ -62,7 +73,7 @@ export async function getKnowledgeContext(organizationId: string, stageId: strin
     const { data: bindings } = await admin.from("learning_mission_resource_bindings").select("resource_type,resource_id").eq("organization_id", organizationId).eq("mission_id", missionId);
     const docIds = ((bindings ?? []) as { resource_type: string; resource_id: string }[]).filter((b) => b.resource_type === "document").map((b) => b.resource_id);
     if (docIds.length) {
-      const { data: docs } = await admin.from("curriculum_documents").select("id,title,summary").eq("organization_id", organizationId).in("id", docIds);
+      const { data: docs } = await admin.from("curriculum_documents").select("id,title,summary").eq("organization_id", organizationId).eq("editorial_status", "published").in("id", docIds);
       for (const d of (docs ?? []) as { id: string; title: string; summary: string }[]) add(d.id, d.title, d.summary);
     }
   }
@@ -75,7 +86,7 @@ export async function getKnowledgeContext(organizationId: string, stageId: strin
   if (scope.resourceIds.length && results.length < 12) {
     const remaining = scope.resourceIds.filter((id) => !seen.has(id)).slice(0, 12 - results.length);
     if (remaining.length) {
-      const { data: docs } = await admin.from("curriculum_documents").select("id,title,summary").eq("organization_id", organizationId).in("id", remaining);
+      const { data: docs } = await admin.from("curriculum_documents").select("id,title,summary").eq("organization_id", organizationId).eq("editorial_status", "published").in("id", remaining);
       for (const d of (docs ?? []) as { id: string; title: string; summary: string }[]) add(d.id, d.title, d.summary);
     }
   }

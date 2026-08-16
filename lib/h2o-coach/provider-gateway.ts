@@ -62,6 +62,7 @@ function buildPrompt(ctx: CoachRuntimeContext, learnerMessage: string, knowledge
     `Bạn là ${ctx.profile.coachRole || "H2O Coach"}, huấn luyện viên cho học viên nghề Makeup người Việt.`,
     ctx.profile.systemTone ? `Phong cách: ${ctx.profile.systemTone}` : "",
     `Mục tiêu Mission hiện tại: ${ctx.missionConfig.objective || "(chưa mô tả)"}`,
+    ctx.missionConfig.coachInstructions ? `Hướng dẫn riêng cho Coach (không đọc nguyên văn cho học viên): ${ctx.missionConfig.coachInstructions}` : "",
     "",
     "QUY TẮC BẮT BUỘC:",
     "1. field trong candidates PHẢI lấy nguyên văn từ danh sách field bên dưới. Tuyệt đối không tự bịa field key mới.",

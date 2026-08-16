@@ -105,11 +105,12 @@ export async function duplicateProfileVersion(access: AcademyAdminAccess, profil
   }).select("id").single();
   if (error || !version) return { ok: false, error: error?.message ?? "VERSION_CREATE_FAILED" };
 
-  const { data: missionConfigs } = await supabase.from("coach_mission_configs").select("mission_id,objective,required_fields,questions,tools,result_template").eq("organization_id", org).eq("profile_version_id", sourceVersionId);
-  for (const row of (missionConfigs ?? []) as { mission_id: string; objective: string; required_fields: string[]; questions: unknown; tools: unknown; result_template: unknown }[]) {
+  const { data: missionConfigs } = await supabase.from("coach_mission_configs").select("mission_id,objective,coach_instructions,required_fields,questions,tools,result_template,rubric,evidence_requirements").eq("organization_id", org).eq("profile_version_id", sourceVersionId);
+  for (const row of (missionConfigs ?? []) as { mission_id: string; objective: string; coach_instructions: string | null; required_fields: string[]; questions: unknown; tools: unknown; result_template: unknown; rubric: unknown; evidence_requirements: unknown }[]) {
     await supabase.from("coach_mission_configs").insert({
       organization_id: org, profile_version_id: version.id, mission_id: row.mission_id, objective: row.objective,
-      required_fields: row.required_fields, questions: row.questions, tools: row.tools, result_template: row.result_template
+      coach_instructions: row.coach_instructions, required_fields: row.required_fields, questions: row.questions,
+      tools: row.tools, result_template: row.result_template, rubric: row.rubric, evidence_requirements: row.evidence_requirements
     });
   }
 
@@ -142,7 +143,8 @@ export async function updateProfileVersion(access: AcademyAdminAccess, versionId
 }
 
 export interface MissionConfigInput {
-  objective: string; requiredFields: string[]; questions: CoachQuestionRule[]; tools: CoachToolBinding[]; resultTemplate?: CoachResultTemplate;
+  objective: string; coachInstructions?: string; requiredFields: string[]; questions: CoachQuestionRule[]; tools: CoachToolBinding[];
+  resultTemplate?: CoachResultTemplate; rubric?: Record<string, unknown>; evidenceRequirements?: Record<string, unknown>[];
 }
 
 /** Create/replace one Mission's coaching config within a draft profile version — requires the version to still be draft, same as every other Coach Builder write. */
@@ -157,8 +159,8 @@ export async function upsertMissionConfig(access: AcademyAdminAccess, profileVer
 
   const { data, error } = await supabase.from("coach_mission_configs").upsert({
     organization_id: access.organizationId, profile_version_id: profileVersionId, mission_id: missionId,
-    objective: input.objective, required_fields: input.requiredFields, questions: input.questions, tools: input.tools,
-    result_template: input.resultTemplate ?? null, updated_at: new Date().toISOString()
+    objective: input.objective, coach_instructions: input.coachInstructions ?? "", required_fields: input.requiredFields, questions: input.questions, tools: input.tools,
+    result_template: input.resultTemplate ?? null, rubric: input.rubric ?? {}, evidence_requirements: input.evidenceRequirements ?? [], updated_at: new Date().toISOString()
   }, { onConflict: "profile_version_id,mission_id" }).select("id").single();
   if (error || !data) return { ok: false, error: error?.message ?? "MISSION_CONFIG_SAVE_FAILED" };
   return { ok: true, data: { id: data.id } };
@@ -209,9 +211,13 @@ export async function getProfileVersionDetail(access: AcademyAdminAccess, versio
   if (!version) return null;
   const v = version as { id: string; organization_id: string; profile_id: string; version_number: number; status: CoachVersionStatus; name: string; coach_role: string; system_tone: string; provider_mode: "offline" | "hybrid" | "ai"; knowledge_scope: CoachKnowledgeScope; memory_schema: CoachMemoryFieldSchema[]; published_at: string | null; created_at: string; updated_at: string };
 
-  const { data: configs } = await supabase.from("coach_mission_configs").select("id,profile_version_id,mission_id,objective,required_fields,questions,tools,result_template").eq("organization_id", access.organizationId).eq("profile_version_id", versionId);
-  const missionConfigs: MissionCoachConfig[] = ((configs ?? []) as { id: string; profile_version_id: string; mission_id: string; objective: string; required_fields: string[]; questions: CoachQuestionRule[]; tools: CoachToolBinding[]; result_template: CoachResultTemplate | null }[])
-    .map((row) => ({ id: row.id, profileVersionId: row.profile_version_id, missionId: row.mission_id, objective: row.objective, requiredFields: row.required_fields ?? [], questions: row.questions ?? [], tools: row.tools ?? [], resultTemplate: row.result_template ?? undefined }));
+  const { data: configs } = await supabase.from("coach_mission_configs").select("id,profile_version_id,mission_id,objective,coach_instructions,required_fields,questions,tools,result_template,rubric,evidence_requirements").eq("organization_id", access.organizationId).eq("profile_version_id", versionId);
+  const missionConfigs: MissionCoachConfig[] = ((configs ?? []) as { id: string; profile_version_id: string; mission_id: string; objective: string; coach_instructions: string | null; required_fields: string[]; questions: CoachQuestionRule[]; tools: CoachToolBinding[]; result_template: CoachResultTemplate | null; rubric: Record<string, unknown> | null; evidence_requirements: Record<string, unknown>[] | null }[])
+    .map((row) => ({
+      id: row.id, profileVersionId: row.profile_version_id, missionId: row.mission_id, objective: row.objective,
+      coachInstructions: row.coach_instructions ?? "", requiredFields: row.required_fields ?? [], questions: row.questions ?? [],
+      tools: row.tools ?? [], resultTemplate: row.result_template ?? undefined, rubric: row.rubric ?? {}, evidenceRequirements: row.evidence_requirements ?? []
+    }));
 
   return {
     id: v.id, organizationId: v.organization_id, profileId: v.profile_id, versionNumber: v.version_number, status: v.status,
