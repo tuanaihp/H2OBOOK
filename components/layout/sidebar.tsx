@@ -6,7 +6,7 @@ import {
   BarChart3, BookCopy, BookOpen, Boxes, Brain, ClipboardCheck, CloudCog, CreditCard, FileCheck2,
   FileQuestion, FolderOpen, GraduationCap, LibraryBig, LockKeyhole, Palette, PlugZap, Settings,
   ShieldCheck, ShoppingBag, Sparkles, Store, UserCircle, Users, WandSparkles, Workflow, Globe2,
-  BadgeDollarSign, ListChecks, MessageSquareMore, HeartPulse, LayoutDashboard, Blocks, WifiOff, Import, Send, Sheet, Megaphone, Grid3X3, BotOff, Building2, BadgeCheck, LifeBuoy
+  BadgeDollarSign, ListChecks, MessageSquareMore, HeartPulse, LayoutDashboard, Blocks, WifiOff, Import, Send, Sheet, Megaphone, Grid3X3, BotOff, Building2, BadgeCheck, LifeBuoy, Plug
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
@@ -69,6 +69,10 @@ const domains = [
     ...(operationsFeatures.academyControlCenter ? [{ href: "/academy-admin", label: "Academy Control Center", icon: GraduationCap }] : []),
     ...(operationsFeatures.operationsCenter ? [{ href: "/operations", label: "Operations Center", icon: LifeBuoy }] : []),
     { href: "/enterprise", label: "Enterprise & API", icon: Building2 },
+    // "Cổng API" (AI Provider Gateway V1) — organization-level Gemini/OpenAI/xAI credential vault,
+    // deliberately its own tab rather than a section inside Enterprise & API per the explicit request
+    // to place it right below that item.
+    { href: "/api-gateway", label: "Cổng API", icon: Plug },
     { href: "/integrations", label: "Tích hợp", icon: PlugZap },
     { href: "/cloud-sync", label: "Cloud Sync", icon: CloudCog },
     { href: "/offline", label: "Offline Center", icon: WifiOff },
