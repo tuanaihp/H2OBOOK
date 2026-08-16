@@ -20,7 +20,8 @@ const DOC_TYPES = [
 const AUTHORITY_LABEL: Record<Authority, string> = { h2o_official: "H2O chính thức", external_reference: "Tham khảo ngoài", ai_suggestion: "AI gợi ý" };
 const STATUS_LABEL: Record<EditorialStatus, string> = { draft: "Bản nháp", review: "Đang duyệt", published: "Đã publish", archived: "Đã lưu trữ" };
 const STATUS_TONE: Record<EditorialStatus, string> = { draft: "#9aa4b2", review: "#a05a13", published: "#177a54", archived: "#b42318" };
-const MODES = ["Viết trực tiếp", "Tài liệu (PDF/DOCX/PPTX/Ảnh)", "Video", "URL", "Từ thư viện"] as const;
+const MODES = ["Viết trực tiếp", "Tài liệu (DOCX)", "URL", "Ảnh / PDF", "Video", "Từ thư viện"] as const;
+const borderedBoxStyle: React.CSSProperties = { maxWidth: 640, border: "1px dashed #dde6ef", borderRadius: 14, padding: 20, fontSize: 13, color: "#718092" };
 
 async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; json: T & { error?: string } }> {
   const res = await fetch(url, init ? { ...init, headers: { "content-type": "application/json", ...init.headers } } : undefined);
@@ -46,6 +47,38 @@ export default function KnowledgeGatewayPage() {
   const [status, setStatus] = useState("Chưa có thay đổi");
 
   const [form, setForm] = useState({ title: "", summary: "", bodyMarkdown: "", docType: "article", skillCode: "", authority: "h2o_official" as Authority });
+  const [extracting, setExtracting] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [extractionNote, setExtractionNote] = useState<string | null>(null);
+
+  async function runExtraction(body: FormData) {
+    setExtracting(true); setExtractionNote(null); setStatus("Chưa có thay đổi");
+    const res = await fetch("/api/academy-admin/knowledge/extract", { method: "POST", body });
+    const json = await res.json().catch(() => null);
+    setExtracting(false);
+    if (!res.ok) { setStatus(json?.error ?? "Không trích xuất được nội dung."); return; }
+    setForm({ title: json.title || "", summary: json.summary || "", bodyMarkdown: json.bodyMarkdown || "", docType: json.docType || "article", skillCode: json.skillCode || "", authority: "h2o_official" });
+    setExtractionNote(json.usedAi
+      ? "Đã trích xuất văn bản thật và AI đã gợi ý tiêu đề/tóm tắt/loại tài liệu bên dưới — kiểm tra lại trước khi lưu."
+      : "Đã trích xuất văn bản thật (chưa cấu hình AI trong Cổng API nên chưa có gợi ý tự động — chỉ có văn bản gốc) — kiểm tra lại trước khi lưu.");
+    setMode("Viết trực tiếp");
+  }
+
+  async function onPickDocx(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    await runExtraction(fd);
+  }
+
+  async function onExtractUrl() {
+    if (!urlInput.trim()) return;
+    const fd = new FormData();
+    fd.append("url", urlInput.trim());
+    await runExtraction(fd);
+  }
 
   async function load() {
     setUnits(null);
@@ -107,6 +140,7 @@ export default function KnowledgeGatewayPage() {
           {status && <p style={{ fontSize: 12, color: "#177a54", marginBottom: 10 }}>{status}</p>}
 
           {mode === "Viết trực tiếp" && <div style={{ display: "grid", gap: 8, maxWidth: 640 }}>
+            {extractionNote && <p style={{ fontSize: 12, color: "#a05a13", background: "#fff5e8", borderRadius: 10, padding: "8px 12px" }}>{extractionNote}</p>}
             <input placeholder="Tên kiến thức" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={inputStyle} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               <select value={form.docType} onChange={(e) => setForm({ ...form, docType: e.target.value })} style={inputStyle}>{DOC_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
@@ -120,13 +154,29 @@ export default function KnowledgeGatewayPage() {
             <button className={styles.buttonPrimary} disabled={busy} onClick={createUnit}>Lưu bản nháp</button>
           </div>}
 
-          {(mode === "Tài liệu (PDF/DOCX/PPTX/Ảnh)" || mode === "Video") && <div style={{ maxWidth: 640, border: "1px dashed #dde6ef", borderRadius: 14, padding: 20, fontSize: 13, color: "#718092" }}>
-            Chế độ này chưa tự động trích xuất văn bản từ file — dùng Kho tài sản (Assets) để tải file lên lưu trữ, sau đó quay lại đây và dùng &quot;Viết trực tiếp&quot; để dán nội dung đã trích xuất thủ công. Trích xuất tự động (OCR/transcription) là bước tiếp theo, chưa xây trong đợt này.
+          {mode === "Tài liệu (DOCX)" && <div style={{ maxWidth: 640, display: "grid", gap: 8 }}>
+            <label style={{ ...borderedBoxStyle, display: "block", cursor: extracting ? "wait" : "pointer", textAlign: "center", fontWeight: 600 }}>
+              {extracting ? "Đang trích xuất…" : "+ Chọn file .docx để trích xuất văn bản thật"}
+              <input type="file" accept=".docx" disabled={extracting} onChange={onPickDocx} style={{ display: "none" }} />
+            </label>
+            <p style={{ fontSize: 12, color: "#718092" }}>Trích xuất văn bản thật từ file Word (không phải giả lập). Nếu tổ chức đã cấu hình AI trong &quot;Cổng API&quot;, AI sẽ gợi ý thêm tiêu đề/tóm tắt/loại tài liệu — chưa cấu hình thì chỉ có văn bản gốc, vẫn dùng được. Kết quả mở ở tab &quot;Viết trực tiếp&quot; để bạn xem lại trước khi lưu.</p>
           </div>}
-          {mode === "URL" && <div style={{ maxWidth: 640, border: "1px dashed #dde6ef", borderRadius: 14, padding: 20, fontSize: 13, color: "#718092" }}>
-            Dùng &quot;Viết trực tiếp&quot;, đặt Nguồn = &quot;Tham khảo ngoài&quot;, và dán nội dung/tóm tắt cùng đường link gốc vào phần Nội dung — tự động tải và phân tích URL là bước tiếp theo, chưa xây trong đợt này.
+
+          {mode === "URL" && <div style={{ maxWidth: 640, display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input placeholder="https://..." value={urlInput} onChange={(e) => setUrlInput(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <button className={styles.buttonPrimary} disabled={extracting || !urlInput.trim()} onClick={onExtractUrl}>{extracting ? "Đang tải…" : "Trích xuất"}</button>
+            </div>
+            <p style={{ fontSize: 12, color: "#718092" }}>Tải trang thật (có chặn địa chỉ nội bộ/riêng tư) và trích văn bản — mặc định Nguồn = &quot;Tham khảo ngoài&quot;. Kết quả mở ở tab &quot;Viết trực tiếp&quot; để bạn xem lại trước khi lưu.</p>
           </div>}
-          {mode === "Từ thư viện" && <div style={{ maxWidth: 640, border: "1px dashed #dde6ef", borderRadius: 14, padding: 20, fontSize: 13, color: "#718092" }}>
+
+          {mode === "Ảnh / PDF" && <div style={borderedBoxStyle}>
+            Chưa hỗ trợ tự động. OCR ảnh/PDF trong H2OBOOK cần máy chủ xử lý riêng (Python document-processor) — hạ tầng đã có sẵn trong dự án nhưng chưa được triển khai/kết nối (biến môi trường DOCUMENT_WORKER_URL chưa cấu hình). Dùng &quot;Viết trực tiếp&quot; và dán nội dung đã đọc thủ công cho tới khi máy chủ đó sẵn sàng — tránh dùng thư viện OCR khác chạy trực tiếp trên Vercel vì không ổn định cho môi trường serverless.
+          </div>}
+          {mode === "Video" && <div style={borderedBoxStyle}>
+            Chưa hỗ trợ tự động — chuyển giọng nói thành văn bản (transcription) cần dịch vụ riêng chưa được kết nối. Dùng &quot;Viết trực tiếp&quot; và dán nội dung đã ghi chú thủ công.
+          </div>}
+          {mode === "Từ thư viện" && <div style={borderedBoxStyle}>
             Tài liệu/Sách/Video đã có trong H2OBOOK — vào &quot;Bản đồ kết quả học viên&quot;, mở Mission cần gắn, chọn &quot;Học liệu liên kết&quot; và chọn tài nguyên có sẵn. Không nhân bản file — chỉ liên kết, đúng dữ liệu gốc.
           </div>}
         </div>
