@@ -19,14 +19,23 @@ function checkCondition(condition: CoachCondition, values: Map<string, unknown>)
   }
 }
 
-/** Highest-priority question whose every condition is satisfied by confirmed memory — deterministic, no LLM. */
-export function nextOfflineQuestion(ctx: CoachRuntimeContext): string | null {
+/** Highest-priority question rule whose every condition is satisfied by confirmed memory — deterministic, no LLM. Returns the whole rule (not just the prompt text) so callers can also read its target field. */
+export function nextOfflineQuestionRule(ctx: CoachRuntimeContext) {
   const values = confirmedValueMap(ctx.memory);
   const ordered = [...ctx.missionConfig.questions].sort((a, b) => b.priority - a.priority);
   for (const q of ordered) {
-    if (q.when.every((c) => checkCondition(c, values))) return q.prompt;
+    if (q.when.every((c) => checkCondition(c, values))) return q;
   }
   return null;
+}
+
+export function nextOfflineQuestion(ctx: CoachRuntimeContext): string | null {
+  return nextOfflineQuestionRule(ctx)?.prompt ?? null;
+}
+
+/** A question rule's own field if declared, otherwise its single `when` condition's field — true for every question this session's Coach Builder UI has ever produced (one condition per question). */
+export function questionTargetField(rule: { targetField?: string; when: CoachCondition[] }): string | null {
+  return rule.targetField || rule.when[0]?.field || null;
 }
 
 /** Which required fields still lack a confirmed value — used both for the offline reply and for the Result tab's "còn thiếu" list. */

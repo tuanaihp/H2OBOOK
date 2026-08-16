@@ -1,7 +1,7 @@
 import "server-only";
 import { resolveMissionContext } from "@/lib/mission-workspace/student";
 import { completeSelfReportedMission } from "@/lib/learn-outcome/student";
-import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, runOfflineCoachTurn } from "./offline-engine";
+import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "./offline-engine";
 import { generateCoachTurn, isCoachAiConfigured } from "./provider-gateway";
 import { appendConversation, getConversation, getKnowledgeContext, getRuntimeContext } from "./repository";
 import { saveProposedMemory } from "./memory";
@@ -84,6 +84,24 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
   if (!usedAi && stateBeforeTurn !== "awaiting_confirmation") {
     const confirmedKeys = new Set(ctx.memory.filter((m) => m.status === "confirmed").map((m) => m.field));
     candidates = extractCandidatesFromText(args.learnerMessage, ctx.profile.memorySchema, confirmedKeys);
+
+    // Fallback found 2026-08-16 in real production data: admin-configured extractionRules cannot
+    // cover every real phrasing a student uses ("gái mới lớn"/"18 tuổi nữ"/"nữ 18 đến 30" all mean
+    // the same thing to a human but match none of a target_customer field's keyword rules) — without
+    // this, the same question repeats forever the moment a student's wording isn't on the admin's
+    // list, exactly the original "Coach hỏi lặp lại" bug in a new shape. If keyword matching found
+    // nothing but a question is actively pending, the field it targets has no canonical-value list to
+    // match against anyway (free-text fields like "who is your target customer" don't have one) — so
+    // the student's own words become the value directly, deterministically, no LLM involved. The
+    // final whole-mission confirmation step (STEP 7) is still the safety net if this ever captures
+    // something wrong.
+    if (!candidates.length) {
+      const activeRule = nextOfflineQuestionRule(ctx);
+      const targetField = activeRule ? questionTargetField(activeRule) : null;
+      if (targetField && !confirmedKeys.has(targetField)) {
+        candidates = [{ field: targetField, value: args.learnerMessage.trim(), confidence: 0.6, rationale: "câu trả lời trực tiếp cho câu hỏi đang hỏi, không khớp từ khoá đã cấu hình", requiresConfirmation: false }];
+      }
+    }
   }
 
   // STEP 4/6: PERSIST, then AWAIT COMMIT, then RE-QUERY the authoritative memory before deciding
