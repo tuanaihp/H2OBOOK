@@ -129,7 +129,14 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
 
   await appendConversation(args.organizationId, args.learnerId, args.missionId, { id: crypto.randomUUID(), role: "coach", text: reply, createdAt: new Date().toISOString() });
 
-  return { ok: true, data: { ...deterministic, reply, missionId: args.missionId, usedAi } };
+  // Bug found in production 2026-08-16: runOfflineCoachTurn() always returns candidates: [] (it only
+  // uses justExtracted to phrase the "Đã hiểu..." acknowledgment, never echoes it back) — spreading
+  // `deterministic` last overwrote the real extraction with that empty array, so the client's Brain
+  // Memory sidebar (coach-workspace-shell.tsx's `memory` state) never updated after a turn even though
+  // the value was correctly saved and reflected in the chat's own summary text. Field values only
+  // reappeared correct after a full page reload re-fetched `initialMemory` from the server. `candidates`
+  // here is deliberately re-applied after the spread so this turn's real extraction always reaches the UI.
+  return { ok: true, data: { ...deterministic, candidates, reply, missionId: args.missionId, usedAi } };
 }
 
 /**
