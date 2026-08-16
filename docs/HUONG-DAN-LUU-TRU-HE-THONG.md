@@ -6,6 +6,18 @@
 
 ---
 
+**2026-08-16 — 🐛 Đã merge + deploy: Sửa Coach vẫn hỏi lặp lại khi học viên trả lời đúng nhưng không khớp từ khoá đã cấu hình, KHÔNG cần migration.**
+
+Bạn báo đúng: hỏi "Nhóm khách hàng mục tiêu là ai?", học viên trả lời "gái mới lớn", "18 tuổi nữ", "nữ 18 đến 30" — Coach vẫn hỏi lại y hệt. Khác với lỗi hôm trước (offline mode chưa biết đọc gì cả), lần này **"Hướng nghề" đã nhận đúng** (cô dâu → Bridal Makeup) — chỉ riêng "Khách hàng mục tiêu" bị kẹt vì danh sách từ khoá tôi cấu hình sẵn ("khách trẻ", "22-28", "cao cấp"...) không khớp với cách học viên thật sự trả lời.
+
+**Đã sửa:** khi không khớp từ khoá nào nhưng Coach đang hỏi đúng 1 câu cụ thể, hệ thống giờ **tự nhận câu trả lời gốc của học viên làm giá trị** cho đúng field đang hỏi — không cần AI, không cần liệt kê hết mọi cách diễn đạt có thể. Hợp lý vì các trường như "khách hàng mục tiêu" vốn không có danh sách giá trị chuẩn cố định — câu trả lời của học viên chính là giá trị. Bước xác nhận tổng kết cuối cùng vẫn là lưới an toàn nếu có ghi nhận sai.
+
+Đã xác minh bằng 4 test mới tái hiện đúng 3 câu trả lời thật trong ảnh bạn gửi + 249/249 test toàn hệ thống. Không cần migration.
+
+Merge, deploy, health check ✅.
+
+---
+
 **2026-08-16 — 📚 Đã merge + deploy: Cổng API (AI Provider Gateway) + Cổng nạp kiến thức (Admin Knowledge Gateway), CÓ 2 migration (0058, 0059, bạn đã tự chạy trong Supabase SQL Editor).**
 
 Tích hợp folder mới cho 2 yêu cầu: (1) "Cổng API" — nơi lưu API key của các nhà cung cấp AI (Gemini/OpenAI/Grok); (2) folder 40 "Admin Knowledge Gateway" — nơi Admin tự viết/nạp kiến thức chính thức cho H2O Coach dùng.
