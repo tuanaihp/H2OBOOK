@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-16 — 🐛 Đã merge + deploy: Sửa không bấm được sang Mission tiếp theo sau khi hoàn thành Mission hiện tại (màn hình H2O Coach mới), KHÔNG cần migration.**
+
+Bạn báo đúng: sau khi Mission "Xác định hướng nghề Makeup" báo 100% hoàn thành, cột "Journey Context" bên trái có hiện Mission tiếp theo ("Hoàn thành Makeup Career Map") nhưng **bấm vào không có phản ứng gì** — không phải bạn thao tác sai.
+
+**Nguyên nhân thật:** màn hình H2O Coach Workspace mới (khác màn hình 4-tab cũ) vẽ toàn bộ danh sách Mission trong "Journey Context" bằng `<div>` thường, không có liên kết nào cả — trong khi màn hình cũ (4-tab) đã có sẵn cơ chế bấm-để-chuyển-Mission từ lâu. Coach Workspace mới đơn giản là quên nối dây phần này khi được xây.
+
+**Đã sửa:** Mission nào đã mở khoá (không phải Mission đang xem, không phải Mission còn khoá) giờ bấm được để chuyển thẳng sang Mission đó — đúng cơ chế màn hình cũ đang dùng.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-16 — 🐛 Đã merge + deploy: Sửa "Hồ sơ đang hình thành" bên phải không tự cập nhật ngay sau khi trả lời, dù giá trị đã lưu đúng, KHÔNG cần migration.**
 
 Bạn báo đúng: màn hình chat hiện Coach đã tổng hợp đúng "Khách hàng mục tiêu: nữ 18 tuổi" và bạn đã bấm "Đúng rồi" (Mission báo 100% hoàn thành), nhưng bảng "H2O Brain Memory" bên phải vẫn ghi "Chưa xác định" cho đúng field đó.
