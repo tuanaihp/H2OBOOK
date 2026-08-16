@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, missingRequiredFields, nextOfflineQuestion, runOfflineCoachTurn } from "@/lib/h2o-coach/offline-engine";
+import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, missingRequiredFields, nextOfflineQuestion, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "@/lib/h2o-coach/offline-engine";
 import { missionConfirmedFieldKey, type CoachMemoryFieldSchema, type CoachRuntimeContext, type LearnerMemoryValue, type MissionCoachConfig } from "@/lib/h2o-coach/types";
 
 // docs/h2o-coach-v1 + the 2026-08-15 "Mission Coach state / H2O Brain memory sync" fix — the ones
@@ -177,5 +177,34 @@ describe("runOfflineCoachTurn — full reply composition given already-fresh (po
     expect(result.nextQuestion).toBeNull();
     expect(result.missionState).toBe("in_progress");
     expect(result.completionHints).toContain("career.income_goal");
+  });
+});
+
+describe("nextOfflineQuestionRule / questionTargetField (2026-08-16 fix — real-answer fallback when no keyword rule matches)", () => {
+  it("returns the active question's own targetField when set", () => {
+    const config = missionConfig({ questions: [{ id: "q1", when: [{ field: "career.direction", op: "missing" }], prompt: "?", priority: 1, targetField: "career.direction_custom" }] });
+    const rule = nextOfflineQuestionRule(ctx([], config));
+    expect(rule && questionTargetField(rule)).toBe("career.direction_custom");
+  });
+
+  it("falls back to the single `when` condition's field when targetField is not set — true for every question this session's Coach Builder has ever produced", () => {
+    const rule = nextOfflineQuestionRule(ctx([]));
+    expect(rule && questionTargetField(rule)).toBe("career.direction");
+  });
+
+  it("real bug found in production: 'gái mới lớn'/'18 tuổi nữ' match no keyword rule for career.target_customer, but the active question still correctly targets that field so the fallback in service.ts can capture the raw answer", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup")];
+    const rule = nextOfflineQuestionRule(ctx(memory));
+    expect(rule?.prompt).toBe("Khách hàng mục tiêu của bạn là ai?");
+    expect(rule && questionTargetField(rule)).toBe("career.target_customer");
+    // extractCandidatesFromText alone (no fallback) finds nothing for either phrasing — confirms the
+    // fallback in service.ts is doing real work, not papering over a case that already worked.
+    expect(extractCandidatesFromText("gái mới lớn", memorySchema, new Set(["career.direction"]))).toEqual([]);
+    expect(extractCandidatesFromText("18 tuổi nữ", memorySchema, new Set(["career.direction"]))).toEqual([]);
+  });
+
+  it("returns null once no question is active (awaiting confirmation or already answered)", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "18 tuổi nữ")];
+    expect(nextOfflineQuestionRule(ctx(memory))).toBeNull();
   });
 });
