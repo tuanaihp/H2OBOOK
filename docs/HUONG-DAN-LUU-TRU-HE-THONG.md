@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-17 — 🤖 Đã merge + deploy: "Tự động tạo cấu hình Coach" — mở rộng chatbot AI cho toàn bộ 6 Giai đoạn / 58 Mission, KHÔNG có migration.**
+
+Bạn muốn "1 lần thiết kế cho đủ toàn bộ các giai đoạn đều tích hợp chatbot AI". Kiểm tra thật: hệ thống có 58 Mission trên 6 Giai đoạn, chỉ 3 Mission đã có cấu hình Coach (từ phiên làm việc trước). Tự soạn tay hết 55 Mission còn lại sẽ rất mất thời gian và khó bảo trì khi bạn thêm Mission mới sau này — nên đã hỏi và bạn chọn xây tính năng **"Tự động tạo cấu hình"** để dùng lại được mãi mãi, không phải nhờ tôi làm tay từng Mission một nữa.
+
+**Cách hoạt động:** đọc đúng dữ liệu thật bạn đã nhập sẵn cho Mission đó (Success Criteria / Expected Result trong Bản đồ kết quả học viên) → tự tạo 1 câu hỏi cho mỗi tiêu chí → lưu vào bản nháp để bạn xem lại, chỉnh sửa, chạy thử (dùng đúng khung "Chat thử" vừa xây), rồi tự tay bấm Áp dụng — **không tự động publish, không bịa nội dung**.
+
+Trong Coach Builder, tab Mission Coaching giờ có 2 nút:
+- **"✨ Tự động tạo cấu hình cho Mission này"** — cho Mission đang chọn.
+- **"✨ Tự động tạo cho TẤT CẢ Mission chưa cấu hình trong Giai đoạn này"** — quét cả Giai đoạn 1 lần, bỏ qua Mission đã có cấu hình (không ghi đè).
+
+**Phát hiện quan trọng khi tự kiểm tra trước khi giao:** chỉ 28/58 Mission thật sự có Success Criteria — 30 Mission còn lại (kể cả đúng Mission "Makeup Style DNA" bạn đang xem lúc hỏi) sẽ không tạo được gì nếu chỉ dựa vào Success Criteria. Đã thêm lớp dự phòng: thiếu Success Criteria thì dùng Expected Result, thiếu cả 2 thì dùng tên Mission — đảm bảo bấm nút là luôn ra được ít nhất 1 câu hỏi cho mọi Mission, hệ thống có báo rõ Mission nào đang dùng dữ liệu "mỏng" để bạn biết nên bổ sung Success Criteria cho phong phú hơn.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không có migration — chỉ ghi cấu hình vào bản nháp có sẵn.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn vào Coach Builder, mở Mission "Makeup Style DNA", bấm thử nút tự động tạo, xem lại rồi Áp dụng nếu ưng ý — sau đó có thể quét cả Giai đoạn 1 và lần lượt các Giai đoạn còn lại.**
+
+---
+
 **2026-08-17 — 🐛 Đã merge + deploy: Sửa Coach Builder hiện "GIAI ĐOẠN 05"–"10" thay vì "01"–"06", KHÔNG đổi dữ liệu, KHÔNG có migration.**
 
 Bạn hỏi đúng: 6 Giai đoạn thật đang hoạt động lẽ ra phải hiện số 01–06.
