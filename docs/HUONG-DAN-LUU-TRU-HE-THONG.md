@@ -6,6 +6,23 @@
 
 ---
 
+**2026-08-17 — 🤖 Đã merge + deploy: Bật chatbot H2O Coach cho Mission 2 và 3 (Giai đoạn 1 nghề Makeup), có xử lý riêng cho Mission cần nộp minh chứng thật, KHÔNG có migration schema (chỉ ghi dữ liệu cấu hình).**
+
+Bạn yêu cầu Mission 2 ("Hoàn thành Makeup Career Map") và Mission 3 ("Lộ trình Makeup 90 ngày của tôi") cũng dùng chatbot hỏi-đáp như Mission 1, thay vì màn hình 4-tab cũ.
+
+**Phát hiện khi audit trước khi làm:** Mission 2 có `completion_policy = evidence_required` — bắt buộc học viên tải lên file Career Map + bảng chi phí thật, không chỉ tự khai qua chat. Tôi đã hỏi bạn cách xử lý và bạn chọn: **Coach vẫn trò chuyện thu thập đủ thông tin, nhưng khi xong sẽ dẫn học viên sang đúng bước nộp file thật — không tự đánh dấu hoàn thành thay.** Mission 3 không có ràng buộc này (giống Mission 1), Coach xử lý trọn vẹn qua chat.
+
+**Đã làm:**
+- Coach cho Mission 2 hỏi lần lượt: mục tiêu 90 ngày, mục tiêu 1 năm, bảng chi phí (≥5 khoản), mốc thu nhập mục tiêu — đúng 3 tiêu chí thật đã có sẵn trong hệ thống cho Mission này, không tự bịa nội dung.
+- Sau khi xác nhận xong, Coach báo rõ "cần nộp minh chứng thật" (không nói "đã hoàn thành" — nói vậy là sai vì Mission chưa xong thật) và hiện nút "Đi nộp minh chứng →" dẫn thẳng sang đúng bước tải file ở màn hình cũ.
+- **Phát hiện và vá thêm 1 lỗ hổng thật khi xây phần này:** một khi Mission có cấu hình Coach, màn hình 4-tab cũ (có tab Minh chứng, Nhật ký thực hành...) hoàn toàn biến mất — không có đường quay lại. Đã thêm link "Xem giao diện đầy đủ" thường trực trên mọi Mission dùng Coach để không mất quyền truy cập vào các phần Coach chưa làm (nộp minh chứng, nhật ký thực hành).
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không đổi schema — chỉ ghi thêm cấu hình Coach (bản ghi `coach_mission_configs`, `coach_stage_profile_versions`) qua đúng quy trình nháp→publish sẵn có, đã xác minh lại bằng truy vấn dữ liệu thật.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn thử Mission 2 và Mission 3 để xác nhận đúng ý.**
+
+---
+
 **2026-08-16 — 🐛 Đã merge + deploy: Sửa không bấm được sang Mission tiếp theo sau khi hoàn thành Mission hiện tại (màn hình H2O Coach mới), KHÔNG cần migration.**
 
 Bạn báo đúng: sau khi Mission "Xác định hướng nghề Makeup" báo 100% hoàn thành, cột "Journey Context" bên trái có hiện Mission tiếp theo ("Hoàn thành Makeup Career Map") nhưng **bấm vào không có phản ứng gì** — không phải bạn thao tác sai.
