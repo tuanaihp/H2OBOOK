@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-17 — 🧠 Đã merge + deploy: Nâng cấp H2O Coach Builder — chat thử trực tiếp, sắp xếp câu hỏi bằng nút thay vì gõ số, sửa từ khoá dạng danh sách thay vì textarea, KHÔNG có migration.**
+
+Bạn chỉ ra 3 điểm khó vận hành ở `/academy-admin/coach-builder`, cả 3 đã sửa:
+
+1. **"Không thấy trước Coach sẽ hỏi gì"** → Thêm khung **"🧪 Chat thử với cấu hình hiện tại"** ngay trong tab Mission Coaching — gõ thử câu trả lời như học viên thật, xem Coach hỏi/tổng hợp/xác nhận đúng như production, kể cả khi bạn CHƯA lưu/publish. Khung này chạy đúng bộ luật Offline Coach thật (dùng chung 1 bộ hàm với production, không phải viết lại riêng) — không gọi AI, không lưu gì vào dữ liệu học viên thật.
+2. **"Gõ số ưu tiên cho từng câu hỏi"** → Thay bằng nút ▲▼ để đẩy câu hỏi lên/xuống — thứ tự hiển thị trên màn hình chính là thứ tự Coach sẽ hỏi, không cần nghĩ về số thứ tự nữa.
+3. **"Nhập từ khoá bằng textarea dễ gõ sai"** → Thay bằng danh sách từng dòng [Từ khoá] → [Giá trị lưu lại] [Xoá], bấm "+ Thêm từ khoá" để thêm dòng mới — không còn gõ tay ký tự "=" phân cách nữa.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không đổi schema, không đổi API lưu — chỉ đổi giao diện chỉnh sửa.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn vào Coach Builder thử cả 3 phần trên xem có đúng ý không.**
+
+---
+
 **2026-08-17 — 🐛 Đã merge + deploy: Sửa màn hình Minh chứng nhìn như bị "xóa sạch" sau khi trả lời xong Coach ở Mission 2, KHÔNG có migration.**
 
 Bạn báo đúng: trả lời xong hết câu hỏi của Coach ở Mission 2, bấm sang bước nộp minh chứng thì màn hình trông như mất hết dữ liệu.
