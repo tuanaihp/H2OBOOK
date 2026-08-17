@@ -108,34 +108,50 @@ export async function getJourneyForStudent(userId: string, organizationId: strin
 /**
  * Idempotent by design (Release B test #7 "retry không duplicate action"): the unique constraint on
  * student_mission_states(student_id, mission_id, blueprint_version_id) is the real guard — a second
- * call finds the existing row and returns it rather than inserting again, and only creates action
- * rows the first time a mission state is created for this student, never on a repeat call.
+ * call finds the existing row and returns it rather than inserting again.
+ *
+ * Bug found in real production data 2026-08-17: the early-return above used to skip the action-
+ * template sync entirely whenever student_mission_states already existed — a student who "started" a
+ * Mission before its action_templates were added/edited (e.g. this Mission's evidence-upload steps,
+ * added after this student's row from 2026-08-11) was left with an empty student_learning_actions
+ * list forever, no matter how many times startMission ran again. The old 4-tab workspace reads
+ * `mission.actions.length > 0` as "started" to gate evidence submission
+ * (mission-workspace-client.tsx), so that student could never reach the evidence form — the
+ * Mission looked broken/reset even though nothing was actually lost. Now every call backfills any
+ * template that doesn't yet have a matching action row, whether or not the mission state row is new.
  */
 export async function startMission(userId: string, organizationId: string, missionId: string, blueprintVersionId: string): Promise<Result<{ created: boolean }>> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
 
   const existing = await supabase.from("student_mission_states").select("id").eq("organization_id", organizationId).eq("student_id", userId).eq("mission_id", missionId).eq("blueprint_version_id", blueprintVersionId).maybeSingle();
-  if (existing.data) return { ok: true, data: { created: false } };
+  const alreadyStarted = Boolean(existing.data);
 
-  const { error: insertError } = await supabase.from("student_mission_states").insert({
-    organization_id: organizationId, student_id: userId, mission_id: missionId, blueprint_version_id: blueprintVersionId,
-    state: "doing", progress_percent: 0, started_at: new Date().toISOString()
-  });
-  // 23505 = unique_violation: a concurrent request already created the row (e.g. a double-click
-  // firing two requests before the first one's insert lands) — not an error, the same "already
-  // started" outcome as finding it in the initial select.
-  if (insertError && insertError.code !== "23505") return { ok: false, error: insertError.message };
+  if (!alreadyStarted) {
+    const { error: insertError } = await supabase.from("student_mission_states").insert({
+      organization_id: organizationId, student_id: userId, mission_id: missionId, blueprint_version_id: blueprintVersionId,
+      state: "doing", progress_percent: 0, started_at: new Date().toISOString()
+    });
+    // 23505 = unique_violation: a concurrent request already created the row (e.g. a double-click
+    // firing two requests before the first one's insert lands) — not an error, the same "already
+    // started" outcome as finding it in the initial select.
+    if (insertError && insertError.code !== "23505") return { ok: false, error: insertError.message };
+  }
 
   const { data: templates } = await supabase.from("learning_mission_action_templates").select("id,title,required,evidence_required").eq("organization_id", organizationId).eq("mission_id", missionId).order("position", { ascending: true });
   if (templates?.length) {
-    const rows = templates.map((t: { id: string; title: string }) => ({
-      organization_id: organizationId, student_id: userId, mission_id: missionId,
-      source_type: "mission_template", source_id: t.id, title: t.title, status: "planned"
-    }));
-    await supabase.from("student_learning_actions").insert(rows).select("id");
+    const { data: existingActions } = await supabase.from("student_learning_actions").select("source_id").eq("organization_id", organizationId).eq("student_id", userId).eq("mission_id", missionId).eq("source_type", "mission_template");
+    const existingSourceIds = new Set(((existingActions ?? []) as { source_id: string | null }[]).map((a) => a.source_id));
+    const missingTemplates = (templates as { id: string; title: string }[]).filter((t) => !existingSourceIds.has(t.id));
+    if (missingTemplates.length) {
+      const rows = missingTemplates.map((t) => ({
+        organization_id: organizationId, student_id: userId, mission_id: missionId,
+        source_type: "mission_template", source_id: t.id, title: t.title, status: "planned"
+      }));
+      await supabase.from("student_learning_actions").insert(rows).select("id");
+    }
   }
-  return { ok: true, data: { created: true } };
+  return { ok: true, data: { created: !alreadyStarted } };
 }
 
 export async function updateActionStatus(userId: string, actionId: string, status: "planned" | "doing" | "completed" | "skipped"): Promise<Result<null>> {
