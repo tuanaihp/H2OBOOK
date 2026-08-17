@@ -1358,6 +1358,10 @@ a.h2o-coach-journey-item:hover{border-color:var(--student-violet);background:rgb
 .h2o-coach-progress b{display:block;font-size:16px}
 .h2o-coach-progress small{font-size:10px;color:#9aa8bc}
 .h2o-coach-done-banner{margin:0 18px;padding:10px 14px;border-radius:12px;background:#eafaf6;color:#078462;font-size:12px;font-weight:700}
+.h2o-coach-done-banner-pending{background:#fff5e8;color:#a05a13;display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.h2o-coach-evidence-cta{background:#a05a13;color:#fff;border-radius:8px;padding:6px 12px;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap}
+.h2o-coach-classic-link{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--student-muted);text-decoration:none}
+.h2o-coach-classic-link:hover{color:var(--student-violet)}
 .h2o-coach-stream{flex:1;min-height:420px;max-height:520px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
 .h2o-coach-msg{max-width:84%;border-radius:16px;padding:10px 13px}
 .h2o-coach-msg small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;opacity:.6;margin-bottom:3px;text-transform:uppercase}

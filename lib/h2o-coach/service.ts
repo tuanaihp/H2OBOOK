@@ -15,10 +15,17 @@ function candidateToMemoryValue(candidate: CoachCandidateExtraction, messageId: 
   };
 }
 
+/** Only these policies let Coach's own confirmation stand in for Mission completion — see the guard around completeSelfReportedMission below. */
+const SELF_COMPLETING_POLICIES = new Set(["self_reported", "metric_based"]);
+
+const EVIDENCE_HANDOFF_REPLY = "Mình đã ghi nhận đủ thông tin bạn chia sẻ. Bước cuối để chính thức hoàn thành Mission này: bạn cần nộp minh chứng thật (ví dụ tải lên file/ảnh) — bấm nút bên dưới để sang đúng bước đó.";
+
 export interface CoachTurnOutcome {
   reply: string; candidates: CoachCandidateExtraction[]; nextQuestion?: string | null;
   completionHints?: string[]; missionState: CoachMissionState; progressPercent: number;
   missionId: string; usedAi: boolean;
+  /** True once the learner has confirmed the summary but the Mission's own completion_policy (evidence_required/teacher_verified) still needs a real evidence submission — Coach confirming never bypasses that, so the UI must send the learner to the evidence step instead of claiming the Mission is done. */
+  evidencePending: boolean;
 }
 type CoachResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -58,7 +65,8 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
     const priorReply = existingMessages.slice(existingMessages.indexOf(duplicate) + 1).find((m) => m.role === "coach");
     const missionState = determineMissionState(ctx.missionConfig.requiredFields, ctx.memory, args.missionId);
     const progressPercent = calculateCoachProgress(ctx.missionConfig.requiredFields, ctx.memory, args.missionId);
-    return { ok: true, data: { reply: priorReply?.text ?? "", candidates: [], nextQuestion: null, missionState, progressPercent, missionId: args.missionId, usedAi: false } };
+    const evidencePending = missionState === "confirmed" && !SELF_COMPLETING_POLICIES.has(missionContext.mission.completionPolicy);
+    return { ok: true, data: { reply: priorReply?.text ?? "", candidates: [], nextQuestion: null, missionState, progressPercent, missionId: args.missionId, usedAi: false, evidencePending } };
   }
 
   const learnerMessageId = crypto.randomUUID();
@@ -113,19 +121,25 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
   if (!freshCtx) return { ok: false, error: "COACH_NOT_CONFIGURED" };
 
   const deterministic = runOfflineCoachTurn(freshCtx, candidates);
-  const reply = aiReply ?? deterministic.reply;
 
   // Canonical completion trigger, gated only on the deterministic state just computed from real
   // memory — never on conversation text and never decided by AI. Coach confirming the profile
   // summary only auto-completes a self_reported/metric_based Mission (no evidence/review step to
   // begin with); evidence_required/teacher_verified Missions still need their own real evidence —
   // Coach confirmation is not a bypass for that.
-  if (deterministic.missionState === "confirmed" && stateBeforeTurn !== "confirmed") {
-    const policy = missionContext.mission.completionPolicy;
-    if (policy === "self_reported" || policy === "metric_based") {
-      await completeSelfReportedMission(args.learnerId, args.organizationId, args.missionId, missionContext.versionId);
-    }
+  const policy = missionContext.mission.completionPolicy;
+  const evidencePending = deterministic.missionState === "confirmed" && !SELF_COMPLETING_POLICIES.has(policy);
+  if (deterministic.missionState === "confirmed" && stateBeforeTurn !== "confirmed" && SELF_COMPLETING_POLICIES.has(policy)) {
+    await completeSelfReportedMission(args.learnerId, args.organizationId, args.missionId, missionContext.versionId);
   }
+
+  // Real gap found 2026-08-17: runOfflineCoachTurn()'s "confirmed" reply ("Mission này đã hoàn
+  // thành...") is only true for self_reported/metric_based Missions. For evidence_required/
+  // teacher_verified ones, "confirmed" means only "learner confirmed the info summary" — the Mission
+  // itself is still not complete without a real evidence submission (see the guard above), so saying
+  // "đã hoàn thành" here would be a false claim. Every turn while evidencePending is true gets the
+  // honest handoff reply instead, pointing at the real evidence step.
+  const reply = aiReply ?? (evidencePending ? EVIDENCE_HANDOFF_REPLY : deterministic.reply);
 
   await appendConversation(args.organizationId, args.learnerId, args.missionId, { id: crypto.randomUUID(), role: "coach", text: reply, createdAt: new Date().toISOString() });
 
@@ -136,7 +150,7 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
   // the value was correctly saved and reflected in the chat's own summary text. Field values only
   // reappeared correct after a full page reload re-fetched `initialMemory` from the server. `candidates`
   // here is deliberately re-applied after the spread so this turn's real extraction always reaches the UI.
-  return { ok: true, data: { ...deterministic, candidates, reply, missionId: args.missionId, usedAi } };
+  return { ok: true, data: { ...deterministic, candidates, reply, missionId: args.missionId, usedAi, evidencePending } };
 }
 
 /**
@@ -167,6 +181,7 @@ export async function getCoachSessionState(organizationId: string, learnerId: st
 
   const missionState = determineMissionState(ctx.missionConfig.requiredFields, ctx.memory, missionId);
   const progressPercent = calculateCoachProgress(ctx.missionConfig.requiredFields, ctx.memory, missionId);
+  const evidencePending = missionState === "confirmed" && !SELF_COMPLETING_POLICIES.has(missionContext.mission.completionPolicy);
 
-  return { profile: ctx.profile, missionConfig: ctx.missionConfig, memory: ctx.memory, messages, missionState, progressPercent };
+  return { profile: ctx.profile, missionConfig: ctx.missionConfig, memory: ctx.memory, messages, missionState, progressPercent, evidencePending };
 }

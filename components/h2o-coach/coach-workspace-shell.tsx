@@ -16,6 +16,8 @@ export interface CoachWorkspaceShellProps {
   missionTitle: string;
   initialProgressPercent: number;
   initialMissionState: CoachMissionState;
+  /** True once confirmed but the Mission's completion_policy (evidence_required/teacher_verified) still needs a real evidence submission Coach chat cannot provide — see EVIDENCE_HANDOFF_REPLY in service.ts. */
+  initialEvidencePending: boolean;
   journeyItems: CoachJourneyItem[];
   resources: CoachResourceItem[];
   memorySchema: CoachSchemaField[];
@@ -46,6 +48,7 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
   const [memory, setMemory] = useState<CoachMemoryValue[]>(props.initialMemory);
   const [progressPercent, setProgressPercent] = useState(props.initialProgressPercent);
   const [missionState, setMissionState] = useState<CoachMissionState>(props.initialMissionState);
+  const [evidencePending, setEvidencePending] = useState(props.initialEvidencePending);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +70,7 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
     setMessages((prev) => [...prev, { id: `coach-${Date.now()}`, role: "coach", text: json.reply, createdAt: new Date().toISOString() }]);
     setProgressPercent(json.progressPercent ?? progressPercent);
     setMissionState(json.missionState ?? missionState);
+    setEvidencePending(Boolean(json.evidencePending));
     if (Array.isArray(json.candidates) && json.candidates.length) {
       setMemory((prev) => {
         const next = [...prev];
@@ -97,8 +101,9 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
       <div className="h2o-coach-journey-list">
         {props.journeyItems.map((item) => {
           // The currently-open Mission reflects the live Coach state instead of the page-load
-          // snapshot — confirming just now flips this to "done" without waiting for a refresh.
-          const state = item.id === props.missionId && missionState === "confirmed" ? "done" : item.state;
+          // snapshot — confirming just now flips this to "done" without waiting for a refresh. Not
+          // when evidence is still pending though — the Mission genuinely isn't done yet in that case.
+          const state = item.id === props.missionId && missionState === "confirmed" && !evidencePending ? "done" : item.state;
           const label = <>
             <small>{state === "done" ? "✓ Đã hoàn thành" : state === "current" ? "● Bạn đang ở đây" : state === "locked" ? "🔒 Chưa mở" : "Chưa bắt đầu"}</small>
             <strong>{item.title}</strong>
@@ -124,10 +129,22 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
 
     <main className="h2o-coach-chat">
       <header>
-        <div><span className="h2o-coach-eyebrow">H2O COACH WORKSPACE</span><h1>{props.missionTitle}</h1></div>
-        <div className="h2o-coach-progress"><b>{progressPercent}%</b><small>{missionState === "confirmed" ? "Đã hoàn thành" : "Coach progress"}</small></div>
+        <div>
+          <span className="h2o-coach-eyebrow">H2O COACH WORKSPACE</span><h1>{props.missionTitle}</h1>
+          {/* Real gap found 2026-08-17: once a Mission has a Coach config, this screen fully replaces
+              the old 4-tab workspace (app/student/missions/[missionId]/page.tsx), so anything only that
+              screen offers (evidence upload, daily practice journal, etc.) became unreachable. This link
+              is the escape hatch back to it. */}
+          <Link href={`/student/missions/${props.missionId}?workspace=classic`} className="h2o-coach-classic-link">Xem giao diện đầy đủ (minh chứng, nhật ký...) →</Link>
+        </div>
+        <div className="h2o-coach-progress"><b>{progressPercent}%</b><small>{missionState !== "confirmed" ? "Coach progress" : evidencePending ? "Cần nộp minh chứng" : "Đã hoàn thành"}</small></div>
       </header>
-      {missionState === "confirmed" && <div className="h2o-coach-done-banner">✓ Mission này đã hoàn thành — thông tin bên phải là hồ sơ đã xác nhận.</div>}
+      {missionState === "confirmed" && (evidencePending
+        ? <div className="h2o-coach-done-banner h2o-coach-done-banner-pending">
+            ✓ Đã ghi nhận đủ thông tin — bước cuối: nộp minh chứng thật để chính thức hoàn thành Mission này.
+            <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=evidence`} className="h2o-coach-evidence-cta">Đi nộp minh chứng →</Link>
+          </div>
+        : <div className="h2o-coach-done-banner">✓ Mission này đã hoàn thành — thông tin bên phải là hồ sơ đã xác nhận.</div>)}
       <div className="h2o-coach-stream" ref={streamRef}>
         {messages.map((m) => <div key={m.id} className={`h2o-coach-msg role-${m.role}`}>
           <small>{m.role === "coach" ? "H2O Coach" : m.role === "learner" ? "Bạn" : "Hệ thống"}</small>
