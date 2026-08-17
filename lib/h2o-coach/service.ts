@@ -1,6 +1,6 @@
 import "server-only";
 import { resolveMissionContext } from "@/lib/mission-workspace/student";
-import { completeSelfReportedMission } from "@/lib/learn-outcome/student";
+import { completeSelfReportedMission, startMission } from "@/lib/learn-outcome/student";
 import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "./offline-engine";
 import { generateCoachTurn, isCoachAiConfigured } from "./provider-gateway";
 import { appendConversation, getConversation, getKnowledgeContext, getRuntimeContext } from "./repository";
@@ -163,6 +163,15 @@ export async function getCoachSessionState(organizationId: string, learnerId: st
   const missionContext = await resolveMissionContext(learnerId, organizationId, missionId);
   if (!missionContext) return null;
   const stageId = missionContext.stage.id;
+
+  // Real gap found 2026-08-17: a learner who only ever talked to Coach (never clicked "Bắt đầu" on
+  // the old 4-tab screen) had no student_mission_states/student_learning_actions rows — the classic
+  // workspace reads `mission.actions.length > 0` as "started" to gate evidence submission
+  // (mission-workspace-client.tsx), so the "Đi nộp minh chứng" handoff (service.ts's
+  // EVIDENCE_HANDOFF_REPLY) could land the learner on an evidence tab with no working form at all.
+  // startMission() is idempotent and now also backfills any action template added after an earlier
+  // start (lib/learn-outcome/student.ts, same 2026-08-17 fix) — safe to call on every bootstrap.
+  await startMission(learnerId, organizationId, missionId, missionContext.versionId);
 
   const ctx = await getRuntimeContext(organizationId, learnerId, stageId, missionId);
   if (!ctx) return null;
