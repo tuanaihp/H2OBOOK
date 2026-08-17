@@ -6,6 +6,24 @@
 
 ---
 
+**2026-08-17 — 🐛 Đã merge + deploy: Sửa màn hình Minh chứng nhìn như bị "xóa sạch" sau khi trả lời xong Coach ở Mission 2, KHÔNG có migration.**
+
+Bạn báo đúng: trả lời xong hết câu hỏi của Coach ở Mission 2, bấm sang bước nộp minh chứng thì màn hình trông như mất hết dữ liệu.
+
+**Tin quan trọng trước tiên: dữ liệu KHÔNG hề mất.** Tôi đã kiểm tra trực tiếp trong database — toàn bộ câu trả lời (mục tiêu 90 ngày, mục tiêu 1 năm, bảng chi phí, mốc thu nhập) vẫn còn nguyên, trạng thái "đã xác nhận", đúng giá trị bạn đã nhập.
+
+**Nguyên nhân thật:** màn hình 4-tab cũ coi Mission là "đã bắt đầu" chỉ khi có ít nhất 1 dòng "việc cần làm" (action) gắn với học viên. Tài khoản test của bạn đã "bắt đầu" Mission 2 từ ngày 11/8 — TRƯỚC KHI 3 bước công việc (Điền Career Map, Hoàn thành bảng chi phí, Upload) được tạo ra cho Mission này. Vì cơ chế cũ chỉ tạo các dòng "việc cần làm" đúng 1 lần duy nhất lúc bắt đầu, nó không bao giờ tự bổ sung lại — nên form nộp minh chứng không có gì để hiển thị, dù bạn bấm vào bao nhiêu lần. Không phải chatbot xóa gì cả — chỉ là màn hình đó chưa từng có dữ liệu để hiện ra.
+
+**Đã sửa 2 lớp:**
+1. Sửa lỗi gốc trong code: giờ đây mỗi lần vào Mission, hệ thống tự bổ sung đúng các "việc cần làm" còn thiếu — không chỉ làm 1 lần duy nhất lúc đầu nữa. Áp dụng cho mọi Mission, mọi học viên, không riêng Mission 2.
+2. Đã bổ sung ngay 3 dòng còn thiếu cho đúng tài khoản test của bạn — bấm lại vào Minh chứng ở Mission 2 sẽ thấy form nộp bài bình thường.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn thử lại: vào Mission 2, bấm "Đi nộp minh chứng" xem form có hiện ra bình thường không.**
+
+---
+
 **2026-08-17 — 🤖 Đã merge + deploy: Bật chatbot H2O Coach cho Mission 2 và 3 (Giai đoạn 1 nghề Makeup), có xử lý riêng cho Mission cần nộp minh chứng thật, KHÔNG có migration schema (chỉ ghi dữ liệu cấu hình).**
 
 Bạn yêu cầu Mission 2 ("Hoàn thành Makeup Career Map") và Mission 3 ("Lộ trình Makeup 90 ngày của tôi") cũng dùng chatbot hỏi-đáp như Mission 1, thay vì màn hình 4-tab cũ.
