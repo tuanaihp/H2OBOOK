@@ -48,6 +48,7 @@ export default function CoachBuilderPage() {
   const [selectedMissionId, setSelectedMissionId] = useState<string>("");
   const [tab, setTab] = useState<Tab>("role");
   const [busy, setBusy] = useState(false);
+  const [autoGenBusy, setAutoGenBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function loadStages() {
@@ -122,6 +123,31 @@ export default function CoachBuilderPage() {
     setDetail({ ...detail, missionConfigs: existing ? detail.missionConfigs.map((m) => m.missionId === missionId ? { ...m, ...body } : m) : [...detail.missionConfigs, { id: json.id, ...body }] });
   }
 
+  // "Tự động tạo cấu hình Coach" — derives a first-draft objective/questions/memory-fields from the
+  // Mission's own real success_criteria/expected_result (learning_journey_missions), instead of an
+  // admin hand-authoring every one of a 6-Stage, 100+-Mission curriculum from scratch. Draft-only —
+  // still goes through the same review → Chat thử → Publish flow as any hand-typed config.
+  async function autoGenerateOne() {
+    if (!detail || !selectedMissionId) return;
+    setAutoGenBusy(true); setMessage(null);
+    const { ok, json } = await api<{ fieldsAdded: number; source: "success_criteria" | "expected_result" | "title" }>("/api/academy-admin/coach-builder/mission-configs/auto-generate", { method: "POST", body: JSON.stringify({ profileVersionId: detail.id, missionId: selectedMissionId }) });
+    setAutoGenBusy(false);
+    if (ok) {
+      const sourceNote = json.source === "success_criteria" ? "từ Success Criteria (đầy đủ)" : json.source === "expected_result" ? "từ Expected Result (Mission chưa có Success Criteria — nên bổ sung để câu hỏi chi tiết hơn)" : "từ tên Mission (Mission chưa có Success Criteria lẫn Expected Result — nên bổ sung dữ liệu này)";
+      setMessage(`Đã tự động tạo cấu hình ${sourceNote} — thêm ${json.fieldsAdded} trường dữ liệu mới. Xem lại, chỉnh nếu cần, rồi Áp dụng khi sẵn sàng.`);
+    } else setMessage(json.error ?? "Không tạo được.");
+  }
+  async function autoGenerateAll() {
+    if (!detail || !selectedStage) return;
+    setAutoGenBusy(true); setMessage(null);
+    const { ok, json } = await api<{ generated: number; skipped: number; errors: string[] }>("/api/academy-admin/coach-builder/mission-configs/auto-generate-all", { method: "POST", body: JSON.stringify({ profileVersionId: detail.id, stageId: selectedStage.stageId }) });
+    setAutoGenBusy(false);
+    if (ok) {
+      await loadVersion(detail.id);
+      setMessage(`Đã tự động tạo cho ${json.generated} Mission, bỏ qua ${json.skipped} (đã có cấu hình hoặc chưa có Success Criteria)${json.errors.length ? ` — lỗi: ${json.errors.join("; ")}` : ""}. Xem lại và Áp dụng khi sẵn sàng.`);
+    } else setMessage(json.error ?? "Không tạo được.");
+  }
+
   const currentMissionConfig = detail?.missionConfigs.find((m) => m.missionId === selectedMissionId);
 
   return <SimpleOperationsShell title="Academy Control Center" subtitle="H2O Coach Builder" homeHref="/academy-admin" routes={academyAdminRoutes} accentLabel="Academy Admin">
@@ -194,9 +220,15 @@ export default function CoachBuilderPage() {
           {tab === "mission" && <div>
             {missions.length === 0 && <p className={styles.empty}>Giai đoạn này chưa có Mission nào được publish trong Bản đồ kết quả học viên.</p>}
             {missions.length > 0 && <>
-              <label style={fieldLabelStyle}>Mission<select value={selectedMissionId} onChange={(e) => setSelectedMissionId(e.target.value)} style={{ ...inputStyle, maxWidth: 400 }}>
-                {missions.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-              </select></label>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
+                <label style={fieldLabelStyle}>Mission<select value={selectedMissionId} onChange={(e) => setSelectedMissionId(e.target.value)} style={{ ...inputStyle, maxWidth: 400 }}>
+                  {missions.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+                </select></label>
+                {editable && <button onClick={autoGenerateOne} disabled={autoGenBusy || !selectedMissionId} className={styles.buttonSecondary} style={{ fontSize: 12 }}>✨ Tự động tạo cấu hình cho Mission này</button>}
+              </div>
+              {editable && <button onClick={autoGenerateAll} disabled={autoGenBusy} style={{ ...addBtnStyle, marginBottom: 14, borderColor: "#7b61ff", color: "#5b3df0" }}>
+                {autoGenBusy ? "Đang tạo…" : "✨ Tự động tạo cho TẤT CẢ Mission chưa cấu hình trong Giai đoạn này"}
+              </button>}
               {selectedMissionId && <MissionConfigEditor
                 key={selectedMissionId} missionId={selectedMissionId} config={currentMissionConfig} memorySchema={detail.memorySchema} editable={editable}
                 onSave={(patch) => saveMissionConfig(selectedMissionId, patch)} />}
