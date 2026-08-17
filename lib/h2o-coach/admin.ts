@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadCareerStages } from "@/lib/career-stages/service";
 import type { AcademyAdminAccess } from "@/lib/academy-admin/types";
 import { emitDomainEvent } from "@/lib/domain/events";
+import { stageDisplayRank } from "@/lib/career-stages/types";
 import { normalizeKnowledgeScope, type CoachKnowledgeScope, type CoachMemoryFieldSchema, type CoachQuestionRule, type CoachResultTemplate, type CoachStageProfileVersion, type CoachToolBinding, type CoachVersionStatus, type MissionCoachConfig } from "./types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -32,6 +33,15 @@ export interface StageProfileSummary {
  * else) rather than a raw career_stages query — an earlier version of this function queried every
  * status and leaked archived/hidden/test stages (e.g. old draft rows never meant to be Coach-
  * configurable) into the Builder's stage grid, found 2026-08-15 in real production data.
+ *
+ * Bug found in real production data 2026-08-17: `stagePosition` used to be the raw `career_stages
+ * .position` column, which is NOT a 1-based display rank — it is a gapless-but-unrenumbered counter
+ * that also includes archived/legacy rows (this org has 7 archived test stages occupying positions
+ * 0-4), so the Builder showed "GIAI ĐOẠN 05"–"10" for what are actually the 1st through 6th active
+ * Stages. Every other screen in the app (Student Library, Smart Journey, Mission Workspace, Data Link
+ * Health, Stage 1 resolution) already solves this the same way — `stageDisplayRank()`
+ * (lib/career-stages/types.ts) computes the 1-based rank among currently-active stages — this function
+ * had simply never been switched over to it. No data was renumbered; this is a pure read-side fix.
  */
 export async function listStageProfiles(access: AcademyAdminAccess): Promise<StageProfileSummary[]> {
   const supabase = await createSupabaseServerClient();
@@ -48,12 +58,13 @@ export async function listStageProfiles(access: AcademyAdminAccess): Promise<Sta
   const versionRows = (versions ?? []) as { id: string; profile_id: string; version_number: number; status: CoachVersionStatus }[];
 
   return stages.map((stage) => {
+    const displayRank = stageDisplayRank(stages, stage.id);
     const profile = profileByStage.get(stage.id);
-    if (!profile) return { stageId: stage.id, stageTitle: stage.title, stagePosition: stage.position, profileId: null, publishedVersionId: null, publishedVersionNumber: null, latestDraftVersionId: null, status: "unconfigured" as const };
+    if (!profile) return { stageId: stage.id, stageTitle: stage.title, stagePosition: displayRank, profileId: null, publishedVersionId: null, publishedVersionNumber: null, latestDraftVersionId: null, status: "unconfigured" as const };
     const published = profile.current_published_version_id ? versionRows.find((v) => v.id === profile.current_published_version_id) : undefined;
     const latestDraft = versionRows.filter((v) => v.profile_id === profile.id && v.status === "draft").sort((a, b) => b.version_number - a.version_number)[0];
     return {
-      stageId: stage.id, stageTitle: stage.title, stagePosition: stage.position, profileId: profile.id,
+      stageId: stage.id, stageTitle: stage.title, stagePosition: displayRank, profileId: profile.id,
       publishedVersionId: published?.id ?? null, publishedVersionNumber: published?.version_number ?? null,
       latestDraftVersionId: latestDraft?.id ?? null, status: published ? ("published" as const) : latestDraft ? ("draft" as const) : ("unconfigured" as const)
     };
