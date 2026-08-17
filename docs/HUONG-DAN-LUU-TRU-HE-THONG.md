@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-17 — 🐛 Đã merge + deploy: Sửa Coach Builder hiện "GIAI ĐOẠN 05"–"10" thay vì "01"–"06", KHÔNG đổi dữ liệu, KHÔNG có migration.**
+
+Bạn hỏi đúng: 6 Giai đoạn thật đang hoạt động lẽ ra phải hiện số 01–06.
+
+**Nguyên nhân thật:** trong database, tổ chức của bạn có 7 Giai đoạn cũ/thử nghiệm đã lưu trữ (archived) chiếm vị trí 0–4 — dữ liệu test từ trước, không hiển thị ở bất cứ đâu học viên thấy được. 6 Giai đoạn thật đang hoạt động nằm ở vị trí 5–10 tiếp theo. Coach Builder lấy đúng con số vị trí thô này để hiện số thứ tự, nên ra 05–10.
+
+**Đã kiểm tra kỹ trước khi sửa:** mọi màn hình khác trong hệ thống (Thư viện học viên, Bản đồ hành trình, Mission Workspace, Data Link Health...) đều đã tự tính đúng "thứ hạng trong số Giai đoạn đang hoạt động" (1, 2, 3... không phụ thuộc vị trí thô) — chỉ riêng Coach Builder quên dùng đúng cách tính này. **Đã sửa bằng cách dùng lại đúng hàm có sẵn**, không tạo hàm mới, không đổi bất kỳ dữ liệu nào trong database (không renumber gì cả) — an toàn 100%, chỉ sửa cách hiển thị.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-17 — 🧠 Đã merge + deploy: Nâng cấp H2O Coach Builder — chat thử trực tiếp, sắp xếp câu hỏi bằng nút thay vì gõ số, sửa từ khoá dạng danh sách thay vì textarea, KHÔNG có migration.**
 
 Bạn chỉ ra 3 điểm khó vận hành ở `/academy-admin/coach-builder`, cả 3 đã sửa:
