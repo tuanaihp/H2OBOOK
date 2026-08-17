@@ -15,8 +15,11 @@ export const dynamic = "force-dynamic";
 // model (lib/mission-workspace/student.ts) walks the same published-version graph the Roadmap uses,
 // so a Draft-only or another org's Mission id simply 404s here — there is no second lookup path
 // that could leak it.
-export default async function StudentMissionWorkspacePage({ params }: { params: Promise<{ missionId: string }> }) {
+const CLASSIC_TABS = new Set(["brief", "work", "evidence", "result"]);
+
+export default async function StudentMissionWorkspacePage({ params, searchParams }: { params: Promise<{ missionId: string }>; searchParams: Promise<{ workspace?: string; tab?: string }> }) {
   const { missionId } = await params;
+  const { workspace, tab } = await searchParams;
   const user = await requireCurrentUser();
   const organizationId = await configuredAcademyOrganizationId();
   if (!organizationId || user.demo) notFound();
@@ -31,8 +34,11 @@ export default async function StudentMissionWorkspacePage({ params }: { params: 
   // H2O Coach OS V1 (docs/h2o-coach-v1) — mounted only when the flag is on AND this Stage/Mission
   // actually has a published Coach profile + coaching config. No profile configured (the common case
   // until an admin publishes one) means getCoachSessionState returns null and the 4-tab Mission
-  // Workspace below is unaffected — this never replaces it silently.
-  const coachSession = h2oCoachFeatures.coachWorkspaceV1 ? await getCoachSessionState(organizationId, user.id, missionId) : null;
+  // Workspace below is unaffected — this never replaces it silently. `?workspace=classic` is a
+  // deliberate escape hatch back to the 4-tab screen (found 2026-08-17: once Coach owns a Mission with
+  // completion_policy evidence_required, the real evidence-upload tab and things like the Daily
+  // Practice Journal have no other way to be reached — Coach chat never replaces them, only fronts them).
+  const coachSession = h2oCoachFeatures.coachWorkspaceV1 && workspace !== "classic" ? await getCoachSessionState(organizationId, user.id, missionId) : null;
   if (coachSession) {
     const journeyItems: CoachJourneyItem[] = view.siblings.map((s) => ({
       id: s.id, title: s.title,
@@ -40,7 +46,8 @@ export default async function StudentMissionWorkspacePage({ params }: { params: 
     }));
     return <CoachWorkspaceShell
       missionId={missionId} stageTitle={view.stage.title} missionTitle={view.mission.title}
-      initialProgressPercent={coachSession.progressPercent} initialMissionState={coachSession.missionState} journeyItems={journeyItems}
+      initialProgressPercent={coachSession.progressPercent} initialMissionState={coachSession.missionState}
+      initialEvidencePending={coachSession.evidencePending} journeyItems={journeyItems}
       resources={view.mission.resourceBindings.map((r) => ({ id: r.id, title: r.title, resourceType: r.resourceType, resourceId: r.resourceId }))}
       memorySchema={coachSession.profile.memorySchema.map((f) => ({ key: f.key, label: f.label, namespace: f.namespace }))}
       initialMemory={coachSession.memory.map((m) => ({ field: m.field, namespace: m.namespace, value: m.value, status: m.status, updatedAt: m.updatedAt }))}
@@ -48,5 +55,6 @@ export default async function StudentMissionWorkspacePage({ params }: { params: 
     />;
   }
 
-  return <MissionWorkspaceClient missionId={missionId} initialView={view} />;
+  const initialTab = tab && CLASSIC_TABS.has(tab) ? (tab as "brief" | "work" | "evidence" | "result") : undefined;
+  return <MissionWorkspaceClient missionId={missionId} initialView={view} initialTab={initialTab} />;
 }

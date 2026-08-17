@@ -58,10 +58,10 @@ const POLICY_LABEL: Record<string, string> = {
   self_reported: "Tự đánh giá", metric_based: "Theo chỉ số", evidence_required: "Cần Evidence", teacher_verified: "Teacher review"
 };
 
-export function MissionWorkspaceClient({ missionId, initialView }: { missionId: string; initialView: View }) {
+export function MissionWorkspaceClient({ missionId, initialView, initialTab }: { missionId: string; initialView: View; initialTab?: TabKey }) {
   const router = useRouter();
   const [view, setView] = useState<View>(initialView);
-  const [tab, setTab] = useState<TabKey>("brief");
+  const [tab, setTab] = useState<TabKey>(initialTab ?? "brief");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
