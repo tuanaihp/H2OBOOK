@@ -256,6 +256,121 @@ export async function listMissionsForStage(access: AcademyAdminAccess, stageId: 
   return ((missions.data ?? []) as { id: string; title: string; position: number }[]).map((m) => ({ id: m.id, title: m.title }));
 }
 
+function slugify(text: string): string {
+  const base = text.replace(/đ/g, "d").replace(/Đ/g, "D")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return base.slice(0, 24) || "mission";
+}
+
+interface MissionForAutoGen { id: string; title: string; expectedResult: string; successCriteria: string[]; completionPolicy: string; evidencePolicy: Record<string, unknown> }
+
+async function loadMissionForAutoGen(supabase: Sb, organizationId: string, missionId: string): Promise<MissionForAutoGen | null> {
+  const { data } = await supabase.from("learning_journey_missions").select("id,title,expected_result,success_criteria,completion_policy,evidence_policy").eq("organization_id", organizationId).eq("id", missionId).maybeSingle();
+  if (!data) return null;
+  const row = data as { id: string; title: string; expected_result: string | null; success_criteria: string[] | null; completion_policy: string; evidence_policy: Record<string, unknown> | null };
+  return { id: row.id, title: row.title, expectedResult: row.expected_result ?? "", successCriteria: row.success_criteria ?? [], completionPolicy: row.completion_policy, evidencePolicy: row.evidence_policy ?? {} };
+}
+
+const SELF_COMPLETING_POLICIES = new Set(["self_reported", "metric_based"]);
+
+/**
+ * "Tự động tạo cấu hình Coach" — deterministically derives a first-draft Mission Coach config from
+ * data the admin already entered elsewhere (success_criteria/expected_result/completion_policy on
+ * learning_journey_missions), instead of either (a) an admin hand-authoring every Mission's questions
+ * from scratch — does not scale to a 6-Stage, 100+-Mission curriculum — or (b) requiring AI. One
+ * memory field + one question per success criterion — the exact same "the student's own words become
+ * the value, no keyword list needed" pattern the direct-answer fallback (offline-engine.ts) already
+ * handles for free-text fields. Never auto-publishes (same "AI/automation never bypasses admin review"
+ * rule as the Knowledge Gateway's AI-assist) — writes into the draft version only, through the SAME
+ * upsertMissionConfig/updateProfileVersion paths the Coach Builder UI itself uses when an admin types,
+ * so the admin reviews/edits/tests (Chat thử) before Publish, same as any hand-authored Mission.
+ *
+ * Idempotent: re-running for a Mission that was already auto-generated fully replaces its config
+ * (upsertMissionConfig is itself an upsert) rather than accumulating duplicate fields/questions —
+ * matching the codebase's existing "full replace on save" convention (MissionConfigEditor's onSave
+ * behaves the same way for hand edits).
+ */
+export async function autoGenerateMissionConfig(access: AcademyAdminAccess, profileVersionId: string, missionId: string): Promise<Result<{ id: string; fieldsAdded: number; source: "success_criteria" | "expected_result" | "title" }>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const draftCheck = await requireDraftProfileVersion(supabase, access.organizationId, profileVersionId);
+  if (!draftCheck.ok) return draftCheck;
+
+  const mission = await loadMissionForAutoGen(supabase, access.organizationId, missionId);
+  if (!mission) return { ok: false, error: "MISSION_NOT_FOUND" };
+
+  // Real gap found 2026-08-17 auditing this feature against real data: only 28 of this org's 58
+  // Missions have success_criteria populated — a hard requirement on it would leave the auto-generate
+  // button unusable for the other 30, including the exact Mission ("Makeup Style DNA") the admin was
+  // looking at when they asked for this. Falls back through what real data IS available rather than
+  // erroring: success_criteria (one field per criterion, richest) -> expected_result (one field,
+  // still grounded in real curriculum data the admin already wrote) -> title (last resort, every
+  // Mission has one). Never fabricates content that isn't already in the database somewhere.
+  const criteria = mission.successCriteria.length ? mission.successCriteria : mission.expectedResult ? [mission.expectedResult] : [mission.title];
+  const source: "success_criteria" | "expected_result" | "title" = mission.successCriteria.length ? "success_criteria" : mission.expectedResult ? "expected_result" : "title";
+
+  const { data: versionRow } = await supabase.from("coach_stage_profile_versions").select("memory_schema").eq("organization_id", access.organizationId).eq("id", profileVersionId).maybeSingle();
+  const existingSchema = ((versionRow as { memory_schema: CoachMemoryFieldSchema[] } | null)?.memory_schema ?? []);
+  const existingKeys = new Set(existingSchema.map((f) => f.key));
+
+  // Namespaced with a slice of the Mission's own id so two Missions never collide on a shared-schema
+  // field key even if their titles are similar/duplicated across Stages.
+  const namespace = `${slugify(mission.title)}_${mission.id.slice(0, 6)}`;
+  const newFields: CoachMemoryFieldSchema[] = [];
+  const requiredFields: string[] = [];
+  const questions: CoachQuestionRule[] = [];
+  criteria.forEach((criterion, idx) => {
+    const key = `${namespace}.criterion_${idx + 1}`;
+    requiredFields.push(key);
+    if (!existingKeys.has(key)) newFields.push({ key, label: criterion.length > 60 ? `${criterion.slice(0, 57)}...` : criterion, namespace, type: "text", requiresConfirmation: true });
+    questions.push({ id: crypto.randomUUID(), when: [{ field: key, op: "missing" as const }], prompt: `Chia sẻ với mình: ${criterion}`, priority: criteria.length - idx });
+  });
+
+  if (newFields.length) {
+    const patch = await updateProfileVersion(access, profileVersionId, { memorySchema: [...existingSchema, ...newFields] });
+    if (!patch.ok) return patch;
+  }
+
+  const needsEvidence = !SELF_COMPLETING_POLICIES.has(mission.completionPolicy);
+  const sourceLabel = source === "success_criteria" ? "success_criteria" : source === "expected_result" ? "expected_result (Mission chưa có Success Criteria — nên bổ sung để câu hỏi chi tiết hơn)" : "tên Mission (Mission chưa có Success Criteria lẫn Expected Result — nên bổ sung)";
+  const result = await upsertMissionConfig(access, profileVersionId, missionId, {
+    objective: mission.expectedResult || mission.title,
+    coachInstructions: `Tự động tạo từ ${sourceLabel} — xem lại câu hỏi/độ ưu tiên trước khi Áp dụng cho học viên.`,
+    requiredFields, questions, tools: [],
+    rubric: { successCriteria: mission.successCriteria },
+    evidenceRequirements: needsEvidence ? [{ ...mission.evidencePolicy, description: "Xem yêu cầu minh chứng đầy đủ ở tab Minh chứng của Mission." }] : []
+  });
+  if (!result.ok) return result;
+  return { ok: true, data: { id: result.data.id, fieldsAdded: newFields.length, source } };
+}
+
+/**
+ * Bulk version — every real Mission on this Stage's published Journey that doesn't already have a
+ * config on THIS draft version. Skips (never overwrites) anything already configured, whether that
+ * was hand-authored or auto-generated on an earlier run, so re-running after manually tweaking a few
+ * Missions is safe.
+ */
+export async function autoGenerateAllMissionConfigs(access: AcademyAdminAccess, profileVersionId: string, stageId: string): Promise<Result<{ generated: number; skipped: number; errors: string[] }>> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const draftCheck = await requireDraftProfileVersion(supabase, access.organizationId, profileVersionId);
+  if (!draftCheck.ok) return draftCheck;
+
+  const missions = await listMissionsForStage(access, stageId);
+  const { data: existingConfigs } = await supabase.from("coach_mission_configs").select("mission_id").eq("organization_id", access.organizationId).eq("profile_version_id", profileVersionId);
+  const configuredIds = new Set(((existingConfigs ?? []) as { mission_id: string }[]).map((c) => c.mission_id));
+
+  let generated = 0; let skipped = 0; const errors: string[] = [];
+  for (const mission of missions) {
+    if (configuredIds.has(mission.id)) { skipped++; continue; }
+    const result = await autoGenerateMissionConfig(access, profileVersionId, mission.id);
+    if (result.ok) generated++;
+    else errors.push(`${mission.title}: ${result.error}`);
+  }
+  return { ok: true, data: { generated, skipped, errors } };
+}
+
 /** Every version of a Stage's Coach profile, newest first — the "Lịch sử" / version list. */
 export async function listProfileVersions(access: AcademyAdminAccess, profileId: string): Promise<{ id: string; versionNumber: number; status: CoachVersionStatus; publishedAt: string | null }[]> {
   const supabase = await createSupabaseServerClient();
