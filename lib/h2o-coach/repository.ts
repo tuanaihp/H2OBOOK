@@ -51,17 +51,27 @@ export async function getMissionConfig(organizationId: string, profileVersionId:
 
 /**
  * Knowledge grounding, in the exact priority order docs/INTEGRATION_ARCHITECTURE.md §7 specifies:
- * Mission resource bindings first, then Stage curriculum, then Admin-selected scope. Capped at 12
- * items total — the performance guidance explicitly says not to load the whole curriculum per turn.
- * Cross-stage grounding (§7's optional 4th tier) is not built: no admin policy toggle for it exists
- * in this pass's config shape, so it is simply never enabled rather than half-implemented.
+ * Mission resource bindings first, then Stage curriculum, then Admin-selected scope. Cross-stage
+ * grounding (§7's optional 4th tier) is not built: no admin policy toggle for it exists in this
+ * pass's config shape, so it is simply never enabled rather than half-implemented.
  *
  * curriculum_documents rows are only included when editorial_status='published' (docs/knowledge-
  * gateway-v1) — a Knowledge Gateway draft the admin hasn't published yet must never leak into a live
  * Coach conversation, same "official knowledge only when published" rule the source spec requires.
  * career_stage_resources placements are unaffected — that table has no editorial_status column, its
  * existing status='active' check already governs visibility.
+ *
+ * KNOWLEDGE_CONTEXT_LIMIT raised 12 -> 24 (2026-08-18, admin request): audited real data first — every
+ * Stage in this org already carries 16-18 active career_stage_resources rows, so the original 12-item
+ * cap silently dropped several real, admin-attached resources from every single Coach turn (which of
+ * them got cut was close to arbitrary too — `position` is numbered per-Group, not globally across the
+ * Stage, so ties sort by insertion order rather than curriculum importance). Admin explicitly chose to
+ * raise the cap over adding a "pin priority resources" admin control or fixing the position ordering,
+ * accepting the tradeoff that this still isn't unbounded and will need raising again as Stages grow
+ * past ~24 combined resources.
  */
+const KNOWLEDGE_CONTEXT_LIMIT = 24;
+
 export async function getKnowledgeContext(organizationId: string, stageId: string, missionId: string, scope: CoachKnowledgeScope): Promise<Array<{ id: string; title: string; excerpt?: string }>> {
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
@@ -78,20 +88,20 @@ export async function getKnowledgeContext(organizationId: string, stageId: strin
     }
   }
 
-  if (scope.allowStageCurriculum && results.length < 12) {
-    const { data: placements } = await admin.from("career_stage_resources").select("id,title_override,summary").eq("organization_id", organizationId).eq("stage_id", stageId).eq("status", "active").order("position", { ascending: true }).limit(12 - results.length);
+  if (scope.allowStageCurriculum && results.length < KNOWLEDGE_CONTEXT_LIMIT) {
+    const { data: placements } = await admin.from("career_stage_resources").select("id,title_override,summary").eq("organization_id", organizationId).eq("stage_id", stageId).eq("status", "active").order("position", { ascending: true }).limit(KNOWLEDGE_CONTEXT_LIMIT - results.length);
     for (const p of (placements ?? []) as { id: string; title_override: string | null; summary: string | null }[]) add(p.id, p.title_override ?? "Tài liệu Stage", p.summary);
   }
 
-  if (scope.resourceIds.length && results.length < 12) {
-    const remaining = scope.resourceIds.filter((id) => !seen.has(id)).slice(0, 12 - results.length);
+  if (scope.resourceIds.length && results.length < KNOWLEDGE_CONTEXT_LIMIT) {
+    const remaining = scope.resourceIds.filter((id) => !seen.has(id)).slice(0, KNOWLEDGE_CONTEXT_LIMIT - results.length);
     if (remaining.length) {
       const { data: docs } = await admin.from("curriculum_documents").select("id,title,summary").eq("organization_id", organizationId).eq("editorial_status", "published").in("id", remaining);
       for (const d of (docs ?? []) as { id: string; title: string; summary: string }[]) add(d.id, d.title, d.summary);
     }
   }
 
-  return results.slice(0, 12);
+  return results.slice(0, KNOWLEDGE_CONTEXT_LIMIT);
 }
 
 /** Bounded message history for one (learner, mission) — capped to the last 40 turns so a long-running Mission never re-sends its entire chat history to the model or the client on every turn. */
