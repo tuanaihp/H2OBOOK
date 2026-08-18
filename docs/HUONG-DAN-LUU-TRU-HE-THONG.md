@@ -6,6 +6,28 @@
 
 ---
 
+**2026-08-18 — 🐛 Đã sửa ngay (dữ liệu, không phải code): Giai đoạn 1 bị ẩn khỏi học viên do bấm nhầm, đã bật lại.**
+
+Bạn báo học viên vào tài khoản không mở được Giai đoạn 1. Kiểm tra log hệ thống: Giai đoạn 1 "Nền tảng nghề Makeup" bị đổi trạng thái từ "active" sang "hidden" (ẩn khỏi học viên) lúc 14:57 hôm nay, qua đúng nút ẩn/hiện (icon con mắt) ở `/academy-admin/stages` — khả năng cao là bấm nhầm khi thao tác gần đó. Vì Giai đoạn 1 bị ẩn, hệ thống tự chuyển học viên sang Giai đoạn 2 (chưa có lộ trình publish) nên hiện "Giai đoạn này đang được xây dựng hành trình."
+
+**Đã bật lại Giai đoạn 1 về "active"** — xác minh lại đứng đầu danh sách active như cũ. Không phải lỗi code, không cần deploy. **Lưu ý:** nút ẩn/hiện ở màn hình Quản lý Giai đoạn ảnh hưởng ngay tới học viên đang học dở — cẩn thận khi thao tác gần đó.
+
+---
+
+**2026-08-18 — 🤖 Đã merge + deploy: Coach gửi kèm tên + link tài liệu ngay trong khung chat, và mở rộng giới hạn "Kiến thức sử dụng" từ 12 lên 24 mục, KHÔNG có migration.**
+
+Bạn hỏi 2 việc: (1) kiểm tra ô "Dùng Curriculum của Giai đoạn này" có thực sự liên kết đủ kiến thức không, và (2) muốn Coach gửi kèm tên tài liệu + link ngay trong chat, không chỉ nằm ở thanh bên.
+
+**(1) Kiểm tra thật — phát hiện thiếu:** Giai đoạn nào cũng có 16-18 tài liệu Curriculum thật, nhưng hệ thống chỉ cho phép tối đa 12 mục kiến thức/lượt chat (gộp cả tài liệu riêng của Mission + Curriculum Giai đoạn + tài liệu admin chỉ định) — nghĩa là vài tài liệu thật đã gắn vào KHÔNG BAO GIỜ tới được Coach, và tài liệu nào bị bỏ gần như ngẫu nhiên (do cách đánh số thứ tự hiện tại tính riêng theo từng Nhóm nhỏ, không phải toàn Giai đoạn). Đã hỏi và bạn chọn: **tăng giới hạn lên 24** — đủ cho mọi Giai đoạn hiện có, còn dư chỗ để phát triển thêm.
+
+**(2) Coach gửi tài liệu kèm link trong chat:** dùng lại đúng dữ liệu "Học liệu liên quan" đã có sẵn (gắn tại `/academy-admin/journey` → chọn Mission → tab "2. Học liệu") — không cần cấu hình gì thêm. Tin nhắn mở đầu của Coach giờ tự động kèm theo danh sách tài liệu với link bấm được thẳng tới bài học, ngay trong khung chat.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-17 — 🤖 Đã merge + deploy: "Tự động tạo cấu hình Coach" — mở rộng chatbot AI cho toàn bộ 6 Giai đoạn / 58 Mission, KHÔNG có migration.**
 
 Bạn muốn "1 lần thiết kế cho đủ toàn bộ các giai đoạn đều tích hợp chatbot AI". Kiểm tra thật: hệ thống có 58 Mission trên 6 Giai đoạn, chỉ 3 Mission đã có cấu hình Coach (từ phiên làm việc trước). Tự soạn tay hết 55 Mission còn lại sẽ rất mất thời gian và khó bảo trì khi bạn thêm Mission mới sau này — nên đã hỏi và bạn chọn xây tính năng **"Tự động tạo cấu hình"** để dùng lại được mãi mãi, không phải nhờ tôi làm tay từng Mission một nữa.
