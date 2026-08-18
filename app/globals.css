@@ -1368,6 +1368,10 @@ a.h2o-coach-journey-item:hover{border-color:var(--student-violet);background:rgb
 .h2o-coach-msg p{margin:0;font-size:13px;line-height:1.6}
 .h2o-coach-msg.role-coach{background:#fff;border:1px solid var(--student-line)}
 .h2o-coach-msg.role-learner{background:#0d1624;color:#fff;margin-left:auto}
+.h2o-coach-msg-resources{margin-top:8px;padding-top:8px;border-top:1px dashed var(--student-line);display:flex;flex-direction:column;gap:4px}
+.h2o-coach-msg-resources>small{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--student-muted);text-transform:none;opacity:1}
+.h2o-coach-msg-resource-link{font-size:12px;font-weight:600;color:var(--student-violet);text-decoration:none}
+.h2o-coach-msg-resource-link:hover{text-decoration:underline}
 .h2o-coach-confirm-card{border:1px solid #bfe8d8;background:#f0fbf6;border-radius:14px;padding:12px}
 .h2o-coach-confirm-card p{margin:0 0 8px;font-size:13px}
 .h2o-coach-confirm-card button{border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;margin-right:8px;cursor:pointer}

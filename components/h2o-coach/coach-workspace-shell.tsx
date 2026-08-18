@@ -146,9 +146,18 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
           </div>
         : <div className="h2o-coach-done-banner">✓ Mission này đã hoàn thành — thông tin bên phải là hồ sơ đã xác nhận.</div>)}
       <div className="h2o-coach-stream" ref={streamRef}>
-        {messages.map((m) => <div key={m.id} className={`h2o-coach-msg role-${m.role}`}>
+        {messages.map((m, i) => <div key={m.id} className={`h2o-coach-msg role-${m.role}`}>
           <small>{m.role === "coach" ? "H2O Coach" : m.role === "learner" ? "Bạn" : "Hệ thống"}</small>
           <p style={{ whiteSpace: "pre-line" }}>{m.text}</p>
+          {/* User asked 2026-08-18: the chatbot should mention relevant document names with real
+              links directly in the chat, not just in the side rail. Reuses the exact same
+              resourceBindings data already shown in "Học liệu liên quan" (admin attaches these via
+              /academy-admin/journey's Mission "2. Học liệu" tab) — surfaced once, on the opening
+              message, since resource bindings are Mission-level, not per-question. */}
+          {i === 0 && m.role === "coach" && props.resources.length > 0 && <div className="h2o-coach-msg-resources">
+            <small>📎 Tài liệu liên quan:</small>
+            {props.resources.map((r) => <Link key={r.id} href={buildMissionResourceHref(r.resourceType, r.resourceId, props.missionId)} className="h2o-coach-msg-resource-link">{r.title} →</Link>)}
+          </div>}
         </div>)}
         {pendingConfirmations.map((c) => <div key={c.field} className="h2o-coach-confirm-card">
           <p>H2O hiểu bạn: <b>{fieldLabel(props.memorySchema, c.field)}</b> = {displayValue(c.value)}</p>
