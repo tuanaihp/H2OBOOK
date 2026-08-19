@@ -47,7 +47,9 @@ export default async function StudentMissionWorkspacePage({ params, searchParams
     return <CoachWorkspaceShell
       missionId={missionId} stageTitle={view.stage.title} missionTitle={view.mission.title}
       initialProgressPercent={coachSession.progressPercent} initialMissionState={coachSession.missionState}
-      initialEvidencePending={coachSession.evidencePending} initialHealth={coachSession.health} initialNextBestAction={coachSession.nextBestAction} journeyItems={journeyItems}
+      initialEvidencePending={coachSession.evidencePending} initialHealth={coachSession.health} initialNextBestAction={coachSession.nextBestAction}
+      objective={coachSession.missionConfig.objective} requiredFieldKeys={coachSession.missionConfig.requiredFields} providerMode={coachSession.profile.providerMode}
+      journeyItems={journeyItems}
       resources={view.mission.resourceBindings.map((r) => ({ id: r.id, title: r.title, resourceType: r.resourceType, resourceId: r.resourceId }))}
       memorySchema={coachSession.profile.memorySchema.map((f) => ({ key: f.key, label: f.label, namespace: f.namespace }))}
       initialMemory={coachSession.memory.map((m) => ({ field: m.field, namespace: m.namespace, value: m.value, status: m.status, updatedAt: m.updatedAt }))}

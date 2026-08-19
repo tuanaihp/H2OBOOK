@@ -1335,69 +1335,82 @@ body { background: radial-gradient(circle at 82% -10%, rgba(70,220,232,.11), tra
 .asset-grid-item{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #eef1f4;border-radius:12px}
 .asset-grid-item .asset-file-icon{align-self:flex-start}
 
-/* H2O Coach Workspace (docs/h2o-coach-v1) — reuses the --student-* palette already defined on
-   .h2o-student-shell; this only ever renders inside the student shell. */
-.h2o-coach-workspace{display:grid;grid-template-columns:240px minmax(0,1fr) 300px;gap:14px;align-items:start}
-.h2o-coach-eyebrow{display:block;font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--student-wine);text-transform:uppercase;margin-bottom:6px}
-.h2o-coach-journey,.h2o-coach-memory{background:var(--student-panel);border:1px solid var(--student-line);border-radius:18px;padding:16px}
+/* H2O Coach Workspace (docs/h2o-coach-v1). Palette below is lifted 1:1 from the admin-provided
+   reference mockup (H2O_COACH_WORKSPACE_SMART_V2.html, 2026-08-19) — scoped as local custom
+   properties on .h2o-coach-workspace so it never leaks into the rest of the app, which keeps its own
+   --student-* tokens (cyan #50d7e2/violet #8875eb/wine #8d1d50 are already close to this palette's
+   cyan/violet/pink, this just matches the exact reference hex values the admin approved). */
+.h2o-coach-workspace{--coach-cyan:#4fd2e4;--coach-violet:#7b63ff;--coach-pink:#d54a91;--coach-green:#23b788;--coach-amber:#e7a53b;--coach-nav:#0d1c32;--coach-line:#dbe5ef;--coach-muted:#6b7890;--coach-ink:#10203a;display:grid;grid-template-columns:240px minmax(0,1fr) 300px;gap:14px;align-items:start;background:linear-gradient(135deg,#edf5fa 0%,#f8f2f7 100%);padding:14px;border-radius:22px}
+.h2o-coach-eyebrow{display:block;font-size:10px;font-weight:800;letter-spacing:.12em;color:#b51b61;text-transform:uppercase;margin-bottom:6px}
+.h2o-coach-journey,.h2o-coach-memory{background:rgba(255,255,255,.96);border:1px solid var(--coach-line);border-radius:18px;padding:16px;box-shadow:0 16px 40px rgba(24,39,75,.08)}
 .h2o-coach-journey h2{margin:2px 0 12px;font-size:16px}
 .h2o-coach-journey-list{display:flex;flex-direction:column;gap:8px}
-.h2o-coach-journey-item{display:block;border:1px solid var(--student-line);border-radius:12px;padding:10px;text-decoration:none;color:inherit}
-.h2o-coach-journey-item small{display:block;font-size:10px;color:var(--student-muted);margin-bottom:3px}
+.h2o-coach-journey-item{display:block;border:1px solid var(--coach-line);border-radius:13px;padding:12px;text-decoration:none;color:inherit;background:#fbfcfe}
+.h2o-coach-journey-item small{display:block;font-size:10px;color:var(--coach-muted);margin-bottom:3px}
 .h2o-coach-journey-item strong{font-size:13px}
-.h2o-coach-journey-item.state-current{border-color:var(--student-violet);background:rgba(136,117,235,.06)}
+.h2o-coach-journey-item.state-current{border-color:#806bff;background:#fff;box-shadow:0 0 0 2px #eeeaff}
+.h2o-coach-journey-item.state-done small{color:var(--coach-green)}
 .h2o-coach-journey-item.state-locked{opacity:.55}
 a.h2o-coach-journey-item{cursor:pointer;transition:border-color .15s,background .15s}
-a.h2o-coach-journey-item:hover{border-color:var(--student-violet);background:rgba(136,117,235,.04)}
+a.h2o-coach-journey-item:hover{border-color:var(--coach-violet);background:#fff}
 .h2o-coach-journey-resources{margin-top:16px;display:flex;flex-direction:column;gap:6px}
-.h2o-coach-resource-link{display:block;border:1px solid var(--student-line);border-radius:12px;padding:9px 11px;font-size:12px;font-weight:600;text-decoration:none;color:var(--student-ink)}
+.h2o-coach-resource-link{display:block;border:1px solid var(--coach-line);border-radius:12px;padding:9px 11px;font-size:12px;font-weight:600;text-decoration:none;color:var(--coach-ink)}
 /* Admin asked for an Instagram-DM feel: narrower, centered conversation column instead of stretching
    full-bleed across the middle grid track on wide screens. */
-.h2o-coach-chat{background:var(--student-panel);border:1px solid var(--student-line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;position:relative;max-width:560px;margin:0 auto;width:100%}
-.h2o-coach-chat>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--student-line);background:linear-gradient(180deg,#fff7fb,#fff)}
+.h2o-coach-chat{background:rgba(255,255,255,.96);border:1px solid var(--coach-line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;position:relative;max-width:560px;margin:0 auto;width:100%;box-shadow:0 16px 40px rgba(24,39,75,.08)}
+.h2o-coach-chat>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--coach-line);background:linear-gradient(90deg,#fff4f8,#f7fbff)}
 .h2o-coach-chat>header h1{margin:2px 0 0;font-size:19px}
 .h2o-coach-headline{display:flex;align-items:center;gap:12px}
-.h2o-coach-progress{background:#0d1624;color:#fff;border-radius:14px;padding:8px 12px;text-align:center;min-width:80px}
+.h2o-coach-progress{background:var(--coach-nav);color:#fff;border-radius:14px;padding:8px 12px;text-align:center;min-width:80px}
 .h2o-coach-progress b{display:block;font-size:16px}
 .h2o-coach-progress small{font-size:10px;color:#9aa8bc}
-.h2o-coach-done-banner{margin:0 18px;padding:10px 14px;border-radius:12px;background:#eafaf6;color:#078462;font-size:12px;font-weight:700}
+.h2o-coach-done-banner{margin:0 18px;padding:10px 14px;border-radius:12px;background:#edfdf7;color:#12825d;font-size:12px;font-weight:700}
 .h2o-coach-done-banner-pending{background:#fff5e8;color:#a05a13;display:flex;align-items:center;flex-wrap:wrap;gap:10px}
 .h2o-coach-evidence-cta{background:#a05a13;color:#fff;border-radius:8px;padding:6px 12px;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap}
-.h2o-coach-classic-link{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--student-muted);text-decoration:none}
-.h2o-coach-classic-link:hover{color:var(--student-violet)}
-/* Soft, warm surface behind the conversation — matches the beauty-brand "nhẹ nhàng" (gentle) tone the
-   admin asked for, built on this app's own existing --student-wine token rather than a new palette. */
-.h2o-coach-stream{flex:1;min-height:420px;max-height:520px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(180deg,#fffbfd,#fdf2f8)}
+.h2o-coach-classic-link{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--coach-muted);text-decoration:none}
+.h2o-coach-classic-link:hover{color:var(--coach-violet)}
+/* v5/41 tabs — Coach is this same screen; the other 3 are real navigation to the classic 4-tab
+   workspace's matching tab (?workspace=classic&tab=...), not a re-implementation of that screen. */
+.h2o-coach-tabs{display:flex;gap:8px;padding:12px 18px 0}
+.h2o-coach-tab{padding:8px 12px;border-radius:10px;background:#fff;border:1px solid var(--coach-line);font-size:12px;font-weight:700;text-decoration:none;color:var(--coach-ink)}
+.h2o-coach-tab.is-active{background:var(--coach-nav);color:#fff;border-color:var(--coach-nav)}
+/* Real, server-computed values (mission objective / required-fields confirmed count / offline-hybrid-ai mode) — never the mockup's hardcoded "AI Hybrid · ON". */
+.h2o-coach-status-row{display:flex;gap:8px;flex-wrap:wrap;padding:0 18px;margin-top:10px}
+.h2o-coach-status{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#fff;border:1px solid var(--coach-line);color:var(--coach-ink)}
+.h2o-coach-status.is-good{background:#edfdf7;color:#12825d;border-color:#c8f0e1}
+.h2o-coach-status.is-smart{background:#f2efff;color:#5a43d6;border-color:#d9d1ff}
+.h2o-coach-context-strip{display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:10px;padding:12px 18px;border-bottom:1px solid var(--coach-line);background:#fcfdff}
+.h2o-coach-metric{padding:10px;border:1px solid var(--coach-line);border-radius:12px;background:#fff}
+.h2o-coach-metric strong{display:block;font-size:16px}
+.h2o-coach-metric span{font-size:10px;color:var(--coach-muted)}
+/* Soft, warm surface behind the conversation — matches the beauty-brand "nhẹ nhàng" (gentle) tone. */
+.h2o-coach-stream{flex:1;min-height:420px;max-height:520px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:radial-gradient(circle at 90% 5%,rgba(123,99,255,.07),transparent 26%),linear-gradient(180deg,#fff,#fffafd)}
 .h2o-coach-msg{display:flex;gap:7px;align-items:flex-end;max-width:80%}
 .h2o-coach-msg.role-learner{margin-left:auto;flex-direction:row-reverse}
-.h2o-coach-msg-body{border-radius:20px;padding:9px 15px;min-width:0}
+.h2o-coach-msg-body{border-radius:16px;padding:12px 14px;min-width:0}
 .h2o-coach-msg-body small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;opacity:.6;margin-bottom:3px;text-transform:uppercase}
 .h2o-coach-msg-body p{margin:0;font-size:13px;line-height:1.55}
-/* Instagram-DM-style pill bubbles: near-fully rounded with only a small tucked corner toward the
-   avatar, plus a soft gradient "ring" border (padding-box/border-box trick, no extra markup) for a
-   more eye-catching outline than a flat 1px line. */
-.h2o-coach-msg.role-coach .h2o-coach-msg-body{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#f9a8d4,#fbcfe8) border-box;border:1.5px solid transparent;border-radius:4px 20px 20px 20px;color:var(--student-ink);box-shadow:0 2px 10px rgba(141,29,80,.06)}
-.h2o-coach-msg.role-learner .h2o-coach-msg-body{background:linear-gradient(135deg,var(--student-wine),#c9538a);color:#fff;border-radius:20px 4px 20px 20px;box-shadow:0 4px 14px rgba(141,29,80,.28)}
-.h2o-coach-msg.role-system .h2o-coach-msg-body{background:#f1f4f8;border:1px solid var(--student-line);border-radius:20px}
-.h2o-coach-msg-resources{margin-top:8px;padding-top:8px;border-top:1px dashed #fbcfe8;display:flex;flex-direction:column;gap:4px}
-.h2o-coach-msg-resources>small{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--student-muted);text-transform:none;opacity:1}
-.h2o-coach-msg-resource-link{font-size:12px;font-weight:600;color:var(--student-violet);text-decoration:none}
+.h2o-coach-msg.role-coach .h2o-coach-msg-body{background:#fff;border:1px solid var(--coach-line);color:var(--coach-ink)}
+.h2o-coach-msg.role-learner .h2o-coach-msg-body{background:linear-gradient(135deg,#a81d6f,#cc4c95);color:#fff;box-shadow:0 4px 14px rgba(141,29,80,.28)}
+.h2o-coach-msg.role-system .h2o-coach-msg-body{background:#f1f4f8;border:1px solid var(--coach-line)}
+.h2o-coach-msg-resources{margin-top:8px;padding-top:8px;border-top:1px dashed var(--coach-line);display:flex;flex-direction:column;gap:4px}
+.h2o-coach-msg-resources>small{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--coach-muted);text-transform:none;opacity:1}
+.h2o-coach-msg-resource-link{font-size:12px;font-weight:600;color:var(--coach-violet);text-decoration:none}
 .h2o-coach-msg-resource-link:hover{text-decoration:underline}
+.h2o-coach-source-note{margin-top:8px;font-size:11px;color:#66768d}
 
-/* H2O Brain avatar — a literal small neural-sphere glyph so "H2O Brain" is felt in the chat itself,
-   not only named in the sidebar heading. Wine->pink gradient keeps it inside this app's existing
-   --student-wine identity instead of introducing an unrelated brand palette. */
-.h2o-coach-avatar{position:relative;flex:none;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#f9a8d4,var(--student-wine));color:#fff;box-shadow:0 4px 12px rgba(141,29,80,.25)}
+/* H2O Brain avatar — the exact 4-stop radial "neural orb" gradient from the reference mockup, not
+   only named in the sidebar heading but literally present in the chat. */
+.h2o-coach-avatar{position:relative;flex:none;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 32% 28%,#89eff9 0%,#5f8cff 35%,#7c4cff 62%,#d13b9d 100%);color:#fff;box-shadow:0 0 24px rgba(102,93,255,.35)}
 .h2o-coach-avatar i{position:absolute;width:9px;height:9px;border-radius:50%;right:-1px;bottom:-1px;background:#37bd8e;border:2px solid #fff}
 .h2o-coach-avatar.is-thinking{animation:h2o-coach-avatar-pulse 1.6s ease-in-out infinite}
-@keyframes h2o-coach-avatar-pulse{0%,100%{box-shadow:0 4px 12px rgba(141,29,80,.25)}50%{box-shadow:0 4px 20px rgba(141,29,80,.5)}}
+@keyframes h2o-coach-avatar-pulse{0%,100%{box-shadow:0 0 24px rgba(102,93,255,.35)}50%{box-shadow:0 0 34px rgba(102,93,255,.6)}}
 @media(prefers-reduced-motion:reduce){.h2o-coach-avatar.is-thinking{animation:none}}
 
-/* "Đang suy nghĩ" typing indicator, styled as firing neurons instead of generic dots — a small,
-   literal nod to "H2O Brain" while the reply is composing. */
+/* "Đang suy nghĩ" typing indicator, styled as firing neurons instead of generic dots. */
 .h2o-coach-thinking-msg{max-width:none}
-.h2o-coach-neuron-pulse{display:flex;gap:6px;align-items:center;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#f9a8d4,#fbcfe8) border-box;border:1.5px solid transparent;border-radius:4px 20px 20px 20px;padding:12px 18px;box-shadow:0 2px 10px rgba(141,29,80,.06)}
-.h2o-coach-neuron-pulse span{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,var(--student-wine),var(--student-violet));animation:h2o-neuron-pulse 1.2s ease-in-out infinite}
+.h2o-coach-neuron-pulse{display:flex;gap:6px;align-items:center;background:#fff;border:1px solid var(--coach-line);border-radius:16px;padding:12px 18px}
+.h2o-coach-neuron-pulse span{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,var(--coach-violet),var(--coach-pink));animation:h2o-neuron-pulse 1.2s ease-in-out infinite}
 .h2o-coach-neuron-pulse span:nth-child(2){animation-delay:.15s}
 .h2o-coach-neuron-pulse span:nth-child(3){animation-delay:.3s}
 @keyframes h2o-neuron-pulse{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
@@ -1406,63 +1419,77 @@ a.h2o-coach-journey-item:hover{border-color:var(--student-violet);background:rgb
 /* Floating-heart celebration when an answer becomes confirmed data — see burstHearts() in
    coach-workspace-shell.tsx, which already skips spawning these under prefers-reduced-motion. */
 .h2o-coach-hearts{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
-.h2o-coach-heart{position:absolute;bottom:70px;color:#e0559a;animation:h2o-heart-float 1.8s ease-out forwards}
+.h2o-coach-heart{position:absolute;bottom:70px;color:var(--coach-pink);animation:h2o-heart-float 1.8s ease-out forwards}
 @keyframes h2o-heart-float{0%{transform:translateY(0) scale(var(--h2o-heart-scale,1));opacity:0}12%{opacity:.9}100%{transform:translateY(-220px) scale(var(--h2o-heart-scale,1)) rotate(10deg);opacity:0}}
 @media(prefers-reduced-motion:reduce){.h2o-coach-hearts{display:none}}
-.h2o-coach-confirm-card{border:1px solid #bfe8d8;background:#f0fbf6;border-radius:14px;padding:12px}
+.h2o-coach-confirm-card{border:1px solid #d8d2ff;background:#f8f6ff;border-radius:16px;padding:14px}
 .h2o-coach-confirm-card p{margin:0 0 8px;font-size:13px}
-.h2o-coach-confirm-card button{border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;margin-right:8px;cursor:pointer}
-.h2o-coach-confirm-card button:first-child{background:#0ba878;color:#fff}
-.h2o-coach-confirm-card button:last-child{background:#eef2f7;color:var(--student-ink)}
+.h2o-coach-confirm-card button{border:none;border-radius:11px;padding:9px 12px;font-size:12px;font-weight:750;margin-right:8px;cursor:pointer}
+.h2o-coach-confirm-card button:first-child{background:linear-gradient(90deg,var(--coach-cyan),var(--coach-violet));color:#fff}
+.h2o-coach-confirm-card button:last-child{background:#fff;border:1px solid var(--coach-line);color:var(--coach-ink)}
 .h2o-coach-error{margin:0 18px;font-size:12px;color:#b42318}
 
-/* v5/41 H2O Coach Workspace Smart V2 — extraction card attached to the message that produced it. */
-.h2o-coach-extraction-card{margin-top:8px;border:1px solid #bfe8d8;background:#f0fbf6;border-radius:14px;padding:11px 13px}
-.h2o-coach-extraction-card>strong{display:block;font-size:12px;margin-bottom:8px;color:#0a7a56}
+/* v5/41 H2O Coach Workspace Smart V2 — extraction card attached to the message that produced it,
+   colors matching the reference mockup's .ai-card exactly (light violet, not the earlier green). */
+.h2o-coach-extraction-card{margin-top:8px;border:1px solid #d8d2ff;background:#f8f6ff;border-radius:16px;padding:14px}
+.h2o-coach-extraction-card>strong{display:block;font-size:13px;margin-bottom:8px}
 .h2o-coach-extraction-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:10px}
-.h2o-coach-extraction-grid small{display:block;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--student-muted);text-transform:uppercase;margin-bottom:2px}
+.h2o-coach-extraction-grid>div{padding:10px;border-radius:12px;background:#fff;border:1px solid #e6e1ff}
+.h2o-coach-extraction-grid small{display:block;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--coach-muted);text-transform:uppercase;margin-bottom:2px}
 .h2o-coach-extraction-grid span{font-size:12.5px;font-weight:700}
-.h2o-coach-extraction-actions button{border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;margin-right:8px;cursor:pointer}
-.h2o-coach-extraction-actions button:first-child{background:#0ba878;color:#fff}
-.h2o-coach-extraction-actions button:last-child{background:#eef2f7;color:var(--student-ink)}
+.h2o-coach-extraction-actions button{border:none;border-radius:11px;padding:9px 12px;font-size:12px;font-weight:750;margin-right:8px;cursor:pointer}
+.h2o-coach-extraction-actions button:first-child{background:linear-gradient(90deg,var(--coach-cyan),var(--coach-violet));color:#fff}
+.h2o-coach-extraction-actions button:last-child{background:#fff;border:1px solid var(--coach-line);color:var(--coach-ink)}
+
+/* Composer quick-action row — plain, non-interactive labels (matching the reference mockup, which
+   also renders these as <span> not <button>), never a control that claims a capability this
+   deployment doesn't actually have (no voice pipeline, no file upload wired into Coach turns, no
+   tool integration, AI suggestion needs a configured provider). Title tooltip says so honestly. */
+.h2o-coach-quick-actions{display:flex;gap:7px;flex-wrap:wrap;padding:10px 18px 0}
+.h2o-coach-quick-actions span{font-size:11px;padding:6px 8px;border-radius:999px;background:#f4f7fb;color:#53657d;border:1px solid #e3eaf2;cursor:default}
 
 /* Next Best Action + Mission Health widgets — always real, server-computed numbers (see
-   calculateMissionHealth()/nextBestAction() in lib/h2o-coach/offline-engine.ts), never placeholders. */
-.h2o-coach-next-action{margin-top:14px;border:1px solid #fbcfe8;background:linear-gradient(160deg,#fff7fb,#fdf2f8);border-radius:14px;padding:13px}
+   calculateMissionHealth()/nextBestAction() in lib/h2o-coach/offline-engine.ts), never placeholders.
+   Colors/structure match the reference mockup's .next-card/.timeline exactly. */
+.h2o-coach-next-action{margin-top:14px;border:1px solid var(--coach-line);background:#fbfcff;border-radius:12px;padding:12px}
 .h2o-coach-next-action strong{display:block;font-size:13px;margin:4px 0}
-.h2o-coach-next-action p{margin:0 0 10px;font-size:11.5px;color:var(--student-muted);line-height:1.5}
-.h2o-coach-next-action-btn{display:inline-flex;align-items:center;gap:6px;background:var(--student-wine);color:#fff;border:none;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:800;text-decoration:none;cursor:pointer}
-.h2o-coach-health{margin-top:14px;border:1px solid var(--student-line);border-radius:14px;padding:13px}
+.h2o-coach-next-action p{margin:0 0 10px;font-size:11.5px;color:var(--coach-muted);line-height:1.5}
+.h2o-coach-next-action-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;background:linear-gradient(90deg,var(--coach-cyan),var(--coach-violet));color:#fff;border:none;border-radius:11px;padding:9px 12px;font-size:12px;font-weight:750;text-decoration:none;cursor:pointer}
+.h2o-coach-health{margin-top:14px;border:1px solid var(--coach-line);border-radius:14px;padding:13px;background:#fff}
 .h2o-coach-health-row{margin-top:9px}
 .h2o-coach-health-row:first-of-type{margin-top:8px}
 .h2o-coach-health-row>div:first-child{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;margin-bottom:4px}
-.h2o-coach-health-row>div:first-child span{color:var(--student-muted)}
+.h2o-coach-health-row>div:first-child span{color:var(--coach-muted)}
 .h2o-coach-health-row>div:first-child b{font-size:12px}
-.h2o-coach-health-track{height:5px;background:#eef1f5;border-radius:8px;overflow:hidden}
-.h2o-coach-health-track>span{display:block;height:100%;background:linear-gradient(90deg,var(--student-wine),var(--student-violet));border-radius:8px;transition:width .25s ease}
-.h2o-coach-composer{border-top:1px solid var(--student-line);padding:12px 14px;display:flex;gap:8px}
-.h2o-coach-composer input{flex:1;border:1px solid var(--student-line);border-radius:14px;padding:11px 14px;font-size:13px;font:inherit}
-.h2o-coach-composer button{border:none;border-radius:14px;padding:0 18px;background:linear-gradient(90deg,var(--student-cyan),var(--student-violet));color:#0f1a29;font-weight:800;cursor:pointer}
+.h2o-coach-health-track{height:5px;background:#edf0f5;border-radius:8px;overflow:hidden}
+.h2o-coach-health-track>span{display:block;height:100%;background:linear-gradient(90deg,var(--coach-cyan),var(--coach-violet));border-radius:8px;transition:width .25s ease}
+.h2o-coach-composer{border-top:1px solid var(--coach-line);padding:12px 14px;display:flex;gap:8px}
+.h2o-coach-composer input{flex:1;border:1px solid var(--coach-line);border-radius:14px;padding:11px 14px;font-size:13px;font:inherit}
+.h2o-coach-composer button{border:none;border-radius:14px;padding:0 18px;background:linear-gradient(135deg,var(--coach-cyan),var(--coach-violet));color:#fff;font-weight:800;cursor:pointer}
 .h2o-coach-composer button:disabled{opacity:.6;cursor:default}
-.h2o-coach-memory-head{background:linear-gradient(145deg,#0d1624,#241d45);color:#fff;border-radius:14px;padding:13px;margin-bottom:12px}
+.h2o-coach-memory-head{background:linear-gradient(135deg,#101c3a,#2a2054);color:#fff;border-radius:14px;padding:13px;margin-bottom:12px}
 .h2o-coach-memory-head h3{margin:2px 0 4px;font-size:15px}
 .h2o-coach-memory-head p{margin:0;font-size:11px;color:#c5cde3}
-/* Widget-grid redesign (2026-08-19): was a flat single-column list where every field looked the same
-   regardless of status. Now a compact 2-up grid of small status-tinted cards — same border-radius/
-   padding language as .h2o-coach-journey-item on the left rail, so the two side panels read as one
-   consistent system instead of two different visual styles either side of the chat. */
+/* Widget-grid redesign (2026-08-19), refined again once the admin shared the real reference mockup:
+   fields now group under their real `namespace` (e.g. "career_map" -> "Career Map") instead of one
+   flat grid — matches the mockup's "Career Map" sub-heading, using real field data, not invented
+   grouping. Confirmed = green tint, still-proposed = amber ("chờ xác nhận", not violet as before —
+   violet is reserved for the primary action color in this palette). */
+.h2o-coach-memory-group{margin-bottom:14px}
+.h2o-coach-memory-group:last-child{margin-bottom:0}
+.h2o-coach-memory-group-title{font-size:12px;font-weight:700;margin:0 0 8px;color:var(--coach-ink)}
 .h2o-coach-memory-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.h2o-coach-memory-field{border:1px solid var(--student-line);border-radius:12px;padding:9px 10px;background:#fff;transition:border-color .15s,background .15s}
-.h2o-coach-memory-field small{display:block;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--student-muted);text-transform:uppercase;margin-bottom:3px}
+.h2o-coach-memory-field{border:1px solid var(--coach-line);border-radius:12px;padding:9px 10px;background:#fff;transition:border-color .15s,background .15s}
+.h2o-coach-memory-field small{display:block;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--coach-muted);text-transform:uppercase;margin-bottom:3px}
 .h2o-coach-memory-field strong{display:block;font-size:12.5px;line-height:1.3;margin:0 0 6px;word-break:break-word}
-.h2o-coach-memory-field span{display:inline-block;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;white-space:nowrap}
-.h2o-coach-memory-field .status-confirmed{color:#0ba878;background:rgba(11,168,120,.12)}
-.h2o-coach-memory-field .status-proposed{color:var(--student-violet);background:rgba(136,117,235,.12)}
+.h2o-coach-memory-field span{display:inline-block;padding:3px 6px;border-radius:999px;font-size:9px;font-weight:800;white-space:nowrap}
+.h2o-coach-memory-field .status-confirmed{color:#178461;background:#dff7ed}
+.h2o-coach-memory-field .status-proposed{color:#a46910;background:#fff0d6}
 .h2o-coach-memory-field .status-rejected{color:#b42318;background:rgba(180,35,24,.1)}
 .h2o-coach-memory-field .status-missing{color:#9aa4b2;background:#f1f4f8}
-.h2o-coach-memory-field[data-status="confirmed"]{border-color:#bfe8d8;background:rgba(11,168,120,.04)}
-.h2o-coach-memory-field[data-status="proposed"]{border-color:var(--student-violet);background:rgba(136,117,235,.05)}
+.h2o-coach-memory-field[data-status="confirmed"]{border-color:#cde9df;background:#f2fcf8}
+.h2o-coach-memory-field[data-status="proposed"]{border-color:#f0d9b0;background:#fff9ef}
 .h2o-coach-memory-field[data-status="missing"]{border-style:dashed;opacity:.72}
-.h2o-coach-memory-empty{font-size:12px;color:var(--student-muted)}
+.h2o-coach-memory-empty{font-size:12px;color:var(--coach-muted)}
 @media(max-width:1100px){.h2o-coach-workspace{grid-template-columns:1fr}.h2o-coach-journey,.h2o-coach-memory{order:2}}
 @media(max-width:480px){.h2o-coach-memory-list{grid-template-columns:1fr}}

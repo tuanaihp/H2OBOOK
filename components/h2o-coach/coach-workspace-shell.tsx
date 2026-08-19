@@ -67,6 +67,10 @@ export interface CoachWorkspaceShellProps {
   initialEvidencePending: boolean;
   initialHealth: CoachMissionHealth;
   initialNextBestAction: CoachNextBestAction | null;
+  /** Real values for the status row/context strip (2026-08-19 mockup match) — never hardcoded like the reference's "AI Hybrid · ON". */
+  objective: string;
+  requiredFieldKeys: string[];
+  providerMode: "offline" | "hybrid" | "ai";
   journeyItems: CoachJourneyItem[];
   resources: CoachResourceItem[];
   memorySchema: CoachSchemaField[];
@@ -84,6 +88,11 @@ function displayValue(value: unknown): string {
 function newClientMessageId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `cid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
+/** "career_map" -> "Career Map" — real field.namespace values turned into a readable group heading, never an invented label. */
+function formatNamespace(namespace: string): string {
+  return namespace.split("_").filter(Boolean).map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
+}
+const PROVIDER_MODE_LABEL: Record<CoachWorkspaceShellProps["providerMode"], string> = { offline: "Offline Coach", hybrid: "AI Hybrid", ai: "AI Coach" };
 
 /**
  * Real H2O Coach Workspace, wired to /api/student/h2o-coach/turn and /api/student/h2o-coach/memory.
@@ -236,6 +245,26 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
         </div>
         <div className="h2o-coach-progress"><b>{progressPercent}%</b><small>{missionState !== "confirmed" ? "Coach progress" : evidencePending ? "Cần nộp minh chứng" : "Đã hoàn thành"}</small></div>
       </header>
+      {/* Real status pills — providerMode/confirmed-required-count are actual server-computed values,
+          never the reference mockup's hardcoded "AI Hybrid · ON" / "Memory 7/10". */}
+      <div className="h2o-coach-status-row">
+        <span className="h2o-coach-status is-good">{missionState === "confirmed" ? "✓ Đã hoàn thành" : "● Đang coaching"}</span>
+        <span className="h2o-coach-status is-smart">{PROVIDER_MODE_LABEL[props.providerMode]}</span>
+        <span className="h2o-coach-status">Memory {props.requiredFieldKeys.filter((k) => memory.find((m) => m.field === k)?.status === "confirmed").length}/{props.requiredFieldKeys.length}</span>
+      </div>
+      {/* v5/41 mockup's 4 tabs — Coach is this same screen (always "active"); the other 3 are real
+          navigation to the matching tab of the classic 4-tab workspace, not a re-implementation of it. */}
+      <div className="h2o-coach-tabs">
+        <span className="h2o-coach-tab is-active">Coach</span>
+        <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=brief`} className="h2o-coach-tab">Hồ sơ nhiệm vụ</Link>
+        <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=evidence`} className="h2o-coach-tab">Minh chứng</Link>
+        <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=result`} className="h2o-coach-tab">Kết quả</Link>
+      </div>
+      <div className="h2o-coach-context-strip">
+        <div className="h2o-coach-metric"><span>Mục tiêu phiên này</span><strong>{nextBestAction?.title || props.objective || props.missionTitle}</strong></div>
+        <div className="h2o-coach-metric"><span>Đã đủ dữ liệu</span><strong>{props.requiredFieldKeys.filter((k) => memory.find((m) => m.field === k)?.status === "confirmed").length}/{props.requiredFieldKeys.length}</strong></div>
+        <div className="h2o-coach-metric"><span>Dự kiến còn</span><strong>{props.requiredFieldKeys.filter((k) => memory.find((m) => m.field === k)?.status !== "confirmed").length} câu</strong></div>
+      </div>
       {missionState === "confirmed" && (evidencePending
         ? <div className="h2o-coach-done-banner h2o-coach-done-banner-pending">
             ✓ Đã ghi nhận đủ thông tin — bước cuối: nộp minh chứng thật để chính thức hoàn thành Mission này.
@@ -288,6 +317,17 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
         </div>}
       </div>
       {error && <p className="h2o-coach-error">{error}</p>}
+      {/* v5/41 mockup shows these as plain <span> labels, not buttons — kept that way here too: this
+          deployment has no real voice pipeline, no file upload wired into Coach turns, no tool
+          integration, and AI suggestion needs a configured provider (ENCRYPTION_KEY still unset).
+          Non-interactive + a "sắp có" tooltip so the visual is honest about what's actually live. */}
+      <div className="h2o-coach-quick-actions">
+        <span title="Sắp có">🎤 Nói</span>
+        <span title="Sắp có">📎 Ảnh/File</span>
+        <span title="Sắp có">📚 Gắn tài liệu</span>
+        <span title="Sắp có">🛠 Mở công cụ</span>
+        <span title="Sắp có">✨ H2O gợi ý câu trả lời</span>
+      </div>
       <div className="h2o-coach-composer">
         <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendText(input)} placeholder="Nói với H2O về điều bạn đang nghĩ..." disabled={sending} />
         <button onClick={() => sendText(input)} disabled={sending || !input.trim()}>{sending ? "Đang gửi…" : "Gửi"}</button>
@@ -298,20 +338,28 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
       <div className="h2o-coach-memory-head"><span className="h2o-coach-eyebrow">H2O BRAIN MEMORY</span><h3>Hồ sơ đang hình thành</h3><p>Dữ liệu chỉ chính thức sau khi bạn xác nhận.</p></div>
       {/* Admin asked 2026-08-19 for a more compact, modern "widget" layout here, balanced against the
           left Journey Context rail's card treatment — was a flat, undifferentiated list before (every
-          field looked the same regardless of status). Now a 2-column grid of small status-tinted
-          cards, same border-radius/padding language as .h2o-coach-journey-item, with a compact pill
-          badge instead of a full sentence per status. */}
-      <div className="h2o-coach-memory-list">
-        {props.memorySchema.map((field) => {
-          const entry = memory.find((m) => m.field === field.key);
-          const status = entry?.status ?? "missing";
-          return <div key={field.key} className="h2o-coach-memory-field" data-status={status}>
-            <small>{field.label}</small>
-            <strong>{entry && status !== "rejected" ? displayValue(entry.value) || "Chưa xác định" : "Chưa xác định"}</strong>
-            <span className={`status-${status}`}>{status === "confirmed" ? "✓ Đã xác nhận" : status === "proposed" ? "◌ Chờ xác nhận" : "○ Sẽ hỏi"}</span>
-          </div>;
-        })}
-      </div>
+          field looked the same regardless of status). Grouped by each field's real `namespace` (e.g.
+          "career_map" -> "Career Map"), matching the reference mockup's "Career Map" sub-heading —
+          real field data driving the grouping, not an invented category. */}
+      {Object.entries(
+        props.memorySchema.reduce<Record<string, CoachSchemaField[]>>((groups, field) => {
+          (groups[field.namespace] ??= []).push(field);
+          return groups;
+        }, {})
+      ).map(([namespace, fields]) => <div key={namespace} className="h2o-coach-memory-group">
+        <h4 className="h2o-coach-memory-group-title">{formatNamespace(namespace)}</h4>
+        <div className="h2o-coach-memory-list">
+          {fields.map((field) => {
+            const entry = memory.find((m) => m.field === field.key);
+            const status = entry?.status ?? "missing";
+            return <div key={field.key} className="h2o-coach-memory-field" data-status={status}>
+              <small>{field.label}</small>
+              <strong>{entry && status !== "rejected" ? displayValue(entry.value) || "Chưa xác định" : "Chưa xác định"}</strong>
+              <span className={`status-${status}`}>{status === "confirmed" ? "✓ Đã xác nhận" : status === "proposed" ? "Chờ xác nhận" : "Cần hỏi"}</span>
+            </div>;
+          })}
+        </div>
+      </div>)}
       {confirmedFields.length === 0 && pendingConfirmations.length === 0 && <p className="h2o-coach-memory-empty">Chưa có dữ liệu nào — hãy bắt đầu trò chuyện.</p>}
 
       {/* v5/41 H2O Coach Workspace Smart V2 — real, server-computed, never a placeholder (see
