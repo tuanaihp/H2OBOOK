@@ -6,6 +6,26 @@
 
 ---
 
+**2026-08-19 — 🧠 Đã merge + deploy: Tích hợp "H2O Coach Workspace Smart V2" (folder 41) — Mission Health, Next Best Action, thẻ ghi nhận theo đúng tin nhắn, KHÔNG tạo hệ thống song song, KHÔNG tự publish, KHÔNG có migration.**
+
+Bạn yêu cầu tích hợp gói folder 41 "H2O Coach Workspace Smart V2" vào production, với điều kiện: audit trước, không tạo nguồn dữ liệu song song, pilot đúng 3 Mission đầu Giai đoạn 1, không tự publish.
+
+**Kết quả audit (báo trước khi code):** chính tài liệu của gói folder 41 ghi rõ "giao diện chỉ là lớp hiển thị của dữ liệu có sẵn, không phải mô hình dữ liệu mới". Sau khi đọc kỹ toàn bộ package, khoảng 80% những gì package này mô tả (bố cục 3 cột, luồng đề xuất→xác nhận, chế độ offline/hybrid, "sẵn sàng ≠ hoàn thành", trích dẫn học liệu, pilot đúng 3 Mission, không tự publish) **đã có sẵn thật trong production** — chính là hệ thống H2O Coach tôi đã xây và sửa liên tục trong phiên làm việc này. Nếu lấy nguyên bản giao diện mẫu của package thay thế màn hình hiện tại sẽ tạo ra đúng "hệ thống song song" mà package tự cảnh báo, và sẽ làm mất hết các bản sửa lỗi đã làm (điều hướng, bàn giao minh chứng, link tài liệu trong chat, giao diện Messenger). Vì vậy tôi **mở rộng thêm vào màn hình hiện tại**, chỉ thêm đúng phần thật sự mới:
+
+- **Mission Health** — 3 chỉ số thật (Hiểu bạn / Đủ dữ liệu / Sẵn sàng kết quả) tính từ dữ liệu `learner_memory_values` thật, không phải số giả — chỉ mang tính tham khảo, không tự động đánh dấu hoàn thành.
+- **Next Best Action** — 1 gợi ý "nên làm gì tiếp theo" tính từ đúng trạng thái đã có (câu hỏi đang hỏi/chờ xác nhận/cần nộp minh chứng), không phải AI đoán.
+- **Thẻ ghi nhận đúng theo tin nhắn** — khi Coach hiểu 1 câu trả lời, thẻ xác nhận giờ gắn liền vào đúng tin nhắn đó thay vì nằm tách rời cuối khung chat.
+
+**Chủ động KHÔNG làm** (nêu rõ để bạn biết, không giấu): nhãn "nguồn trích dẫn" theo từng tin nhắn (chế độ Offline hiện không trích dẫn gì cả; chế độ AI/Hybrid chưa cấu hình được vì `ENCRYPTION_KEY` vẫn chưa thêm — làm nhãn này bây giờ sẽ là dữ liệu giả); nút Voice/Ảnh/Công cụ nhanh trong khung chat (chưa có năng lực thật đứng sau các nút này); và 1 feature flag thứ 2 riêng cho bản V2 — cờ `coachWorkspaceV1` + cấu hình Coach theo từng Mission đã sẵn là đúng cơ chế bật/tắt rồi, thêm cờ nữa sẽ là dư thừa.
+
+**Đã kiểm tra:** đường dẫn `returnTo` khi mở tài liệu từ Mission đã đúng sẵn — không cần sửa gì. Giai đoạn 1 bản đã publish thật vẫn chỉ có đúng 3 Mission pilot (Xác định hướng nghề Makeup / Hoàn thành Career Map / Lộ trình 90 ngày) — bản nháp 19 Mission tạo trước đó trong phiên vẫn ở trạng thái nháp, chưa publish.
+
+`pnpm typecheck`/`lint`/`test` (257/257, +8 test mới)/`build`/`test:sql` (19 bảng) sạch. Không có migration — không đổi schema.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn xem lại Mission Health và Next Best Action ở cột bên phải khi trò chuyện với Coach.**
+
+---
+
 **2026-08-19 — 🎨 Đã merge + deploy: "H2O Brain Memory" (Hồ sơ đang hình thành) đổi thành lưới widget gọn gàng, cân xứng với Journey Context bên trái, KHÔNG có migration.**
 
 Bạn muốn phần "Hồ sơ đang hình thành" gọn gàng hơn, theo bố cục widget hiện đại, và cân xứng với khung "JOURNEY CONTEXT" bên trái.
