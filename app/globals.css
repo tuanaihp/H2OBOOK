@@ -1369,20 +1369,6 @@ a.h2o-coach-journey-item:hover{border-color:var(--coach-violet);background:#fff}
 .h2o-coach-evidence-cta{background:#a05a13;color:#fff;border-radius:8px;padding:6px 12px;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap}
 .h2o-coach-classic-link{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--coach-muted);text-decoration:none}
 .h2o-coach-classic-link:hover{color:var(--coach-violet)}
-/* v5/41 tabs — Coach is this same screen; the other 3 are real navigation to the classic 4-tab
-   workspace's matching tab (?workspace=classic&tab=...), not a re-implementation of that screen. */
-.h2o-coach-tabs{display:flex;gap:8px;padding:12px 18px 0}
-.h2o-coach-tab{padding:8px 12px;border-radius:10px;background:#fff;border:1px solid var(--coach-line);font-size:12px;font-weight:700;text-decoration:none;color:var(--coach-ink)}
-.h2o-coach-tab.is-active{background:var(--coach-nav);color:#fff;border-color:var(--coach-nav)}
-/* Real, server-computed values (mission objective / required-fields confirmed count / offline-hybrid-ai mode) — never the mockup's hardcoded "AI Hybrid · ON". */
-.h2o-coach-status-row{display:flex;gap:8px;flex-wrap:wrap;padding:0 18px;margin-top:10px}
-.h2o-coach-status{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#fff;border:1px solid var(--coach-line);color:var(--coach-ink)}
-.h2o-coach-status.is-good{background:#edfdf7;color:#12825d;border-color:#c8f0e1}
-.h2o-coach-status.is-smart{background:#f2efff;color:#5a43d6;border-color:#d9d1ff}
-.h2o-coach-context-strip{display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:10px;padding:12px 18px;border-bottom:1px solid var(--coach-line);background:#fcfdff}
-.h2o-coach-metric{padding:10px;border:1px solid var(--coach-line);border-radius:12px;background:#fff}
-.h2o-coach-metric strong{display:block;font-size:16px}
-.h2o-coach-metric span{font-size:10px;color:var(--coach-muted)}
 /* Soft, warm surface behind the conversation — matches the beauty-brand "nhẹ nhàng" (gentle) tone. */
 .h2o-coach-stream{flex:1;min-height:420px;max-height:520px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:radial-gradient(circle at 90% 5%,rgba(123,99,255,.07),transparent 26%),linear-gradient(180deg,#fff,#fffafd)}
 .h2o-coach-msg{display:flex;gap:7px;align-items:flex-end;max-width:80%}
