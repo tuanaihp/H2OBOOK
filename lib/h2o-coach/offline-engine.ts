@@ -1,4 +1,4 @@
-import { missionConfirmedFieldKey, type CoachCandidateExtraction, type CoachCondition, type CoachMemoryFieldSchema, type CoachMissionState, type CoachRuntimeContext, type CoachTurnResult, type LearnerMemoryValue } from "./types";
+import { missionConfirmedFieldKey, type CoachCandidateExtraction, type CoachCondition, type CoachMemoryFieldSchema, type CoachMissionHealth, type CoachMissionState, type CoachNextBestAction, type CoachRuntimeContext, type CoachTurnResult, type LearnerMemoryValue } from "./types";
 
 function confirmedValueMap(memory: LearnerMemoryValue[]): Map<string, unknown> {
   return new Map(memory.filter((v) => v.status === "confirmed").map((v) => [v.field, v.value]));
@@ -95,6 +95,48 @@ export function determineMissionState(requiredFields: string[], memory: LearnerM
   return requiredFields.every((f) => confirmed.has(f)) ? "awaiting_confirmation" : "in_progress";
 }
 
+/**
+ * H2O Coach Workspace Smart V2 (v5/41) — a richer readiness signal than the single progressPercent
+ * badge, entirely derived from real memory rows (never a placeholder). `understanding` counts any
+ * value yet (confirmed OR still-proposed) as "H2O has heard this from you"; `dataCompleteness` only
+ * counts confirmed values. In pure offline mode candidates are written straight to `confirmed` (see
+ * extractCandidatesFromText's requiresConfirmation: false), so the two numbers usually match today —
+ * they only diverge once Hybrid/AI mode's proposed-then-confirm flow is actually in use.
+ * `resultReadiness` folds in the learner's own final "Đúng rồi" (missionState), not just field
+ * completeness — the same "readiness ≠ completion" principle already governs the completion resolver.
+ */
+export function calculateMissionHealth(ctx: CoachRuntimeContext): CoachMissionHealth {
+  const required = ctx.missionConfig.requiredFields;
+  if (!required.length) return { understanding: 100, dataCompleteness: 100, resultReadiness: 100 };
+  const hasAny = new Set(ctx.memory.filter((v) => v.status === "confirmed" || v.status === "proposed").map((v) => v.field));
+  const confirmed = new Set(ctx.memory.filter((v) => v.status === "confirmed").map((v) => v.field));
+  const understanding = Math.round((required.filter((f) => hasAny.has(f)).length / required.length) * 100);
+  const dataCompleteness = Math.round((required.filter((f) => confirmed.has(f)).length / required.length) * 100);
+  const missionState = determineMissionState(required, ctx.memory, ctx.missionId);
+  const resultReadiness = missionState === "confirmed" ? 100 : missionState === "awaiting_confirmation" ? 80 : dataCompleteness;
+  return { understanding, dataCompleteness, resultReadiness };
+}
+
+/**
+ * Deterministic "what should the learner do next" — every branch maps 1:1 to state already computed
+ * elsewhere (missionState, the active question, the evidence handoff), never a guess or an LLM call.
+ * `evidencePending` is passed in rather than recomputed here since it depends on the Mission's
+ * completion_policy, which offline-engine.ts's pure functions don't have access to (see service.ts).
+ */
+export function nextBestAction(ctx: CoachRuntimeContext, evidencePending: boolean): CoachNextBestAction | null {
+  const missionState = determineMissionState(ctx.missionConfig.requiredFields, ctx.memory, ctx.missionId);
+  if (missionState === "confirmed") {
+    return evidencePending
+      ? { title: "Nộp minh chứng để hoàn thành", reason: "Đã ghi nhận đủ thông tin — chỉ còn thiếu minh chứng thật để chính thức hoàn thành Mission này.", actionKey: "submit_evidence" }
+      : null;
+  }
+  if (missionState === "awaiting_confirmation") {
+    return { title: "Xác nhận tổng kết", reason: "H2O đã tổng hợp đủ thông tin bên dưới — trả lời \"Đúng rồi\" để chốt lại.", actionKey: "confirm_summary" };
+  }
+  const question = nextOfflineQuestion(ctx);
+  return question ? { title: "Trả lời câu hỏi hiện tại", reason: question, actionKey: "answer_question" } : null;
+}
+
 function fieldLabel(memorySchema: CoachMemoryFieldSchema[], key: string): string {
   return memorySchema.find((f) => f.key === key)?.label ?? key;
 }
@@ -125,22 +167,23 @@ function acknowledgment(justExtracted: CoachCandidateExtraction[], memorySchema:
 export function runOfflineCoachTurn(ctx: CoachRuntimeContext, justExtracted: CoachCandidateExtraction[] = []): CoachTurnResult {
   const missionState = determineMissionState(ctx.missionConfig.requiredFields, ctx.memory, ctx.missionId);
   const progressPercent = calculateCoachProgress(ctx.missionConfig.requiredFields, ctx.memory, ctx.missionId);
+  const health = calculateMissionHealth(ctx);
   const ack = acknowledgment(justExtracted, ctx.profile.memorySchema);
 
   if (missionState === "confirmed") {
-    return { reply: "Mission này đã hoàn thành. Bạn có thể xem lại hồ sơ đã tổng hợp bên phải bất cứ lúc nào.", candidates: [], nextQuestion: null, missionState, progressPercent };
+    return { reply: "Mission này đã hoàn thành. Bạn có thể xem lại hồ sơ đã tổng hợp bên phải bất cứ lúc nào.", candidates: [], nextQuestion: null, missionState, progressPercent, health };
   }
   if (missionState === "awaiting_confirmation") {
-    return { reply: ack + buildSummaryReply(ctx), candidates: [], nextQuestion: null, missionState, progressPercent };
+    return { reply: ack + buildSummaryReply(ctx), candidates: [], nextQuestion: null, missionState, progressPercent, health };
   }
 
   const nextQuestion = nextOfflineQuestion(ctx);
   if (nextQuestion) {
-    return { reply: ack + nextQuestion, candidates: [], nextQuestion, missionState, progressPercent };
+    return { reply: ack + nextQuestion, candidates: [], nextQuestion, missionState, progressPercent, health };
   }
   const stillMissing = missingRequiredFields(ctx);
   return {
     reply: ack || "Mình cần thêm một vài thông tin nữa trước khi tổng hợp kết quả cho bạn.",
-    candidates: [], nextQuestion: null, missionState, progressPercent, completionHints: stillMissing
+    candidates: [], nextQuestion: null, missionState, progressPercent, health, completionHints: stillMissing
   };
 }

@@ -1,11 +1,11 @@
 import "server-only";
 import { resolveMissionContext } from "@/lib/mission-workspace/student";
 import { completeSelfReportedMission, startMission } from "@/lib/learn-outcome/student";
-import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "./offline-engine";
+import { calculateCoachProgress, calculateMissionHealth, detectConfirmIntent, determineMissionState, extractCandidatesFromText, nextBestAction as computeNextBestAction, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "./offline-engine";
 import { generateCoachTurn, isCoachAiConfigured } from "./provider-gateway";
 import { appendConversation, getConversation, getKnowledgeContext, getRuntimeContext } from "./repository";
 import { saveProposedMemory } from "./memory";
-import { missionConfirmedFieldKey, type CoachCandidateExtraction, type CoachConversationMessage, type CoachMissionState } from "./types";
+import { missionConfirmedFieldKey, type CoachCandidateExtraction, type CoachConversationMessage, type CoachMissionHealth, type CoachMissionState, type CoachNextBestAction } from "./types";
 
 function candidateToMemoryValue(candidate: CoachCandidateExtraction, messageId: string) {
   return {
@@ -26,6 +26,9 @@ export interface CoachTurnOutcome {
   missionId: string; usedAi: boolean;
   /** True once the learner has confirmed the summary but the Mission's own completion_policy (evidence_required/teacher_verified) still needs a real evidence submission — Coach confirming never bypasses that, so the UI must send the learner to the evidence step instead of claiming the Mission is done. */
   evidencePending: boolean;
+  /** v5/41 H2O Coach Workspace Smart V2 — see CoachMissionHealth's doc comment; always populated, computed from real memory rows, never a placeholder. */
+  health: CoachMissionHealth;
+  nextBestAction: CoachNextBestAction | null;
 }
 type CoachResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -66,7 +69,7 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
     const missionState = determineMissionState(ctx.missionConfig.requiredFields, ctx.memory, args.missionId);
     const progressPercent = calculateCoachProgress(ctx.missionConfig.requiredFields, ctx.memory, args.missionId);
     const evidencePending = missionState === "confirmed" && !SELF_COMPLETING_POLICIES.has(missionContext.mission.completionPolicy);
-    return { ok: true, data: { reply: priorReply?.text ?? "", candidates: [], nextQuestion: null, missionState, progressPercent, missionId: args.missionId, usedAi: false, evidencePending } };
+    return { ok: true, data: { reply: priorReply?.text ?? "", candidates: [], nextQuestion: null, missionState, progressPercent, missionId: args.missionId, usedAi: false, evidencePending, health: calculateMissionHealth(ctx), nextBestAction: computeNextBestAction(ctx, evidencePending) } };
   }
 
   const learnerMessageId = crypto.randomUUID();
@@ -143,6 +146,12 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
 
   await appendConversation(args.organizationId, args.learnerId, args.missionId, { id: crypto.randomUUID(), role: "coach", text: reply, createdAt: new Date().toISOString() });
 
+  // v5/41 H2O Coach Workspace Smart V2: Next Best Action needs evidencePending (a service.ts-level
+  // concept tied to completion_policy, not something offline-engine.ts's pure functions know about),
+  // so it's computed here rather than inside runOfflineCoachTurn — same freshCtx (post-persist,
+  // re-queried memory) deterministic already used, so it reflects this turn's real outcome.
+  const nextAction = computeNextBestAction(freshCtx, evidencePending);
+
   // Bug found in production 2026-08-16: runOfflineCoachTurn() always returns candidates: [] (it only
   // uses justExtracted to phrase the "Đã hiểu..." acknowledgment, never echoes it back) — spreading
   // `deterministic` last overwrote the real extraction with that empty array, so the client's Brain
@@ -150,7 +159,7 @@ export async function handleCoachTurn(args: { organizationId: string; learnerId:
   // the value was correctly saved and reflected in the chat's own summary text. Field values only
   // reappeared correct after a full page reload re-fetched `initialMemory` from the server. `candidates`
   // here is deliberately re-applied after the spread so this turn's real extraction always reaches the UI.
-  return { ok: true, data: { ...deterministic, candidates, reply, missionId: args.missionId, usedAi, evidencePending } };
+  return { ok: true, data: { ...deterministic, candidates, reply, missionId: args.missionId, usedAi, evidencePending, nextBestAction: nextAction } };
 }
 
 /**
@@ -191,6 +200,8 @@ export async function getCoachSessionState(organizationId: string, learnerId: st
   const missionState = determineMissionState(ctx.missionConfig.requiredFields, ctx.memory, missionId);
   const progressPercent = calculateCoachProgress(ctx.missionConfig.requiredFields, ctx.memory, missionId);
   const evidencePending = missionState === "confirmed" && !SELF_COMPLETING_POLICIES.has(missionContext.mission.completionPolicy);
+  const health = calculateMissionHealth(ctx);
+  const nextAction = computeNextBestAction(ctx, evidencePending);
 
-  return { profile: ctx.profile, missionConfig: ctx.missionConfig, memory: ctx.memory, messages, missionState, progressPercent, evidencePending };
+  return { profile: ctx.profile, missionConfig: ctx.missionConfig, memory: ctx.memory, messages, missionState, progressPercent, evidencePending, health, nextBestAction: nextAction };
 }
