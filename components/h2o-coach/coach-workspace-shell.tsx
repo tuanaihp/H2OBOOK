@@ -67,10 +67,6 @@ export interface CoachWorkspaceShellProps {
   initialEvidencePending: boolean;
   initialHealth: CoachMissionHealth;
   initialNextBestAction: CoachNextBestAction | null;
-  /** Real values for the status row/context strip (2026-08-19 mockup match) — never hardcoded like the reference's "AI Hybrid · ON". */
-  objective: string;
-  requiredFieldKeys: string[];
-  providerMode: "offline" | "hybrid" | "ai";
   journeyItems: CoachJourneyItem[];
   resources: CoachResourceItem[];
   memorySchema: CoachSchemaField[];
@@ -92,7 +88,6 @@ function newClientMessageId(): string {
 function formatNamespace(namespace: string): string {
   return namespace.split("_").filter(Boolean).map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
 }
-const PROVIDER_MODE_LABEL: Record<CoachWorkspaceShellProps["providerMode"], string> = { offline: "Offline Coach", hybrid: "AI Hybrid", ai: "AI Coach" };
 
 /**
  * Real H2O Coach Workspace, wired to /api/student/h2o-coach/turn and /api/student/h2o-coach/memory.
@@ -245,26 +240,11 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
         </div>
         <div className="h2o-coach-progress"><b>{progressPercent}%</b><small>{missionState !== "confirmed" ? "Coach progress" : evidencePending ? "Cần nộp minh chứng" : "Đã hoàn thành"}</small></div>
       </header>
-      {/* Real status pills — providerMode/confirmed-required-count are actual server-computed values,
-          never the reference mockup's hardcoded "AI Hybrid · ON" / "Memory 7/10". */}
-      <div className="h2o-coach-status-row">
-        <span className="h2o-coach-status is-good">{missionState === "confirmed" ? "✓ Đã hoàn thành" : "● Đang coaching"}</span>
-        <span className="h2o-coach-status is-smart">{PROVIDER_MODE_LABEL[props.providerMode]}</span>
-        <span className="h2o-coach-status">Memory {props.requiredFieldKeys.filter((k) => memory.find((m) => m.field === k)?.status === "confirmed").length}/{props.requiredFieldKeys.length}</span>
-      </div>
-      {/* v5/41 mockup's 4 tabs — Coach is this same screen (always "active"); the other 3 are real
-          navigation to the matching tab of the classic 4-tab workspace, not a re-implementation of it. */}
-      <div className="h2o-coach-tabs">
-        <span className="h2o-coach-tab is-active">Coach</span>
-        <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=brief`} className="h2o-coach-tab">Hồ sơ nhiệm vụ</Link>
-        <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=evidence`} className="h2o-coach-tab">Minh chứng</Link>
-        <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=result`} className="h2o-coach-tab">Kết quả</Link>
-      </div>
-      <div className="h2o-coach-context-strip">
-        <div className="h2o-coach-metric"><span>Mục tiêu phiên này</span><strong>{nextBestAction?.title || props.objective || props.missionTitle}</strong></div>
-        <div className="h2o-coach-metric"><span>Đã đủ dữ liệu</span><strong>{props.requiredFieldKeys.filter((k) => memory.find((m) => m.field === k)?.status === "confirmed").length}/{props.requiredFieldKeys.length}</strong></div>
-        <div className="h2o-coach-metric"><span>Dự kiến còn</span><strong>{props.requiredFieldKeys.filter((k) => memory.find((m) => m.field === k)?.status !== "confirmed").length} câu</strong></div>
-      </div>
+      {/* Admin asked 2026-08-19 to remove the status-pills/tabs/context-strip cluster added to match
+          the reference mockup — too much stacked chrome before the actual conversation. The tab row's
+          navigation isn't lost: the "Xem giao diện đầy đủ" link above already reaches the classic
+          4-tab workspace, and Mission Health in the right rail already shows "Đủ dữ liệu" — the
+          context-strip's numbers were pure duplication of it. */}
       {missionState === "confirmed" && (evidencePending
         ? <div className="h2o-coach-done-banner h2o-coach-done-banner-pending">
             ✓ Đã ghi nhận đủ thông tin — bước cuối: nộp minh chứng thật để chính thức hoàn thành Mission này.
