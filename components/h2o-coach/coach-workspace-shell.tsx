@@ -101,10 +101,14 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
   function scrollToBottom() { requestAnimationFrame(() => streamRef.current?.scrollTo({ top: streamRef.current.scrollHeight })); }
 
   // A confirmed value is a decision the student just made and committed to — celebrate it lightly
-  // rather than only flipping a status label. `big` = the whole Mission just got confirmed.
-  function burstHearts(count: number, big = false) {
+  // rather than only flipping a status label. `big` = the whole Mission just got confirmed. `side`
+  // biases where the hearts rise from: "right" hugs the learner's own bubble (right-aligned, see
+  // .h2o-coach-msg.role-learner) for the instant "message sent" burst; "center" is the default for
+  // confirm/mission-complete moments, which aren't tied to one specific bubble.
+  function burstHearts(count: number, opts: { big?: boolean; side?: "center" | "right" } = {}) {
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const created = Array.from({ length: count }, () => ({ id: heartSeed++, left: 30 + Math.random() * 40, delay: Math.random() * 220, scale: big ? 1.15 + Math.random() * 0.5 : 0.75 + Math.random() * 0.4 }));
+    const [min, span] = opts.side === "right" ? [58, 30] : [30, 40];
+    const created = Array.from({ length: count }, () => ({ id: heartSeed++, left: min + Math.random() * span, delay: Math.random() * 220, scale: opts.big ? 1.15 + Math.random() * 0.5 : 0.75 + Math.random() * 0.4 }));
     setHearts((prev) => [...prev, ...created]);
     setTimeout(() => setHearts((prev) => prev.filter((h) => !created.includes(h))), 1900);
   }
@@ -115,6 +119,10 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
     setSending(true); setError(null);
     setMessages((prev) => [...prev, { id: `local-${Date.now()}`, role: "learner", text: trimmed, createdAt: new Date().toISOString() }]);
     setInput("");
+    // Admin asked 2026-08-19: hearts should rise the moment the student replies, not only once the
+    // server confirms a value — an immediate, low-cost "your voice was heard" moment near their own
+    // bubble, on top of (not instead of) the bigger confirm/mission-complete bursts below.
+    burstHearts(1, { side: "right" });
     scrollToBottom();
     const res = await fetch("/api/student/h2o-coach/turn", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ missionId: props.missionId, message: trimmed, clientMessageId: newClientMessageId() }) });
     const json = await res.json().catch(() => null);
@@ -136,7 +144,7 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
         }
         return next;
       });
-      if (json.missionState === "confirmed" && !wasConfirmed) burstHearts(7, true);
+      if (json.missionState === "confirmed" && !wasConfirmed) burstHearts(7, { big: true });
       else if (newlyConfirmed > 0) burstHearts(Math.min(newlyConfirmed, 3));
     }
     scrollToBottom();
