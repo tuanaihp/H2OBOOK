@@ -49,9 +49,13 @@ function CoachHeartBurst({ hearts }: { hearts: { id: number; left: number; delay
 export interface CoachJourneyItem { id: string; title: string; state: "done" | "current" | "available" | "locked" }
 export interface CoachResourceItem { id: string; title: string; resourceType: string; resourceId: string }
 export interface CoachMemoryValue { field: string; namespace: string; value: unknown; status: "proposed" | "confirmed" | "rejected"; updatedAt: string }
-export interface CoachMessage { id: string; role: "coach" | "learner" | "system"; text: string; createdAt: string }
+export interface CoachExtractionField { field: string; label: string; value: unknown }
+export interface CoachMessage { id: string; role: "coach" | "learner" | "system"; text: string; createdAt: string; extraction?: CoachExtractionField[] }
 export interface CoachSchemaField { key: string; label: string; namespace: string }
 export type CoachMissionState = "in_progress" | "awaiting_confirmation" | "confirmed";
+/** v5/41 H2O Coach Workspace Smart V2 — mirrors lib/h2o-coach/types.ts's CoachMissionHealth/CoachNextBestAction (server-computed, real data, never a placeholder). */
+export interface CoachMissionHealth { understanding: number; dataCompleteness: number; resultReadiness: number }
+export interface CoachNextBestAction { title: string; reason: string; actionKey: "answer_question" | "confirm_summary" | "submit_evidence" }
 
 export interface CoachWorkspaceShellProps {
   missionId: string;
@@ -61,6 +65,8 @@ export interface CoachWorkspaceShellProps {
   initialMissionState: CoachMissionState;
   /** True once confirmed but the Mission's completion_policy (evidence_required/teacher_verified) still needs a real evidence submission Coach chat cannot provide — see EVIDENCE_HANDOFF_REPLY in service.ts. */
   initialEvidencePending: boolean;
+  initialHealth: CoachMissionHealth;
+  initialNextBestAction: CoachNextBestAction | null;
   journeyItems: CoachJourneyItem[];
   resources: CoachResourceItem[];
   memorySchema: CoachSchemaField[];
@@ -92,11 +98,14 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
   const [progressPercent, setProgressPercent] = useState(props.initialProgressPercent);
   const [missionState, setMissionState] = useState<CoachMissionState>(props.initialMissionState);
   const [evidencePending, setEvidencePending] = useState(props.initialEvidencePending);
+  const [health, setHealth] = useState<CoachMissionHealth>(props.initialHealth);
+  const [nextBestAction, setNextBestAction] = useState<CoachNextBestAction | null>(props.initialNextBestAction);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hearts, setHearts] = useState<{ id: number; left: number; delay: number; scale: number }[]>([]);
   const streamRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   function scrollToBottom() { requestAnimationFrame(() => streamRef.current?.scrollTo({ top: streamRef.current.scrollHeight })); }
 
@@ -128,11 +137,24 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
     const json = await res.json().catch(() => null);
     setSending(false);
     if (!res.ok) { setError("Không gửi được tin nhắn — thử lại."); return; }
-    setMessages((prev) => [...prev, { id: `coach-${Date.now()}`, role: "coach", text: json.reply, createdAt: new Date().toISOString() }]);
+    // v5/41 H2O Coach Workspace Smart V2: proposed (requiresConfirmation:true) candidates attach to
+    // THIS specific coach reply as an inline "H2O đã hiểu từ câu trả lời của bạn" card, instead of only
+    // surfacing in a detached block at the end of the stream — the learner sees exactly which message
+    // triggered the proposal. Offline mode never actually produces proposed candidates today (every
+    // offline extraction path sets requiresConfirmation:false, see extractCandidatesFromText's own doc
+    // comment) — this only has visible effect once Hybrid/AI mode is configured and turned on.
+    const extraction = Array.isArray(json.candidates)
+      ? (json.candidates as { field: string; value: unknown; requiresConfirmation: boolean }[])
+          .filter((c) => c.requiresConfirmation)
+          .map((c) => ({ field: c.field, label: fieldLabel(props.memorySchema, c.field), value: c.value }))
+      : [];
+    setMessages((prev) => [...prev, { id: `coach-${Date.now()}`, role: "coach", text: json.reply, createdAt: new Date().toISOString(), extraction: extraction.length ? extraction : undefined }]);
     const wasConfirmed = missionState === "confirmed";
     setProgressPercent(json.progressPercent ?? progressPercent);
     setMissionState(json.missionState ?? missionState);
     setEvidencePending(Boolean(json.evidencePending));
+    if (json.health) setHealth(json.health as CoachMissionHealth);
+    setNextBestAction((json.nextBestAction as CoachNextBestAction | null) ?? null);
     if (Array.isArray(json.candidates) && json.candidates.length) {
       const newlyConfirmed = (json.candidates as { requiresConfirmation: boolean }[]).filter((c) => !c.requiresConfirmation).length;
       setMemory((prev) => {
@@ -157,7 +179,12 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
     await fetch("/api/student/h2o-coach/memory", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, field, value: current?.value }) });
   }
 
-  const pendingConfirmations = memory.filter((m) => m.status === "proposed");
+  // Fields already shown inline under their own message (above) are excluded here — this is only a
+  // fallback for proposals that reload without message-level metadata (message.extraction isn't
+  // persisted to coach_conversations, so a fresh page load can't reconstruct it) and would otherwise
+  // never get a confirm/reject UI at all.
+  const inlineExtractionFields = new Set(messages.flatMap((m) => m.extraction?.map((f) => f.field) ?? []));
+  const pendingConfirmations = memory.filter((m) => m.status === "proposed" && !inlineExtractionFields.has(m.field));
   const confirmedFields = memory.filter((m) => m.status === "confirmed");
 
   return <div className="h2o-coach-workspace">
@@ -230,6 +257,24 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
               <small>📎 Tài liệu liên quan:</small>
               {props.resources.map((r) => <Link key={r.id} href={buildMissionResourceHref(r.resourceType, r.resourceId, props.missionId)} className="h2o-coach-msg-resource-link">{r.title} →</Link>)}
             </div>}
+            {/* v5/41 H2O Coach Workspace Smart V2: attach the extraction proposal to the exact message
+                that produced it, instead of a detached block at the end of the stream — the learner
+                sees which reply it came from. Filters to fields still "proposed" in `memory` so the
+                card disappears the instant it's actioned, rather than lingering after confirm/reject. */}
+            {m.role === "coach" && m.extraction && m.extraction.length > 0 && (() => {
+              const unresolved = m.extraction.filter((f) => memory.find((mm) => mm.field === f.field)?.status === "proposed");
+              if (!unresolved.length) return null;
+              return <div className="h2o-coach-extraction-card">
+                <strong>✦ H2O đã hiểu từ câu trả lời của bạn</strong>
+                <div className="h2o-coach-extraction-grid">
+                  {unresolved.map((f) => <div key={f.field}><small>{f.label}</small><span>{displayValue(f.value) || "Chưa xác định"}</span></div>)}
+                </div>
+                <div className="h2o-coach-extraction-actions">
+                  <button onClick={() => unresolved.forEach((f) => respondToCandidate(f.field, "confirm"))}>Đúng rồi</button>
+                  <button onClick={() => unresolved.forEach((f) => respondToCandidate(f.field, "reject"))}>Chỉnh lại</button>
+                </div>
+              </div>;
+            })()}
           </div>
         </div>)}
         {sending && <CoachThinkingBubble />}
@@ -244,7 +289,7 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
       </div>
       {error && <p className="h2o-coach-error">{error}</p>}
       <div className="h2o-coach-composer">
-        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendText(input)} placeholder="Nói với H2O về điều bạn đang nghĩ..." disabled={sending} />
+        <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendText(input)} placeholder="Nói với H2O về điều bạn đang nghĩ..." disabled={sending} />
         <button onClick={() => sendText(input)} disabled={sending || !input.trim()}>{sending ? "Đang gửi…" : "Gửi"}</button>
       </div>
     </main>
@@ -268,6 +313,31 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
         })}
       </div>
       {confirmedFields.length === 0 && pendingConfirmations.length === 0 && <p className="h2o-coach-memory-empty">Chưa có dữ liệu nào — hãy bắt đầu trò chuyện.</p>}
+
+      {/* v5/41 H2O Coach Workspace Smart V2 — real, server-computed, never a placeholder (see
+          nextBestAction()/calculateMissionHealth() in lib/h2o-coach/offline-engine.ts). Clicking the
+          action focuses the composer instead of being a dead button — the only interaction that makes
+          sense for a text-only Coach (voice/file/tool quick actions from the v5/41 reference scaffold
+          were deliberately left out: this production deployment has no real voice/file/tool capability
+          to back them, and this session's own rule is no fake/non-functional UI). */}
+      {nextBestAction && <div className="h2o-coach-next-action">
+        <span className="h2o-coach-eyebrow">NEXT BEST ACTION</span>
+        <strong>{nextBestAction.title}</strong>
+        <p>{nextBestAction.reason}</p>
+        {nextBestAction.actionKey === "submit_evidence"
+          ? <Link href={`/student/missions/${props.missionId}?workspace=classic&tab=evidence`} className="h2o-coach-next-action-btn">Đi nộp minh chứng →</Link>
+          : <button type="button" className="h2o-coach-next-action-btn" onClick={() => inputRef.current?.focus()}>Tiếp tục cùng H2O →</button>}
+      </div>}
+
+      <div className="h2o-coach-health">
+        <span className="h2o-coach-eyebrow">MISSION HEALTH</span>
+        {([["Hiểu bạn", health.understanding], ["Đủ dữ liệu", health.dataCompleteness], ["Sẵn sàng kết quả", health.resultReadiness]] as const).map(([label, value]) => (
+          <div key={label} className="h2o-coach-health-row">
+            <div><span>{label}</span><b>{value}</b></div>
+            <div className="h2o-coach-health-track"><span style={{ width: `${value}%` }} /></div>
+          </div>
+        ))}
+      </div>
     </aside>
   </div>;
 }

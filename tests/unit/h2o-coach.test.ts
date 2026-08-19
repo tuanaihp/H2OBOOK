@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCoachProgress, detectConfirmIntent, determineMissionState, extractCandidatesFromText, missingRequiredFields, nextOfflineQuestion, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "@/lib/h2o-coach/offline-engine";
+import { calculateCoachProgress, calculateMissionHealth, detectConfirmIntent, determineMissionState, extractCandidatesFromText, missingRequiredFields, nextBestAction, nextOfflineQuestion, nextOfflineQuestionRule, questionTargetField, runOfflineCoachTurn } from "@/lib/h2o-coach/offline-engine";
 import { missionConfirmedFieldKey, type CoachMemoryFieldSchema, type CoachRuntimeContext, type LearnerMemoryValue, type MissionCoachConfig } from "@/lib/h2o-coach/types";
 
 // docs/h2o-coach-v1 + the 2026-08-15 "Mission Coach state / H2O Brain memory sync" fix — the ones
@@ -206,5 +206,56 @@ describe("nextOfflineQuestionRule / questionTargetField (2026-08-16 fix — real
   it("returns null once no question is active (awaiting confirmation or already answered)", () => {
     const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "18 tuổi nữ")];
     expect(nextOfflineQuestionRule(ctx(memory))).toBeNull();
+  });
+});
+
+describe("calculateMissionHealth (v5/41 H2O Coach Workspace Smart V2 — real, deterministic readiness breakdown, never a placeholder)", () => {
+  it("0 of 2 required fields: all three metrics start at 0", () => {
+    expect(calculateMissionHealth(ctx([]))).toEqual({ understanding: 0, dataCompleteness: 0, resultReadiness: 0 });
+  });
+
+  it("a proposed (not yet confirmed) value raises understanding but not dataCompleteness or resultReadiness", () => {
+    const proposed: LearnerMemoryValue = { field: "career.direction", namespace: "career", value: "Bridal Makeup", status: "proposed", updatedAt: "now" };
+    const health = calculateMissionHealth(ctx([proposed]));
+    expect(health.understanding).toBe(50);
+    expect(health.dataCompleteness).toBe(0);
+    expect(health.resultReadiness).toBe(0);
+  });
+
+  it("all required fields confirmed but not yet learner-confirmed: dataCompleteness 100, resultReadiness only 80 (readiness ≠ completion)", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "Khách trẻ 20-30")];
+    const health = calculateMissionHealth(ctx(memory));
+    expect(health.understanding).toBe(100);
+    expect(health.dataCompleteness).toBe(100);
+    expect(health.resultReadiness).toBe(80);
+  });
+
+  it("mission fully confirmed: all three metrics reach 100", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "Khách trẻ 20-30"), confirmedField(missionConfirmedFieldKey(MISSION_ID), true)];
+    const health = calculateMissionHealth(ctx(memory));
+    expect(health).toEqual({ understanding: 100, dataCompleteness: 100, resultReadiness: 100 });
+  });
+});
+
+describe("nextBestAction (v5/41 — deterministic single next step, every branch maps to state computed elsewhere)", () => {
+  it("in_progress with an active question: points at that exact question", () => {
+    const action = nextBestAction(ctx([]), false);
+    expect(action?.actionKey).toBe("answer_question");
+    expect(action?.reason).toBe("Bạn muốn theo hướng Makeup nào?");
+  });
+
+  it("awaiting_confirmation: asks the learner to confirm the summary", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "Khách trẻ 20-30")];
+    expect(nextBestAction(ctx(memory), false)?.actionKey).toBe("confirm_summary");
+  });
+
+  it("confirmed + evidence pending: points at submitting evidence", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "Khách trẻ 20-30"), confirmedField(missionConfirmedFieldKey(MISSION_ID), true)];
+    expect(nextBestAction(ctx(memory), true)?.actionKey).toBe("submit_evidence");
+  });
+
+  it("confirmed + no evidence needed: nothing left to do on this Mission", () => {
+    const memory = [confirmedField("career.direction", "Bridal Makeup"), confirmedField("career.target_customer", "Khách trẻ 20-30"), confirmedField(missionConfirmedFieldKey(MISSION_ID), true)];
+    expect(nextBestAction(ctx(memory), false)).toBeNull();
   });
 });

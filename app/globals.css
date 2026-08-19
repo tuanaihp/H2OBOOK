@@ -1415,6 +1415,31 @@ a.h2o-coach-journey-item:hover{border-color:var(--student-violet);background:rgb
 .h2o-coach-confirm-card button:first-child{background:#0ba878;color:#fff}
 .h2o-coach-confirm-card button:last-child{background:#eef2f7;color:var(--student-ink)}
 .h2o-coach-error{margin:0 18px;font-size:12px;color:#b42318}
+
+/* v5/41 H2O Coach Workspace Smart V2 — extraction card attached to the message that produced it. */
+.h2o-coach-extraction-card{margin-top:8px;border:1px solid #bfe8d8;background:#f0fbf6;border-radius:14px;padding:11px 13px}
+.h2o-coach-extraction-card>strong{display:block;font-size:12px;margin-bottom:8px;color:#0a7a56}
+.h2o-coach-extraction-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:10px}
+.h2o-coach-extraction-grid small{display:block;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--student-muted);text-transform:uppercase;margin-bottom:2px}
+.h2o-coach-extraction-grid span{font-size:12.5px;font-weight:700}
+.h2o-coach-extraction-actions button{border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;margin-right:8px;cursor:pointer}
+.h2o-coach-extraction-actions button:first-child{background:#0ba878;color:#fff}
+.h2o-coach-extraction-actions button:last-child{background:#eef2f7;color:var(--student-ink)}
+
+/* Next Best Action + Mission Health widgets — always real, server-computed numbers (see
+   calculateMissionHealth()/nextBestAction() in lib/h2o-coach/offline-engine.ts), never placeholders. */
+.h2o-coach-next-action{margin-top:14px;border:1px solid #fbcfe8;background:linear-gradient(160deg,#fff7fb,#fdf2f8);border-radius:14px;padding:13px}
+.h2o-coach-next-action strong{display:block;font-size:13px;margin:4px 0}
+.h2o-coach-next-action p{margin:0 0 10px;font-size:11.5px;color:var(--student-muted);line-height:1.5}
+.h2o-coach-next-action-btn{display:inline-flex;align-items:center;gap:6px;background:var(--student-wine);color:#fff;border:none;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:800;text-decoration:none;cursor:pointer}
+.h2o-coach-health{margin-top:14px;border:1px solid var(--student-line);border-radius:14px;padding:13px}
+.h2o-coach-health-row{margin-top:9px}
+.h2o-coach-health-row:first-of-type{margin-top:8px}
+.h2o-coach-health-row>div:first-child{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;margin-bottom:4px}
+.h2o-coach-health-row>div:first-child span{color:var(--student-muted)}
+.h2o-coach-health-row>div:first-child b{font-size:12px}
+.h2o-coach-health-track{height:5px;background:#eef1f5;border-radius:8px;overflow:hidden}
+.h2o-coach-health-track>span{display:block;height:100%;background:linear-gradient(90deg,var(--student-wine),var(--student-violet));border-radius:8px;transition:width .25s ease}
 .h2o-coach-composer{border-top:1px solid var(--student-line);padding:12px 14px;display:flex;gap:8px}
 .h2o-coach-composer input{flex:1;border:1px solid var(--student-line);border-radius:14px;padding:11px 14px;font-size:13px;font:inherit}
 .h2o-coach-composer button{border:none;border-radius:14px;padding:0 18px;background:linear-gradient(90deg,var(--student-cyan),var(--student-violet));color:#0f1a29;font-weight:800;cursor:pointer}

@@ -157,6 +157,27 @@ export interface CoachRuntimeContext {
  */
 export type CoachMissionState = "in_progress" | "awaiting_confirmation" | "confirmed";
 
+/**
+ * H2O Coach Workspace Smart V2 (v5/41) integration, 2026-08-19 — a richer readiness signal than the
+ * single progressPercent badge, but strictly advisory: `resultReadiness` reaching 100 still never
+ * triggers completion on its own (that stays the canonical resolver's job, gated on missionState via
+ * service.ts). All three numbers are derived from real learner_memory_values rows, never invented.
+ */
+export interface CoachMissionHealth {
+  /** Share of this Mission's required fields with ANY value yet — confirmed or still-proposed. */
+  understanding: number;
+  /** Share of this Mission's required fields with a CONFIRMED value — the stricter bar. */
+  dataCompleteness: number;
+  /** Folds in the learner's own final confirmation, not just field completeness (readiness ≠ completion). */
+  resultReadiness: number;
+}
+
+export interface CoachNextBestAction {
+  title: string;
+  reason: string;
+  actionKey: "answer_question" | "confirm_summary" | "submit_evidence";
+}
+
 export interface CoachTurnResult {
   reply: string;
   candidates: CoachCandidateExtraction[];
@@ -165,6 +186,7 @@ export interface CoachTurnResult {
   referencedResourceIds?: string[];
   missionState: CoachMissionState;
   progressPercent: number;
+  health: CoachMissionHealth;
 }
 
 /**
