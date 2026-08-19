@@ -6,6 +6,18 @@
 
 ---
 
+**2026-08-19 — 🎨 Đã merge + deploy: Bỏ cụm trạng thái/tab/chỉ số quá rườm rà ở đầu khung chat, KHÔNG có migration.**
+
+Bạn phản hồi ngay sau bản khớp mockup: cụm 3 hàng vừa thêm (3 nhãn trạng thái + 4 tab + 3 ô chỉ số) xếp chồng lên nhau trước khi vào nội dung chat thật, nhìn rối — muốn bố cục gọn gàng hơn là bám sát 100% mockup.
+
+**Đã bỏ cả 3 hàng.** Không mất chức năng gì: link "Xem giao diện đầy đủ" đã có sẵn từ trước vẫn dẫn đúng sang Hồ sơ/Minh chứng/Kết quả; ô "Đủ dữ liệu" ở khung Mission Health bên phải đã có sẵn số liệu tương tự — cụm chỉ số vừa bỏ chỉ là lặp lại. Dọn luôn phần code không còn dùng tới (props/CSS) thay vì để lại code chết.
+
+`pnpm typecheck`/`lint`/`test` (257/257)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-19 — 🎨 Đã merge + deploy: Khớp giao diện Coach với file mockup thật bạn gửi (H2O_COACH_WORKSPACE_SMART_V2.html), KHÔNG có migration.**
 
 Bạn gửi đúng file HTML thật (không chỉ ảnh chụp) mà ChatGPT đã thiết kế riêng — tôi đọc toàn bộ mã nguồn và áp đúng màu sắc/bố cục/tên gọi thật vào bản đang chạy (giữ nguyên mọi phần đã hoạt động thật: hiệu ứng tim, bong bóng suy nghĩ, thẻ ghi nhận, bàn giao minh chứng).
