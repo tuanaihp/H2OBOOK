@@ -1422,14 +1422,22 @@ a.h2o-coach-journey-item:hover{border-color:var(--student-violet);background:rgb
 .h2o-coach-memory-head{background:linear-gradient(145deg,#0d1624,#241d45);color:#fff;border-radius:14px;padding:13px;margin-bottom:12px}
 .h2o-coach-memory-head h3{margin:2px 0 4px;font-size:15px}
 .h2o-coach-memory-head p{margin:0;font-size:11px;color:#c5cde3}
-.h2o-coach-memory-list{display:flex;flex-direction:column;gap:8px}
-.h2o-coach-memory-field{border:1px solid var(--student-line);border-radius:12px;padding:10px}
-.h2o-coach-memory-field small{display:block;font-size:10px;color:var(--student-muted)}
-.h2o-coach-memory-field strong{display:block;font-size:13px;margin:3px 0}
-.h2o-coach-memory-field span{font-size:11px}
-.h2o-coach-memory-field .status-confirmed{color:#0ba878}
-.h2o-coach-memory-field .status-proposed{color:var(--student-violet)}
-.h2o-coach-memory-field .status-rejected{color:#b42318}
-.h2o-coach-memory-field .status-missing{color:#9aa4b2}
+/* Widget-grid redesign (2026-08-19): was a flat single-column list where every field looked the same
+   regardless of status. Now a compact 2-up grid of small status-tinted cards — same border-radius/
+   padding language as .h2o-coach-journey-item on the left rail, so the two side panels read as one
+   consistent system instead of two different visual styles either side of the chat. */
+.h2o-coach-memory-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.h2o-coach-memory-field{border:1px solid var(--student-line);border-radius:12px;padding:9px 10px;background:#fff;transition:border-color .15s,background .15s}
+.h2o-coach-memory-field small{display:block;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--student-muted);text-transform:uppercase;margin-bottom:3px}
+.h2o-coach-memory-field strong{display:block;font-size:12.5px;line-height:1.3;margin:0 0 6px;word-break:break-word}
+.h2o-coach-memory-field span{display:inline-block;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:800;white-space:nowrap}
+.h2o-coach-memory-field .status-confirmed{color:#0ba878;background:rgba(11,168,120,.12)}
+.h2o-coach-memory-field .status-proposed{color:var(--student-violet);background:rgba(136,117,235,.12)}
+.h2o-coach-memory-field .status-rejected{color:#b42318;background:rgba(180,35,24,.1)}
+.h2o-coach-memory-field .status-missing{color:#9aa4b2;background:#f1f4f8}
+.h2o-coach-memory-field[data-status="confirmed"]{border-color:#bfe8d8;background:rgba(11,168,120,.04)}
+.h2o-coach-memory-field[data-status="proposed"]{border-color:var(--student-violet);background:rgba(136,117,235,.05)}
+.h2o-coach-memory-field[data-status="missing"]{border-style:dashed;opacity:.72}
 .h2o-coach-memory-empty{font-size:12px;color:var(--student-muted)}
 @media(max-width:1100px){.h2o-coach-workspace{grid-template-columns:1fr}.h2o-coach-journey,.h2o-coach-memory{order:2}}
+@media(max-width:480px){.h2o-coach-memory-list{grid-template-columns:1fr}}
