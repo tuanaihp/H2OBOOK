@@ -6,6 +6,25 @@
 
 ---
 
+**2026-08-19 — 🎨 Đã merge + deploy: Nâng cấp giao diện chat Coach kiểu Messenger — quả cầu H2O Brain, hiệu ứng neuron "đang suy nghĩ", hiệu ứng trái tim khi xác nhận, tông màu hồng-rượu vang nhẹ nhàng, KHÔNG có migration.**
+
+Bạn muốn khung chat Coach lên "một tầng mới": cảm giác như đang chat với app nhắn tin riêng, có hình ảnh "quả cầu H2O Brain" quen thuộc, tông màu nhẹ nhàng hợp thương hiệu ThuyH2OMakeup, có hiệu ứng thả tim và kết nối neuron thần kinh — vừa thông minh vừa ấm áp, giúp học viên tự tin với quyết định của mình.
+
+**Đã làm:**
+- **Avatar "H2O Brain"** — hình quả cầu neuron (vẽ vector thật, không phải icon rời rạc) xuất hiện ở đầu trang và mỗi tin nhắn của Coach, đúng ý tưởng "H2O Brain" giờ có mặt thật trong khung chat chứ không chỉ là chữ ở thanh bên.
+- **Hiệu ứng "đang suy nghĩ"** — khi chờ Coach trả lời, hiện bong bóng 3 chấm neuron nhấp nháy nối tiếp nhau (thay vì chỉ có chữ "Đang gửi…" khô khan).
+- **Hiệu ứng thả tim** — mỗi khi một câu trả lời của bạn trở thành dữ liệu chính thức (được xác nhận), vài trái tim bay lên nhẹ nhàng; khi cả Mission hoàn thành thì thả nhiều tim hơn — đúng ý "quyết định của học viên được trân quý".
+- **Tông màu** — dùng lại đúng màu rượu vang (`--student-wine`) đã có sẵn trong toàn hệ thống pha thêm hồng nhạt, không bịa ra bảng màu mới — bong bóng tin nhắn bo góc kiểu Messenger thật (góc nhọn về phía avatar), nền khung chat chuyển sang gradient hồng-kem nhẹ nhàng thay vì xám phẳng.
+- Tự tắt hiệu ứng nếu máy học viên bật "giảm chuyển động" (trợ năng) — không ép buộc animation lên ai.
+
+**Giới hạn phạm vi có chủ đích:** chỉ đổi khung chat (avatar, bong bóng tin nhắn, hiệu ứng) — chưa đụng vào cột Journey Context hay H2O Brain Memory bên phải, để dễ kiểm tra và giảm rủi ro.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Đã chạy thử `pnpm dev` cục bộ để chắc chắn không lỗi biên dịch/render trước khi deploy — nhưng **tôi không có trình duyệt để tự xem hiệu ứng chạy đẹp hay chưa**, cần bạn xem trực tiếp.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn vào lại Mission bất kỳ để xem giao diện mới, đặc biệt là lúc Coach xác nhận một câu trả lời (hiệu ứng thả tim) và lúc chờ Coach trả lời (hiệu ứng neuron).**
+
+---
+
 **2026-08-18 — 🐛 Đã sửa ngay (dữ liệu, không phải code): Giai đoạn 1 bị ẩn khỏi học viên do bấm nhầm, đã bật lại.**
 
 Bạn báo học viên vào tài khoản không mở được Giai đoạn 1. Kiểm tra log hệ thống: Giai đoạn 1 "Nền tảng nghề Makeup" bị đổi trạng thái từ "active" sang "hidden" (ẩn khỏi học viên) lúc 14:57 hôm nay, qua đúng nút ẩn/hiện (icon con mắt) ở `/academy-admin/stages` — khả năng cao là bấm nhầm khi thao tác gần đó. Vì Giai đoạn 1 bị ẩn, hệ thống tự chuyển học viên sang Giai đoạn 2 (chưa có lộ trình publish) nên hiện "Giai đoạn này đang được xây dựng hành trình."
