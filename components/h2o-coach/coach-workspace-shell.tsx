@@ -251,14 +251,19 @@ export function CoachWorkspaceShell(props: CoachWorkspaceShellProps) {
 
     <aside className="h2o-coach-memory">
       <div className="h2o-coach-memory-head"><span className="h2o-coach-eyebrow">H2O BRAIN MEMORY</span><h3>Hồ sơ đang hình thành</h3><p>Dữ liệu chỉ chính thức sau khi bạn xác nhận.</p></div>
+      {/* Admin asked 2026-08-19 for a more compact, modern "widget" layout here, balanced against the
+          left Journey Context rail's card treatment — was a flat, undifferentiated list before (every
+          field looked the same regardless of status). Now a 2-column grid of small status-tinted
+          cards, same border-radius/padding language as .h2o-coach-journey-item, with a compact pill
+          badge instead of a full sentence per status. */}
       <div className="h2o-coach-memory-list">
         {props.memorySchema.map((field) => {
           const entry = memory.find((m) => m.field === field.key);
-          const status = entry?.status;
-          return <div key={field.key} className="h2o-coach-memory-field">
+          const status = entry?.status ?? "missing";
+          return <div key={field.key} className="h2o-coach-memory-field" data-status={status}>
             <small>{field.label}</small>
             <strong>{entry && status !== "rejected" ? displayValue(entry.value) || "Chưa xác định" : "Chưa xác định"}</strong>
-            <span className={`status-${status ?? "missing"}`}>{status === "confirmed" ? "✓ Đã xác nhận" : status === "proposed" ? "◌ Chờ bạn xác nhận" : "○ H2O sẽ hỏi thêm"}</span>
+            <span className={`status-${status}`}>{status === "confirmed" ? "✓ Đã xác nhận" : status === "proposed" ? "◌ Chờ xác nhận" : "○ Sẽ hỏi"}</span>
           </div>;
         })}
       </div>
