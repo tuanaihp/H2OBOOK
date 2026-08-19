@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-19 — 🎨 Đã merge + deploy: Chat Coach thu gọn kiểu Instagram DM, khung bo tròn viền gradient bắt mắt, hiệu ứng tim ngay khi học viên gửi tin, KHÔNG có migration.**
+
+Nối tiếp bản nâng cấp giao diện trước, bạn yêu cầu thêm 3 việc:
+
+1. **Thu gọn khung chat** — khung chat giờ giới hạn chiều ngang tối đa và căn giữa, không còn trải rộng hết màn hình như trước, giống đúng cảm giác khung chat Instagram DM.
+2. **Khung viền tin nhắn bắt mắt hơn** — bong bóng tin nhắn giờ bo tròn gần như viên thuốc (pill-shape) kiểu Instagram, có viền gradient hồng nhạt mềm mại thay vì viền kẻ đơn giản, tin nhắn của bạn có đổ bóng nhẹ tông rượu vang.
+3. **Hiệu ứng thả tim ngay khi gửi tin** — trước đây tim chỉ bay lên khi Coach xác nhận xong; giờ mỗi lần bạn bấm Gửi, có ngay 1 trái tim bay lên cạnh tin nhắn của bạn — cộng thêm hiệu ứng tim lớn hơn khi Coach xác nhận dữ liệu như trước, không thay thế mà có thêm.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅. **Vẫn cần bạn tự xem trực tiếp trong trình duyệt** — tôi chưa có cách tự kiểm tra hiệu ứng chạy mượt/đẹp thế nào.
+
+---
+
 **2026-08-19 — 🎨 Đã merge + deploy: Nâng cấp giao diện chat Coach kiểu Messenger — quả cầu H2O Brain, hiệu ứng neuron "đang suy nghĩ", hiệu ứng trái tim khi xác nhận, tông màu hồng-rượu vang nhẹ nhàng, KHÔNG có migration.**
 
 Bạn muốn khung chat Coach lên "một tầng mới": cảm giác như đang chat với app nhắn tin riêng, có hình ảnh "quả cầu H2O Brain" quen thuộc, tông màu nhẹ nhàng hợp thương hiệu ThuyH2OMakeup, có hiệu ứng thả tim và kết nối neuron thần kinh — vừa thông minh vừa ấm áp, giúp học viên tự tin với quyết định của mình.
