@@ -6,6 +6,20 @@
 
 ---
 
+**2026-08-19 — 🎨 Đã merge + deploy: "H2O Brain Memory" (Hồ sơ đang hình thành) đổi thành lưới widget gọn gàng, cân xứng với Journey Context bên trái, KHÔNG có migration.**
+
+Bạn muốn phần "Hồ sơ đang hình thành" gọn gàng hơn, theo bố cục widget hiện đại, và cân xứng với khung "JOURNEY CONTEXT" bên trái.
+
+**Nguyên nhân trước đó:** danh sách các trường dữ liệu (Hướng nghề, Khách hàng mục tiêu...) xếp thành 1 cột dài, mỗi dòng nhìn giống hệt nhau dù trạng thái khác nhau (đã xác nhận/chờ xác nhận/chưa có) — không có khung viền rõ ràng như bên trái.
+
+**Đã sửa:** chuyển thành lưới 2 cột các thẻ nhỏ gọn (widget card), dùng đúng kiểu bo góc/đệm như khung "Journey Context" bên trái để 2 cột cân xứng nhau. Mỗi thẻ giờ đổi màu viền/nền nhẹ theo trạng thái (xanh nhạt = đã xác nhận, tím nhạt = chờ xác nhận, viền đứt nét = chưa có), và nhãn trạng thái rút gọn thành huy hiệu nhỏ thay vì cả câu dài.
+
+`pnpm typecheck`/`lint`/`test` (249/249)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅.
+
+---
+
 **2026-08-19 — 🎨 Đã merge + deploy: Chat Coach thu gọn kiểu Instagram DM, khung bo tròn viền gradient bắt mắt, hiệu ứng tim ngay khi học viên gửi tin, KHÔNG có migration.**
 
 Nối tiếp bản nâng cấp giao diện trước, bạn yêu cầu thêm 3 việc:
