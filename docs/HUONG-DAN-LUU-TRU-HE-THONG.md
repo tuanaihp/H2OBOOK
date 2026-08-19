@@ -6,6 +6,27 @@
 
 ---
 
+**2026-08-19 — 🎨 Đã merge + deploy: Khớp giao diện Coach với file mockup thật bạn gửi (H2O_COACH_WORKSPACE_SMART_V2.html), KHÔNG có migration.**
+
+Bạn gửi đúng file HTML thật (không chỉ ảnh chụp) mà ChatGPT đã thiết kế riêng — tôi đọc toàn bộ mã nguồn và áp đúng màu sắc/bố cục/tên gọi thật vào bản đang chạy (giữ nguyên mọi phần đã hoạt động thật: hiệu ứng tim, bong bóng suy nghĩ, thẻ ghi nhận, bàn giao minh chứng).
+
+**Đã khớp theo đúng file gốc:**
+- Bảng màu chính xác (cyan/tím/hồng/xanh lá/vàng hổ phách + nền xanh navy đậm) — chỉ áp riêng cho khung Coach, không ảnh hưởng phần còn lại của app.
+- Quả cầu H2O Brain đổi sang gradient 4 lớp giống hệt file gốc (trước là gradient 2 lớp đơn giản).
+- **Tab "Coach / Hồ sơ nhiệm vụ / Minh chứng / Kết quả" ngay trong màn hình** — trước chỉ có 1 link ra ngoài, giờ bấm tab chuyển thẳng đúng phần tương ứng của màn hình cũ.
+- Dải chỉ số thật dưới tên Coach (Mục tiêu phiên này / Đã đủ dữ liệu / Dự kiến còn X câu) — số liệu thật, không phải số mẫu như file gốc.
+- Nhãn trạng thái thật (Offline Coach/AI Hybrid/AI Coach tuỳ chế độ thật đang bật, Memory X/Y thật) — không còn "AI Hybrid · ON" cứng như file mẫu.
+- Thẻ "H2O đã hiểu từ câu trả lời của bạn" đổi màu tím nhạt đúng file gốc (trước là xanh lá).
+- Hồ sơ Learner Memory giờ **gom nhóm theo đúng danh mục thật** (ví dụ "Career Map") thay vì 1 lưới phẳng.
+
+**Chủ động giữ nguyên KHÔNG làm thật (nêu rõ):** hàng nút "Nói / Ảnh-File / Gắn tài liệu / Mở công cụ / H2O gợi ý" — hiện thị giống hệt file gốc (dạng nhãn tĩnh, không phải nút bấm — đúng như chính file mẫu cũng chỉ vẽ tĩnh) kèm chú thích "Sắp có", vì chưa có năng lực thật đứng sau. Nhãn "Nguồn: ..." dưới mỗi tin nhắn vẫn chưa làm — chế độ Offline không trích dẫn gì, AI/Hybrid chưa cấu hình được.
+
+`pnpm typecheck`/`lint`/`test` (257/257)/`build` sạch. Không có migration.
+
+Merge, push, deploy, health check ✅. **Nhờ bạn so sánh trực tiếp với file mockup xem đã khớp đúng ý chưa.**
+
+---
+
 **2026-08-19 — 🧠 Đã merge + deploy: Tích hợp "H2O Coach Workspace Smart V2" (folder 41) — Mission Health, Next Best Action, thẻ ghi nhận theo đúng tin nhắn, KHÔNG tạo hệ thống song song, KHÔNG tự publish, KHÔNG có migration.**
 
 Bạn yêu cầu tích hợp gói folder 41 "H2O Coach Workspace Smart V2" vào production, với điều kiện: audit trước, không tạo nguồn dữ liệu song song, pilot đúng 3 Mission đầu Giai đoạn 1, không tự publish.
