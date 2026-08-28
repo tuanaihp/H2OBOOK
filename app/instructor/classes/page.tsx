@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, School } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { instructorRoutes } from "@/lib/operations/routes";
@@ -33,7 +34,7 @@ export default function InstructorClassesPage() {
         ) : (
           <div className={styles.list}>
             {classes.map((klass) => (
-              <div key={klass.id} className={styles.listItem}>
+              <Link key={klass.id} href={`/instructor/classes/${klass.id}`} className={styles.listItem} style={{ textDecoration: "none", color: "inherit" }}>
                 <span className={styles.listItemIcon}><School size={16} /></span>
                 <div>
                   <strong>{klass.name}</strong>
@@ -44,7 +45,7 @@ export default function InstructorClassesPage() {
                   <span className={styles.badge} data-tone={klass.status === "active" ? "success" : undefined}>{klass.status}</span>
                   {klass.atRiskCount > 0 && <em style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end", marginTop: 4 }}><AlertTriangle size={11} />{klass.atRiskCount} cần hỗ trợ</em>}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

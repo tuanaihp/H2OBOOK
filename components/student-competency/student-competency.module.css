@@ -1,0 +1,43 @@
+/* Student Management & Competency V1 — local styles layered on top of
+   components/operations/operations.module.css tokens (accent rose/mauve, rounded cards, per
+   spec §4 UX guidance). Kept in its own module so the shared operations shell stylesheet is not
+   grown with grading-form-specific rules. */
+
+.subTabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.subTab { border: 1px solid #e0e4e8; background: #fff; border-radius: 12px; padding: 9px 14px; font-size: 12px; font-weight: 700; color: #52626f; cursor: pointer; }
+.subTab[data-active="true"] { background: linear-gradient(135deg,#94164f,#b2296d 55%,#8162e8); color: #fff; border-color: transparent; }
+
+.pickerRow { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.pickerRow label { display: grid; gap: 4px; font-size: 11px; color: #667085; flex: 1; min-width: 200px; }
+.pickerRow select { padding: 10px; border-radius: 10px; border: 1px solid #dfe3e8; font-size: 13px; }
+
+.criteriaList { display: grid; gap: 8px; margin-bottom: 12px; }
+.criterionRow { display: grid; grid-template-columns: 1fr 90px 40px; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #edf0f2; border-radius: 12px; }
+.criterionRow strong { font-size: 12px; }
+.criterionRow small { display: block; color: #8a8d96; font-size: 10px; margin-top: 3px; line-height: 1.5; }
+.criterionRow input[type="number"] { padding: 8px; border-radius: 8px; border: 1px solid #dfe3e8; text-align: right; font-size: 13px; }
+.maxScore { font-size: 11px; color: #9298a1; }
+.requiredTag { margin-left: 6px; font-style: normal; font-size: 9px; color: #b2296d; background: #fdeef4; padding: 2px 6px; border-radius: 999px; }
+
+.totalRow { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; }
+
+.notesLabel { display: grid; gap: 4px; font-size: 11px; color: #667085; margin: 10px 0; }
+.notesLabel textarea { padding: 10px; border-radius: 10px; border: 1px solid #dfe3e8; font-size: 13px; width: 100%; }
+
+.evidenceRow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.evidenceChip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #dfe3e8; border-radius: 8px; padding: 4px 8px; font-size: 11px; }
+.evidenceChip button { border: none; background: none; color: #b42318; cursor: pointer; font-size: 12px; }
+.evidenceAdd { font-size: 11px; border-radius: 8px; border: 1px dashed #9aa4b2; padding: 5px 10px; cursor: pointer; }
+
+.message { font-size: 11px; color: #a05a13; margin: 6px 0; }
+
+.skillGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.skillCard { border: 1px solid #edf0f2; border-radius: 14px; padding: 12px; }
+.skillCard strong { font-size: 12px; display: block; }
+.skillTrendRow { display: flex; gap: 8px; margin-top: 8px; font-size: 10px; color: #8a8d96; }
+.skillTrendRow b { display: block; font-size: 13px; color: #17131a; }
+
+.requirementList { display: grid; gap: 8px; margin-top: 12px; }
+.requirementItem { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 8px 10px; border-radius: 10px; background: #f7f9fb; }
+.requirementItem[data-met="true"] { color: #177a54; }
+.requirementItem[data-met="false"] { color: #a05a13; }
