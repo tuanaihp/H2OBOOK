@@ -1,0 +1,57 @@
+{
+  "version": "4.14.0",
+  "generatedAt": "2026-08-29T07:39:48.782Z",
+  "releaseReady": false,
+  "checks": [
+    {
+      "name": "pnpm-lock.yaml",
+      "status": "pass",
+      "detail": "Lockfile present."
+    },
+    {
+      "name": "node_modules",
+      "status": "pass",
+      "detail": "Dependencies installed."
+    },
+    {
+      "name": "phase7-static",
+      "status": "pass",
+      "detail": "Phase 7 Production Hardening validation passed: 15 required files, 14 architecture assertions."
+    },
+    {
+      "name": "hardening-runtime",
+      "status": "pass",
+      "detail": "Phase 7 hardening runtime passed: limits, retry policy, telemetry redaction, MIME confusion and filename safety."
+    },
+    {
+      "name": "load-test",
+      "status": "pass",
+      "detail": "{\"ok\":true,\"nodes\":20001,\"durationMs\":28,\"heapDeltaMb\":15}"
+    },
+    {
+      "name": "processor-hardening",
+      "status": "fail",
+      "detail": "Traceback (most recent call last):\r\n  File \"E:\\CLAUDECODE\\H2OBOOK\\H2OBOOK-UNIFIED-INPUT-4.13.7-PHASE7\\tests\\security\\test_processor_hardening.py\", line 8, in <module>\r\n    from app.processors import _basic_validation  # noqa: E402\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n  File \"E:\\CLAUDECODE\\H2OBOOK\\H2OBOOK-UNIFIED-INPUT-4.13.7-PHASE7\\services\\document-processor\\app\\processors.py\", line 14, in <module>\r\n    import fitz\r\nModuleNotFoundError: No module named 'fitz'"
+    },
+    {
+      "name": "supabase-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    },
+    {
+      "name": "redis-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    },
+    {
+      "name": "r2-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    },
+    {
+      "name": "clamav-integration",
+      "status": "external",
+      "detail": "Requires a real local/staging service and credentials."
+    }
+  ]
+}

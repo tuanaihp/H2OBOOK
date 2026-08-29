@@ -71,6 +71,23 @@ export interface ClassEvaluation {
   updatedAt: string;
 }
 
+// Append-only snapshots from class_evaluation_audit.  This is intentionally separate from
+// ClassEvaluation (the editable current state) so a client cannot mistake a historical score for
+// the current one when rendering a grading form.
+export interface ClassEvaluationAuditEntry {
+  id: string;
+  evaluationId: string;
+  action: "created" | "updated";
+  changedBy: string | null;
+  previousTotalScore: number | null;
+  currentTotalScore: number;
+  previousCriterionScores: Record<string, number> | null;
+  currentCriterionScores: Record<string, number>;
+  previousNotes: string | null;
+  currentNotes: string;
+  createdAt: string;
+}
+
 // Spec §G lists 13 tracked dimensions under "Hồ sơ năng lực". These are academy-specific
 // technique skills, not the generic platform skill tree in lib/student/experience.ts
 // (studentSkills) — that catalog is for the public/student Create-flow experience and has no

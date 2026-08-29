@@ -87,17 +87,26 @@ export async function middleware(request: NextRequest) {
   const studentExperienceV2 = process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_V2 !== "false";
   if (!production) return response;
 
+  const pathname = request.nextUrl.pathname;
+  const isPublic = pathname === "/" || publicPrefixes.some((prefix) => isPathUnder(pathname, prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
+
+  // Public pages never need a session or a member role. Previously even the public home page
+  // waited for `auth.getUser()` (a network request to Supabase) before rendering. When that
+  // upstream call was slow/unavailable, Vercel timed out the middleware and returned a 504 to
+  // every visitor. Keep public delivery independent of the authentication service; protected
+  // routes below retain the existing auth and role checks. Login/signup are deliberately kept
+  // on the auth path so a signed-in visitor still gets the existing redirect to their workspace.
+  const isAuthEntryRoute = pathname === "/login" || pathname === "/signup";
+  if (isPublic && !isAuthEntryRoute) return response;
+
   const supabase = createServerClient(url!, key!, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (items: { name: string; value: string; options: CookieOptions }[]) => items.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
     }
   });
-  const pathname = request.nextUrl.pathname;
-  const isPublic = pathname === "/" || publicPrefixes.some((prefix) => isPathUnder(pathname, prefix)) || pathname.startsWith("/_next") || pathname.includes(".");
   const isStudentOwnedContent = pathname.startsWith("/editor/") || pathname.startsWith("/remix/");
   const isAdminOnlyRoute = adminOnlyPrefixes.some((prefix) => isPathUnder(pathname, prefix));
-  const isAuthEntryRoute = pathname === "/login" || pathname === "/signup";
   const mayRedirectStudent = studentExperienceV2 && !isPublic && !isStudentOwnedContent && !pathname.startsWith("/student") && !pathname.startsWith("/api/");
 
   // The organization_members lookup is a second sequential network round trip to Supabase on top

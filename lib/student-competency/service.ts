@@ -6,7 +6,7 @@ import type { TeachingAccessSnapshot } from "@/lib/teaching/types";
 import { calculateGraduationStatus } from "./graduation";
 import { aggregateCompetencyProfile } from "./competency";
 import { CURRICULUM_DEFAULTS } from "./types";
-import type { ClassSession, ClassEvaluation, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
+import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
 
 // Service layer for the Student Management & Competency module (spec: v6-tich-hop-them). Reads go
 // through the admin client + app-layer canAccessClass/canAccessStudent checks, matching
@@ -222,6 +222,36 @@ export async function listEvaluationsForStudent(access: TeachingAccessSnapshot, 
   if (!sessionIds.length) return [];
   const { data } = await admin.from("class_evaluations").select("*").eq("organization_id", access.organizationId).eq("student_id", studentId).in("class_session_id", sessionIds).order("created_at", { ascending: false });
   return (data ?? []).map((row) => mapEvaluation(row as Record<string, unknown>));
+}
+
+/**
+ * Returns the immutable revision history for one evaluation.  The evaluation is joined back to
+ * the requested class before returning anything, preventing a guessed UUID from crossing class
+ * or organization boundaries even when using the admin read client.
+ */
+export async function listEvaluationAudit(access: TeachingAccessSnapshot, classId: string, evaluationId: string): Promise<ClassEvaluationAuditEntry[] | null> {
+  if (!canAccessClass(access, classId)) return null;
+  const admin = createSupabaseAdminClient();
+  if (!admin) return [];
+  const { data: sessionRows } = await admin.from("class_sessions").select("id").eq("organization_id", access.organizationId).eq("class_id", classId);
+  const sessionIds = (sessionRows ?? []).map((row) => String(row.id));
+  if (!sessionIds.length) return [];
+  const { data } = await admin.from("class_evaluation_audit")
+    .select("id,evaluation_id,student_id,action,changed_by,previous_total_score,current_total_score,previous_criterion_scores,current_criterion_scores,previous_notes,current_notes,created_at")
+    .eq("organization_id", access.organizationId).eq("evaluation_id", evaluationId).in("class_session_id", sessionIds)
+    .order("created_at", { ascending: false });
+  const rows = (data ?? []) as Record<string, unknown>[];
+  if (rows.some((row) => !canAccessStudent(access, String(row.student_id)))) return null;
+  return rows.map((row) => ({
+    id: String(row.id), evaluationId: String(row.evaluation_id), action: row.action as "created" | "updated",
+    changedBy: row.changed_by ? String(row.changed_by) : null,
+    previousTotalScore: row.previous_total_score == null ? null : Number(row.previous_total_score),
+    currentTotalScore: Number(row.current_total_score),
+    previousCriterionScores: row.previous_criterion_scores == null ? null : row.previous_criterion_scores as Record<string, number>,
+    currentCriterionScores: (row.current_criterion_scores ?? {}) as Record<string, number>,
+    previousNotes: row.previous_notes == null ? null : String(row.previous_notes),
+    currentNotes: String(row.current_notes ?? ""), createdAt: String(row.created_at)
+  }));
 }
 
 export interface GraduationOptions { supplementSessionsConfig?: number }
