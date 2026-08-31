@@ -6,7 +6,7 @@ import type { TeachingAccessSnapshot } from "@/lib/teaching/types";
 import { calculateGraduationStatus } from "./graduation";
 import { aggregateCompetencyProfile } from "./competency";
 import { CURRICULUM_DEFAULTS } from "./types";
-import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
+import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
 
 // Service layer for the Student Management & Competency module (spec: v6-tich-hop-them). Reads go
 // through the admin client + app-layer canAccessClass/canAccessStudent checks, matching
@@ -41,6 +41,17 @@ function mapEvaluation(row: Record<string, unknown>): ClassEvaluation {
     gradedBy: row.graded_by ? String(row.graded_by) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at)
+  };
+}
+
+function mapSubmission(row: Record<string, unknown>): ClassSessionSubmission {
+  return {
+    classSessionId: String(row.class_session_id),
+    studentId: String(row.student_id),
+    assetIds: (row.asset_ids ?? []) as string[],
+    note: String(row.note ?? ""),
+    submittedAt: String(row.submitted_at ?? row.updated_at ?? ""),
+    updatedAt: String(row.updated_at ?? "")
   };
 }
 
@@ -254,6 +265,112 @@ export async function getOwnStudentCompetency(studentId: string) {
     if (detail) results.push({ class: { id: String(klass.id), name: String(klass.name), code: String(klass.code), status: String(klass.status) }, ...detail });
   }
   return results;
+}
+
+// --- Student "Khóa Makeup 60 buổi" learning-space section ------------------
+
+export interface ClassJourney {
+  class: { id: string; name: string; code: string; status: string; totalSessions: number };
+  sessions: ClassSession[];
+  evaluations: ClassEvaluation[];
+  submissions: ClassSessionSubmission[];
+  rubrics: RubricView[];
+}
+
+/**
+ * Everything the student's own Makeup-course journey view needs, resolved from a single verified
+ * class membership (same synthetic-access pattern as getOwnStudentCompetency above). Returns null
+ * when the student is not enrolled in any class.
+ */
+export async function getOwnClassJourney(studentId: string): Promise<ClassJourney | null> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+  const { data: memberRows } = await admin.from("class_members").select("class_id,status,joined_at")
+    .eq("user_id", studentId).eq("role", "student").in("status", ["active", "completed"]);
+  const rows = (memberRows ?? []) as { class_id: string; status: string; joined_at: string | null }[];
+  if (!rows.length) return null;
+  // Primary class: an active membership wins over a completed one; newest joined_at first.
+  rows.sort((a, b) => (a.status !== b.status ? (a.status === "active" ? -1 : 1) : String(b.joined_at ?? "").localeCompare(String(a.joined_at ?? ""))));
+  const classId = String(rows[0].class_id);
+
+  const { data: classRow } = await admin.from("classes").select("id,organization_id,name,code,status,total_sessions").eq("id", classId).maybeSingle();
+  if (!classRow) return null;
+  const organizationId = String(classRow.organization_id);
+  const access: TeachingAccessSnapshot = {
+    userId: studentId, organizationId, role: "teacher",
+    assignedClassIds: [classId], assignedStudentIds: [studentId],
+    canViewAllStudents: false, canViewAllClasses: false
+  };
+
+  const [sessions, evaluations, submissions, rubrics] = await Promise.all([
+    listClassSessions(access, classId),
+    listEvaluationsForStudent(access, classId, studentId),
+    listSessionSubmissions(access, classId, studentId),
+    listRubrics(access)
+  ]);
+
+  return {
+    class: {
+      id: classId, name: String(classRow.name), code: String(classRow.code),
+      status: String(classRow.status), totalSessions: Number(classRow.total_sessions ?? 60)
+    },
+    sessions: sessions ?? [],
+    evaluations: evaluations ?? [],
+    submissions: submissions ?? [],
+    rubrics: rubrics ?? []
+  };
+}
+
+export async function listSessionSubmissions(access: TeachingAccessSnapshot, classId: string, studentId: string): Promise<ClassSessionSubmission[] | null> {
+  if (!canAccessClass(access, classId) || !canAccessStudent(access, studentId)) return null;
+  const admin = createSupabaseAdminClient();
+  if (!admin) return [];
+  const { data } = await admin.from("class_session_submissions")
+    .select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at")
+    .eq("organization_id", access.organizationId).eq("class_id", classId).eq("student_id", studentId);
+  return (data ?? []).map((row) => mapSubmission(row as Record<string, unknown>));
+}
+
+export interface OwnSubmissionInput { classSessionId: string; assetIds: string[]; note?: string }
+
+/**
+ * Student upserts their own evidence for one session. The session is resolved to its class first
+ * and an active membership is required; the write itself goes through the request-scoped client so
+ * the RLS policy in 0063 (student_id = auth.uid()) is the real enforcement.
+ */
+export async function upsertOwnSessionSubmission(studentId: string, input: OwnSubmissionInput): Promise<{ ok: true; submission: ClassSessionSubmission } | { ok: false; error: string }> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+
+  const { data: session } = await admin.from("class_sessions").select("id,class_id,organization_id").eq("id", input.classSessionId).maybeSingle();
+  if (!session) return { ok: false, error: "SESSION_NOT_FOUND" };
+  const classId = String(session.class_id);
+  const organizationId = String(session.organization_id);
+
+  const { data: membership } = await admin.from("class_members").select("user_id")
+    .eq("class_id", classId).eq("user_id", studentId).eq("role", "student").in("status", ["active", "completed"]).maybeSingle();
+  if (!membership) return { ok: false, error: "STUDENT_NOT_IN_CLASS" };
+
+  const assetIds = [...new Set((input.assetIds ?? []).filter(Boolean))].slice(0, 6);
+  if (assetIds.length) {
+    const { data: assets } = await admin.from("assets").select("id").eq("organization_id", organizationId).in("id", assetIds);
+    if ((assets ?? []).length !== assetIds.length) return { ok: false, error: "INVALID_EVIDENCE_ASSET" };
+  }
+  const note = (input.note ?? "").trim().slice(0, 500);
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+  const { data: saved, error } = await supabase.from("class_session_submissions").upsert({
+    organization_id: organizationId,
+    class_id: classId,
+    class_session_id: input.classSessionId,
+    student_id: studentId,
+    asset_ids: assetIds,
+    note,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at").single();
+  if (error || !saved) return { ok: false, error: error?.message ?? "SUBMISSION_SAVE_FAILED" };
+  return { ok: true, submission: mapSubmission(saved as Record<string, unknown>) };
 }
 
 export interface UpsertEvaluationInput {

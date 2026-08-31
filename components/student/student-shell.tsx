@@ -15,7 +15,7 @@ import { NotificationBell } from "./notification-bell";
 // lib/student/compact-navigation.ts (buildCompactNavigation) — this component only renders it.
 const GROUP_ICONS: Record<string, typeof Home> = { home: Home, learn: GraduationCap, create: FolderKanban, business: ShoppingBag, teach: ClipboardCheck };
 const ITEM_ICONS: Record<string, typeof Home> = {
-  "smart-home": Home, journey: GraduationCap, "learn-memory": Brain, library: LibraryBig, practice: ClipboardCheck,
+  "smart-home": Home, journey: GraduationCap, "makeup-journey": Sparkles, "learn-memory": Brain, library: LibraryBig, practice: ClipboardCheck,
   studio: Wand2, "my-projects": FolderKanban, "my-tools": Bot, store: ShoppingBag, "account-commerce": Trophy,
   "business-command": Briefcase, "business-customers": UsersRound, "business-growth": TrendingUp, "business-operations": Trophy
 };

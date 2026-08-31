@@ -49,6 +49,9 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // Evidence the STUDENT uploaded ahead of grading (migration 0063). Read-only here; shown so the
+  // score is anchored to what the student actually submitted, and pre-filled into assetIds.
+  const [studentSubmissions, setStudentSubmissions] = useState<{ classSessionId: string; assetIds: string[]; note: string }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -69,15 +72,21 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
   }, [classId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!studentId) { setEvaluations([]); return; }
+    if (!studentId) { setEvaluations([]); setStudentSubmissions([]); return; }
     (async () => {
       const res = await fetch(`/api/teaching/classes/${classId}/evaluations?studentId=${studentId}`);
       const json = await res.json().catch(() => null);
       setEvaluations((json?.evaluations ?? []) as ClassEvaluation[]);
     })();
+    (async () => {
+      const res = await fetch(`/api/teaching/classes/${classId}/submissions?studentId=${studentId}`);
+      const json = await res.json().catch(() => null);
+      setStudentSubmissions((json?.submissions ?? []) as { classSessionId: string; assetIds: string[]; note: string }[]);
+    })();
   }, [classId, studentId]);
 
   const currentEvaluation = useMemo(() => evaluations.find((e) => e.classSessionId === sessionId), [evaluations, sessionId]);
+  const currentSubmission = useMemo(() => studentSubmissions.find((s) => s.classSessionId === sessionId), [studentSubmissions, sessionId]);
 
   useEffect(() => {
     if (!currentEvaluation) { setAuditEntries([]); return; }
@@ -98,6 +107,13 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
     setAssetIds(currentEvaluation?.assetIds ?? []);
     setQuickIssues([]); setDurationMinutes(""); setProgressControlScore(5);
   }, [currentEvaluation]);
+
+  // Not yet graded but the student already uploaded evidence: carry it into the grade record so
+  // the instructor scores against exactly those photos.
+  useEffect(() => {
+    if (currentEvaluation) return;
+    if (currentSubmission?.assetIds.length) setAssetIds(currentSubmission.assetIds);
+  }, [currentEvaluation, currentSubmission]);
 
   const totalScore = useMemo(() => (rubric?.criteria ?? []).reduce((sum, c) => sum + (scores[c.id] ?? 0), 0), [rubric, scores]);
   const maxScore = useMemo(() => (rubric?.criteria ?? []).reduce((sum, c) => sum + c.maxScore, 0), [rubric]);
@@ -168,6 +184,7 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
         </div>
 
         {studentId && sessionId && rubric.criteria.length > 0 && <>
+          <StudentSubmissionBlock submission={currentSubmission} />
           <div className={formStyles.criteriaList}>
             {rubric.criteria.map((c) => <div key={c.id} className={formStyles.criterionRow}>
               <div>
@@ -238,4 +255,30 @@ function EvidenceLink({ assetId, onRemove }: { assetId: string; onRemove: () => 
     {url ? <a href={url} target="_blank" rel="noreferrer">📎 Xem</a> : <span>📎 …</span>}
     <button type="button" onClick={onRemove} aria-label="Bỏ minh chứng này">✕</button>
   </span>;
+}
+
+// The evidence the student uploaded ahead of grading (migration 0063). Read-only — it is the basis
+// the instructor grades from, so it is shown above the criteria and copied into assetIds.
+function StudentSubmissionBlock({ submission }: { submission?: { assetIds: string[]; note: string } }) {
+  const hasEvidence = Boolean(submission && (submission.assetIds.length > 0 || submission.note.trim()));
+  return <div style={{ border: "1px solid #dfe3e8", borderRadius: 12, padding: "10px 12px", margin: "4px 0 12px", background: "#f8fafc" }}>
+    <strong style={{ fontSize: 12, letterSpacing: ".04em", color: "#5d6a78" }}>MINH CHỨNG HỌC VIÊN NỘP</strong>
+    {!hasEvidence
+      ? <p style={{ margin: "6px 0 0", fontSize: 12, color: "#8d6073" }}>Học viên chưa nộp minh chứng cho buổi này.</p>
+      : <>
+          {submission!.assetIds.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0 0" }}>
+            {submission!.assetIds.map((id) => <StudentEvidenceThumb key={id} assetId={id} />)}
+          </div>}
+          {submission!.note.trim() && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#3b4453", lineHeight: 1.6 }}>{submission!.note}</p>}
+        </>}
+  </div>;
+}
+
+function StudentEvidenceThumb({ assetId }: { assetId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { let cancelled = false; void resolveAssetUrl(assetId).then((u) => { if (!cancelled) setUrl(u); }); return () => { cancelled = true; }; }, [assetId]);
+  const box: React.CSSProperties = { width: 68, height: 68, borderRadius: 8, border: "1px solid #dfe3e8", overflow: "hidden", background: "#eef2f6", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+  if (!url) return <span style={box}>…</span>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <a href={url} target="_blank" rel="noreferrer" style={box}><img src={url} alt="Minh chứng học viên" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></a>;
 }

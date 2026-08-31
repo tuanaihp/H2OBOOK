@@ -73,6 +73,18 @@ export interface ClassEvaluation {
   updatedAt: string;
 }
 
+// Student-submitted evidence for one session (migration 0063), created by the student in the
+// "Khóa Makeup 60 buổi" learning-space section BEFORE the instructor grades. Separate from
+// ClassEvaluation: this is the student's pre-grading upload, not a score.
+export interface ClassSessionSubmission {
+  classSessionId: string;
+  studentId: string;
+  assetIds: string[];
+  note: string;
+  submittedAt: string;
+  updatedAt: string;
+}
+
 // Append-only snapshots from class_evaluation_audit.  This is intentionally separate from
 // ClassEvaluation (the editable current state) so a client cannot mistake a historical score for
 // the current one when rendering a grading form.

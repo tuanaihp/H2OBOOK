@@ -1,0 +1,139 @@
+/* Student "Khóa Makeup 60 buổi" section. Tokens borrowed from app/globals.css --student-*. */
+
+.muted { color: var(--student-muted, #718092); font-size: 13px; }
+
+.notice,
+.emptyCard {
+  background: var(--student-panel, #fff);
+  border: 1px solid var(--student-line, #dfe7ee);
+  border-radius: 18px;
+  padding: 20px 22px;
+}
+.notice { display: flex; gap: 12px; align-items: flex-start; }
+.notice strong { display: block; font-size: 14px; }
+.notice p { margin: 4px 0 0; color: var(--student-muted, #718092); font-size: 13px; }
+
+.emptyCard { display: grid; gap: 10px; justify-items: start; text-align: left; padding: 30px; }
+.emptyCard svg { color: var(--student-wine, #8d1d50); }
+.emptyCard h2 { margin: 4px 0 0; font-size: 17px; }
+.emptyCard p { margin: 0; color: var(--student-muted, #718092); font-size: 13px; line-height: 1.7; max-width: 62ch; }
+.emptyCard a { margin-top: 6px; }
+
+/* --- class bar --- */
+.classBar {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
+  background: var(--student-panel, #fff);
+  border: 1px solid var(--student-line, #dfe7ee);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+}
+.classBar > div:first-child strong { display: block; font-size: 15px; }
+.classBar > div:first-child span { font-size: 12px; color: var(--student-muted, #718092); }
+.classMetrics { display: flex; gap: 18px; flex-wrap: wrap; }
+.classMetrics span { font-size: 12px; color: var(--student-muted, #718092); }
+.classMetrics b { font-size: 16px; color: var(--student-ink, #111724); margin-right: 3px; }
+
+/* --- tabs --- */
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.tabs button {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--student-line, #dfe7ee);
+  background: var(--student-panel, #fff);
+  color: var(--student-muted, #718092);
+  border-radius: 11px; padding: 9px 13px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.tabs button:hover { color: var(--student-ink, #111724); }
+.tabs button[data-active="true"] {
+  background: var(--student-ink, #111724); color: #fff; border-color: var(--student-ink, #111724);
+}
+
+/* --- schedule table --- */
+.scheduleWrap {
+  background: var(--student-panel, #fff);
+  border: 1px solid var(--student-line, #dfe7ee);
+  border-radius: 16px; overflow-x: auto;
+}
+.schedule { width: 100%; border-collapse: collapse; }
+.schedule th, .schedule td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--student-line, #dfe7ee); font-size: 13px; white-space: nowrap; }
+.schedule th { background: #f6f9fc; color: var(--student-muted, #718092); font-weight: 700; }
+.schedule tbody tr:last-child td { border-bottom: 0; }
+.schedule td strong { display: block; font-weight: 700; }
+.schedule td small { color: var(--student-muted, #718092); }
+
+/* --- session cards --- */
+.sessionList { display: grid; gap: 14px; }
+.card {
+  background: var(--student-panel, #fff);
+  border: 1px solid var(--student-line, #dfe7ee);
+  border-radius: 16px; padding: 18px 20px;
+}
+.cardHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.cardHead strong { font-size: 14px; }
+.cardHead p { margin: 3px 0 0; font-size: 12px; color: var(--student-muted, #718092); }
+
+/* --- pill --- */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+  background: #eef2f6; color: var(--student-muted, #718092); white-space: nowrap;
+}
+.pill[data-tone="done"] { background: #e4f4ec; color: #177a54; }
+.pill[data-tone="warn"] { background: #fbecec; color: #b22949; }
+.pill[data-tone="info"] { background: #e7f0fa; color: #176d9b; }
+.pill[data-tone="off"] { background: #eee; color: #9aa6b2; }
+
+/* --- evidence --- */
+.evidence { margin-top: 14px; border-top: 1px dashed var(--student-line, #dfe7ee); padding-top: 14px; }
+.evidenceHead span { font-size: 12px; font-weight: 700; color: var(--student-ink, #111724); }
+.evidenceHead em { font-weight: 500; color: var(--student-muted, #718092); font-style: normal; }
+.thumbRow { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.thumb { position: relative; width: 76px; height: 76px; border-radius: 10px; overflow: hidden; border: 1px solid var(--student-line, #dfe7ee); background: #f6f9fc; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb button {
+  position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
+  border: 0; background: rgba(17, 23, 36, .72); color: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.thumbPlaceholder { width: 100%; height: 100%; display: inline-flex; align-items: center; justify-content: center; color: #b7c2cd; }
+.addThumb {
+  width: 76px; height: 76px; border-radius: 10px; border: 1px dashed var(--student-line, #cdd8e2);
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 10px; color: var(--student-muted, #718092); cursor: pointer; text-align: center;
+}
+.addThumb:hover { border-color: var(--student-wine, #8d1d50); color: var(--student-wine, #8d1d50); }
+.note {
+  width: 100%; border: 1px solid var(--student-line, #dfe7ee); border-radius: 10px;
+  padding: 9px 11px; font: inherit; font-size: 13px; resize: vertical;
+}
+.note:focus { outline: none; border-color: var(--student-wine, #8d1d50); }
+.lockedNote { margin: 6px 0 0; font-size: 13px; color: var(--student-ink, #111724); line-height: 1.6; }
+.evidenceActions { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.message { font-size: 12px; color: var(--student-muted, #718092); }
+
+/* --- grade panel --- */
+.gradePanel { margin-top: 14px; border-top: 1px solid var(--student-line, #dfe7ee); padding-top: 14px; display: grid; gap: 12px; }
+.gradeTop { display: flex; justify-content: space-between; align-items: center; }
+.gradeTop span { font-size: 11px; letter-spacing: .08em; color: var(--student-muted, #718092); font-weight: 700; }
+.gradeTop strong { display: block; font-size: 26px; }
+.gradeTop strong i { font-size: 14px; color: var(--student-muted, #718092); font-style: normal; }
+.gradeNotes {
+  margin: 0; padding: 10px 12px; border-left: 3px solid var(--student-line, #dfe7ee);
+  color: #5d6a78; font-size: 13px; line-height: 1.7; background: #f8fafc; border-radius: 0 8px 8px 0;
+}
+
+/* --- criteria list (shared: pending + graded) --- */
+.criteriaList { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.criteriaList li { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid #eef2f6; }
+.criteriaList li:last-child { border-bottom: 0; }
+.criteriaList li span { color: var(--student-ink, #111724); }
+.criteriaList li b { color: var(--student-muted, #718092); white-space: nowrap; }
+.criteriaList li b[data-low=""] { color: #b22949; }
+
+/* --- pending panel --- */
+.pendingPanel { margin-top: 14px; border-top: 1px solid var(--student-line, #dfe7ee); padding-top: 14px; display: grid; gap: 10px; }
+.pendingPanel p { margin: 0; font-size: 13px; color: var(--student-muted, #718092); line-height: 1.6; }
+.pendingTag {
+  justify-self: start; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+  background: #fff4e6; color: #a05a13;
+}

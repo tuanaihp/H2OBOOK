@@ -48,6 +48,7 @@ function learnerGroups(context: UserAccessContext): CompactNavGroup[] {
       id: "learn", label: "LEARN",
       items: ([
         { id: "journey", label: "Hành trình của tôi", href: "/student/courses", feature: "learn.journey" },
+        { id: "makeup-journey", label: "Khóa Makeup 60 buổi", href: "/student/makeup-journey", feature: "learn.journey" },
         { id: "learn-memory", label: "Học & ghi nhớ", href: "/student/learn", feature: "learn.journey" },
         { id: "library", label: "Thư viện của tôi", href: "/student/library", feature: "learn.library" },
         { id: "practice", label: "Thực hành & kết quả", href: "/student/assignments", feature: "learn.practice" }
