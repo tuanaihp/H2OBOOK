@@ -6,12 +6,18 @@ import styles from "@/components/operations/operations.module.css";
 import formStyles from "./student-competency.module.css";
 
 interface RosterMember { studentId: string; name: string }
-interface RubricCriterionView { id: string; title: string; description: string; maxScore: number; position: number; required: boolean }
-interface RubricView { id: string; title: string; updatedAt: string; criteria: RubricCriterionView[] }
+interface RubricCriterionView { id: string; title: string; description: string; maxScore: number; position: number; required: boolean; skillKey?: string }
+interface RubricView { id: string; title: string; quickIssues: string[]; updatedAt: string; criteria: RubricCriterionView[] }
 interface ClassSession { id: string; sessionNo: number; sessionType: SessionType; title: string; status: string }
 interface ClassEvaluation { id: string; classSessionId: string; rubricId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
+interface EvaluationAuditEntry { id: string; action: "created" | "updated"; previousTotalScore: number | null; currentTotalScore: number; previousNotes: string | null; currentNotes: string; createdAt: string }
 
 const MAX_EVIDENCE = 4;
+const QUICK_ISSUES = {
+  training: ["Đi muộn", "Thiếu thẻ", "Mất tập trung", "Thiếu ghi chép", "Dùng điện thoại sai mục đích"],
+  makeup: ["Nền chưa sạch", "Mắt chưa cân", "Khối đậm", "Sai layout", "Quá thời gian"],
+  hair: ["Chia tóc chưa chuẩn", "Form chưa cân", "Mối ghim lộ", "Bề mặt chưa sạch", "Quá thời gian"]
+} as const;
 
 /**
  * Shared grading form + history behind the Training/Makeup/Hair tabs (spec §4: chọn học viên +
@@ -32,9 +38,14 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
   useEffect(() => { if (initialStudentId) setStudentId(initialStudentId); }, [initialStudentId]);
   const [sessionId, setSessionId] = useState("");
   const [evaluations, setEvaluations] = useState<ClassEvaluation[]>([]);
+  const [auditEntries, setAuditEntries] = useState<EvaluationAuditEntry[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
   const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [quickIssues, setQuickIssues] = useState<string[]>([]);
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const [progressControlScore, setProgressControlScore] = useState(5);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -69,13 +80,34 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
   const currentEvaluation = useMemo(() => evaluations.find((e) => e.classSessionId === sessionId), [evaluations, sessionId]);
 
   useEffect(() => {
+    if (!currentEvaluation) { setAuditEntries([]); return; }
+    let cancelled = false;
+    setLoadingAudit(true);
+    void fetch(`/api/teaching/classes/${classId}/evaluations/${currentEvaluation.id}/audit`)
+      .then(async (response) => {
+        const json = await response.json().catch(() => null);
+        if (!cancelled) setAuditEntries(response.ok ? (json?.entries ?? []) as EvaluationAuditEntry[] : []);
+      })
+      .finally(() => { if (!cancelled) setLoadingAudit(false); });
+    return () => { cancelled = true; };
+  }, [classId, currentEvaluation]);
+
+  useEffect(() => {
     setScores(currentEvaluation?.criterionScores ?? {});
     setNotes(currentEvaluation?.notes ?? "");
     setAssetIds(currentEvaluation?.assetIds ?? []);
+    setQuickIssues([]); setDurationMinutes(""); setProgressControlScore(5);
   }, [currentEvaluation]);
 
   const totalScore = useMemo(() => (rubric?.criteria ?? []).reduce((sum, c) => sum + (scores[c.id] ?? 0), 0), [rubric, scores]);
   const maxScore = useMemo(() => (rubric?.criteria ?? []).reduce((sum, c) => sum + c.maxScore, 0), [rubric]);
+  const speedCriterion = rubric?.criteria.find((criterion) => criterion.skillKey === "speed");
+  const availableQuickIssues = rubric?.quickIssues?.length ? rubric.quickIssues : QUICK_ISSUES[category];
+  const applyDurationScore = () => {
+    if (!speedCriterion) return;
+    const minutes = Number(durationMinutes); const timeScore = !minutes || minutes > 80 ? 0 : minutes <= 60 ? 5 : minutes <= 65 ? 4 : minutes <= 70 ? 3 : minutes <= 75 ? 2 : 1;
+    setScores((current) => ({ ...current, [speedCriterion.id]: Math.min(speedCriterion.maxScore, timeScore + progressControlScore) }));
+  };
 
   async function onPickEvidence(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -101,7 +133,7 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
     setSaving(true); setMessage(null);
     const res = await fetch(`/api/teaching/classes/${classId}/evaluations`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ classSessionId: sessionId, studentId, rubricId: rubric.id, criterionScores: scores, notes, assetIds })
+      body: JSON.stringify({ classSessionId: sessionId, studentId, rubricId: rubric.id, criterionScores: scores, notes: [notes.trim(), durationMinutes ? `[Thời gian thực tế: ${durationMinutes} phút]` : "", quickIssues.length ? `[Lỗi nhanh: ${quickIssues.join(", ")}]` : ""].filter(Boolean).join("\n"), assetIds })
     });
     const json = await res.json().catch(() => null);
     setSaving(false);
@@ -114,6 +146,7 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
 
   if (rubric === undefined) return <p>Đang tải rubric…</p>;
   if (rubric === null) return <div className={styles.empty}><strong>Chưa có rubric</strong><p>{emptyRubricHint}</p></div>;
+  if (rubric.criteria.length === 0) return <div className={styles.empty}><strong>Rubric chưa có tiêu chí</strong><p>{emptyRubricHint}</p></div>;
 
   return <div style={{ display: "grid", gap: 14 }}>
     <div className={styles.card}>
@@ -149,6 +182,10 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
 
           <div className={formStyles.totalRow}><strong>Tổng điểm: {totalScore.toFixed(1)} / {maxScore}</strong>{totalScore / maxScore >= 0.9 && <span className={styles.badge} data-tone="success">Đạt ≥90</span>}</div>
 
+          {category === "makeup" && speedCriterion && <div className={formStyles.timeScoring}><label>Thời gian thực tế (phút)<input type="number" min={1} value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} /></label><label>Kiểm soát tiến độ (0–5)<input type="number" min={0} max={5} value={progressControlScore} onChange={(event) => setProgressControlScore(Math.min(5, Math.max(0, Number(event.target.value))))} /></label><button type="button" onClick={applyDurationScore}>Áp dụng điểm thời gian</button></div>}
+
+          <div className={formStyles.quickIssues}><span>Tick lỗi nhanh</span>{availableQuickIssues.map((issue) => <button type="button" key={issue} data-active={quickIssues.includes(issue)} onClick={() => setQuickIssues((current) => current.includes(issue) ? current.filter((item) => item !== issue) : [...current, issue])}>{issue}</button>)}</div>
+
           <label className={formStyles.notesLabel}>Ghi chú
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Lỗi lặp lại, điểm cần lưu ý…" />
           </label>
@@ -173,12 +210,22 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
           {evaluations.map((e) => {
             const session = sessions.find((s) => s.id === e.classSessionId);
             const pct = e.maxScore > 0 ? Math.round((e.totalScore / e.maxScore) * 100) : 0;
-            return <div key={e.id} className={styles.listItem}>
+            return <button type="button" key={e.id} className={`${styles.listItem} ${formStyles.historyButton}`} onClick={() => { if (session) setSessionId(e.classSessionId); }}>
               <div><strong>{session ? `Buổi ${session.sessionNo}` : "Buổi học"}</strong><small>{new Date(e.updatedAt).toLocaleDateString("vi-VN")}</small></div>
               <div className={styles.listItemMeta}><b>{e.totalScore}/{e.maxScore}</b><span className={styles.badge} data-tone={pct >= 90 ? "success" : pct >= 70 ? undefined : "warning"}>{pct}%</span></div>
-            </div>;
+            </button>;
           })}
         </div>
+      </div>
+    </div>}
+
+    {currentEvaluation && <div className={styles.card}>
+      <div className={styles.cardHead}><div><h2>Nhật ký sửa điểm</h2><p>Mọi lần tạo và cập nhật phiếu đều được lưu bất biến.</p></div></div>
+      <div className={styles.cardBody}>
+        {loadingAudit ? <p>Đang tải nhật ký…</p> : !auditEntries.length ? <p className={formStyles.auditEmpty}>Chưa có bản ghi nhật ký.</p> : <div className={styles.list}>{auditEntries.map((entry) => <div key={entry.id} className={styles.listItem}>
+          <div><strong>{entry.action === "created" ? "Tạo phiếu đánh giá" : "Cập nhật phiếu đánh giá"}</strong><small>{new Date(entry.createdAt).toLocaleString("vi-VN")}{entry.currentNotes ? ` · ${entry.currentNotes}` : ""}</small></div>
+          <div className={styles.listItemMeta}><b>{entry.previousTotalScore == null ? "—" : entry.previousTotalScore} → {entry.currentTotalScore}</b></div>
+        </div>)}</div>}
       </div>
     </div>}
   </div>;

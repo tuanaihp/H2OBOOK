@@ -28,8 +28,12 @@
 .evidenceChip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #dfe3e8; border-radius: 8px; padding: 4px 8px; font-size: 11px; }
 .evidenceChip button { border: none; background: none; color: #b42318; cursor: pointer; font-size: 12px; }
 .evidenceAdd { font-size: 11px; border-radius: 8px; border: 1px dashed #9aa4b2; padding: 5px 10px; cursor: pointer; }
+.quickIssues{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}.quickIssues>span{font-size:11px;color:#667085;margin-right:3px}.quickIssues button{border:1px solid #dfe3e8;background:#fff;border-radius:999px;padding:5px 9px;font-size:11px;cursor:pointer}.quickIssues button[data-active="true"]{background:#f2e6e9;border-color:#d9a7b3;color:#784956}.timeScoring{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin:10px 0;padding:10px;border-radius:10px;background:#faf8f6}.timeScoring label{display:grid;gap:4px;font-size:11px;color:#667085}.timeScoring input{min-height:36px;border:1px solid #dfe3e8;border-radius:8px;padding:6px 8px}.timeScoring button{min-height:36px;border:0;border-radius:8px;background:#24201e;color:#fff;padding:0 12px;cursor:pointer}@media(max-width:700px){.timeScoring{grid-template-columns:1fr}}
 
 .message { font-size: 11px; color: #a05a13; margin: 6px 0; }
+.historyButton { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; }
+.historyButton:hover { background: #faf8f6; }
+.auditEmpty { margin: 0; color: #667085; font-size: 12px; }
 
 .skillGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .skillCard { border: 1px solid #edf0f2; border-radius: 14px; padding: 12px; }

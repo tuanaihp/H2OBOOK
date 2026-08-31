@@ -30,6 +30,7 @@ export function calculateGraduationStatus(input: GraduationInput): GraduationRes
   const missingRequirements: GraduationRequirement[] = [];
   if (evaluationCount === 0 || passingEvaluationRatio < MIN_PASSING_EVALUATION_RATIO) missingRequirements.push("passing_evaluation_ratio");
   if (!input.requiredCriteriaMet) missingRequirements.push("required_criteria");
+  if (input.courseCompleted === false) missingRequirements.push("course_completion");
   if (!input.evidenceComplete) missingRequirements.push("evidence_profile");
   if (!input.finalAssessmentPassed) missingRequirements.push("final_assessment");
 
@@ -48,6 +49,7 @@ export function calculateGraduationStatus(input: GraduationInput): GraduationRes
 export const GRADUATION_REQUIREMENT_LABEL: Record<GraduationRequirement, string> = {
   passing_evaluation_ratio: "Chưa đạt tối thiểu 50% số lần đánh giá ≥ 90/100",
   required_criteria: "Chưa hoàn thành đầy đủ tiêu chí bắt buộc",
+  course_completion: "Chưa hoàn thành đầy đủ khung buổi học của lớp",
   evidence_profile: "Hồ sơ ảnh/video/ghi chép chưa đầy đủ",
   final_assessment: "Chưa đạt đánh giá cuối khóa"
 };

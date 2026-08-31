@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cla
     return NextResponse.json({ error: "EVALUATION_FIELDS_REQUIRED" }, { status: 400 });
   }
   const result = await upsertEvaluation(access!, {
-    classSessionId: body.classSessionId, studentId: body.studentId, rubricId: body.rubricId,
+    classId, classSessionId: body.classSessionId, studentId: body.studentId, rubricId: body.rubricId,
     criterionScores: body.criterionScores, notes: body.notes, assetIds: body.assetIds
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.error.includes("FORBIDDEN") ? 403 : result.error.includes("NOT_FOUND") ? 404 : 400 });

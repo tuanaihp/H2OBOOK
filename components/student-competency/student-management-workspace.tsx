@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, BookOpenCheck, ClipboardCheck, GraduationCap, LayoutDashboard, Scissors, Settings2, Sparkles, Users } from "lucide-react";
 import { OverviewTab } from "./overview-tab";
@@ -10,54 +10,114 @@ import { MakeupGradingTab } from "./makeup-grading-tab";
 import { HairGradingTab } from "./hair-grading-tab";
 import { GraduationTab } from "./graduation-tab";
 import { CompetencyTab } from "./competency-tab";
-import { CURRICULUM_DEFAULTS, SESSION_TYPE_LABEL, type SessionType } from "@/lib/student-competency/types";
+import { CoursePlanTab } from "./course-plan-tab";
+import { SettingsTab } from "./settings-tab";
 import styles from "./student-management-workspace.module.css";
 
 type TabKey = "overview" | "students" | "course" | "training" | "makeup" | "hair" | "graduation" | "competency" | "settings";
 type RosterMember = { studentId: string; name: string; avatarUrl: string | null; joinedAt: string | null; status: string };
 type TeachingClass = { id: string; name: string; code: string; status: string; studentCount: number };
-type ClassSession = { id: string; sessionType: SessionType; status: "scheduled" | "completed" | "cancelled" };
+type StudentCandidate = { studentId: string; name: string; email: string; enrolled: boolean; entitlementCount: number };
 
 const TABS: { key: TabKey; label: string; description: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Tổng quan", description: "Theo dõi tiến độ, điểm số và điều kiện tốt nghiệp theo thời gian thực.", icon: LayoutDashboard },
-  { key: "students", label: "Học viên", description: "Quản lý hồ sơ, tiến độ và lịch sử đánh giá của từng học viên.", icon: Users },
-  { key: "course", label: "Khung khóa 60 buổi", description: "Cấu trúc đào tạo chính thức của khóa Makeup Chuyên nghiệp 3 tháng.", icon: BookOpenCheck },
-  { key: "training", label: "Đánh giá Training", description: "Dùng chung cho Training Makeup & Tóc.", icon: ClipboardCheck },
-  { key: "makeup", label: "Đánh giá Makeup", description: "Rubric 100 điểm, lưu lịch sử lỗi và tiến bộ theo từng buổi.", icon: Sparkles },
-  { key: "hair", label: "Đánh giá Hair", description: "Module Hair độc lập, sẵn sàng nạp rubric 100 điểm.", icon: Scissors },
-  { key: "graduation", label: "Điều kiện tốt nghiệp", description: "Tổng hợp tự động điều kiện đạt, thiếu và kế hoạch bổ sung.", icon: GraduationCap },
-  { key: "competency", label: "Hồ sơ năng lực", description: "Biểu diễn năng lực theo kỹ thuật, tốc độ, kỷ luật và xu hướng tiến bộ.", icon: Sparkles },
-  { key: "settings", label: "Cài đặt tiêu chí", description: "Cấu hình rubric và chính sách tốt nghiệp theo phiên bản.", icon: Settings2 }
+  { key: "students", label: "Học viên", description: "Ghi danh tài khoản Academy và quản lý hồ sơ từng học viên.", icon: Users },
+  { key: "course", label: "Khung khóa 60 buổi", description: "Lập lịch, chủ đề và trạng thái từng buổi của khóa Makeup Chuyên nghiệp.", icon: BookOpenCheck },
+  { key: "training", label: "Đánh giá Training", description: "Dùng chung cho Training Makeup & Tóc và Training Tóc.", icon: ClipboardCheck },
+  { key: "makeup", label: "Đánh giá Makeup", description: "Rubric 100 điểm, minh chứng và lịch sử theo từng buổi.", icon: Sparkles },
+  { key: "hair", label: "Đánh giá Hair", description: "Module Hair độc lập với rubric cấu hình từ database.", icon: Scissors },
+  { key: "graduation", label: "Điều kiện tốt nghiệp", description: "Tự động tổng hợp điều kiện đạt, thiếu và kế hoạch bổ sung.", icon: GraduationCap },
+  { key: "competency", label: "Hồ sơ năng lực", description: "Năng lực kỹ thuật, tốc độ, kỷ luật và xu hướng tiến bộ.", icon: Sparkles },
+  { key: "settings", label: "Cài đặt tiêu chí", description: "Tạo phiên bản rubric Training, Makeup và Hair.", icon: Settings2 }
 ];
 
 export function StudentManagementWorkspace({ classId: requestedClassId }: { classId?: string }) {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [classes, setClasses] = useState<TeachingClass[]>([]);
   const [klass, setKlass] = useState<TeachingClass | null>(null);
   const [classId, setClassId] = useState<string | null>(requestedClassId ?? null);
   const [roster, setRoster] = useState<RosterMember[]>([]);
+  const [candidates, setCandidates] = useState<StudentCandidate[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(true);
   const [loadingRoster, setLoadingRoster] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState("");
-  useEffect(() => { void (async () => {
-    const classesResponse = await fetch("/api/teaching/classes"); const classesJson = await classesResponse.json().catch(() => null);
-    const classes = (classesJson?.classes ?? []) as TeachingClass[]; const selected = classes.find((item) => item.id === requestedClassId) ?? classes[0] ?? null;
-    setKlass(selected); setClassId(selected?.id ?? null);
-  })(); }, [requestedClassId]);
-  useEffect(() => { if (!classId) { setRoster([]); setLoadingRoster(false); return; } void (async () => {
-    setLoadingRoster(true); const response = await fetch(`/api/teaching/classes/${classId}/roster`); const json = await response.json().catch(() => null); setRoster((json?.roster ?? []) as RosterMember[]); setLoadingRoster(false);
-  })(); }, [classId]);
+
+  const loadClasses = useCallback(async (preferredClassId?: string) => {
+    setLoadingClasses(true); setLoadError(null);
+    try {
+      const response = await fetch("/api/teaching/classes");
+      const json = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(json?.error ?? "Không tải được danh sách lớp.");
+      const nextClasses = (json?.classes ?? []) as TeachingClass[];
+      const selected = nextClasses.find((item) => item.id === (preferredClassId ?? requestedClassId)) ?? nextClasses[0] ?? null;
+      setClasses(nextClasses); setKlass(selected); setClassId(selected?.id ?? null);
+    } catch (error) {
+      setClasses([]); setKlass(null); setClassId(null); setLoadError(error instanceof Error ? error.message : "Không tải được danh sách lớp.");
+    } finally { setLoadingClasses(false); }
+  }, [requestedClassId]);
+  useEffect(() => { void loadClasses(); }, [loadClasses]);
+
+  const loadRoster = useCallback(async () => {
+    if (!classId) { setRoster([]); setCandidates([]); setLoadingRoster(false); return; }
+    setLoadingRoster(true); setLoadError(null);
+    try {
+      const response = await fetch(`/api/teaching/classes/${classId}/roster`);
+      const json = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(json?.error ?? "Không tải được danh sách học viên.");
+      setRoster((json?.roster ?? []) as RosterMember[]); setCandidates((json?.candidates ?? []) as StudentCandidate[]);
+    } catch (error) {
+      setRoster([]); setCandidates([]); setLoadError(error instanceof Error ? error.message : "Không tải được danh sách học viên.");
+    } finally { setLoadingRoster(false); }
+  }, [classId]);
+  useEffect(() => { void loadRoster(); }, [loadRoster]);
+
   const active = useMemo(() => TABS.find((tab) => tab.key === activeTab) ?? TABS[0], [activeTab]);
   const rosterOptions = roster.map(({ studentId, name }) => ({ studentId, name }));
   const jumpToGrading = (studentId: string) => { setSelectedStudentId(studentId); setActiveTab("training"); };
-  return <div className={styles.workspace}><aside className={styles.sidebar}>
-    <div className={styles.brand}><span>H2OBOOK MODULE</span><strong>THỦY H2O MAKEUP</strong><small>Student Management &amp; Competency</small></div>
-    <p className={styles.navTitle}>Quản lý</p><nav className={styles.nav}>{TABS.slice(0, 8).map((tab) => <TabButton key={tab.key} tab={tab} active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} />)}</nav>
-    <p className={styles.navTitle}>Hệ thống</p><nav className={styles.nav}><TabButton tab={TABS[8]} active={activeTab === "settings"} onClick={() => setActiveTab("settings")} /></nav>
-    <div className={styles.sidebarFooter}><b>{klass?.name ?? "Khóa Makeup Chuyên nghiệp"}</b><span>{klass?.code ?? "Đang tải lớp"} · 3 tháng · 60 buổi</span><span>Theo dõi năng lực sau từng buổi</span></div>
-  </aside><main className={styles.main}><header className={styles.topbar}><div><Link className={styles.back} href="/instructor/classes"><ArrowLeft size={14} />Danh sách lớp</Link><h1>{active.label}</h1><p>{active.description}</p></div><div className={styles.context}><span>{klass?.code ?? "Lớp học"}</span><b>{roster.length} học viên</b></div></header>
-    {!classId ? <EmptyModuleState /> : <>{activeTab === "overview" && <OverviewTab classId={classId} />}{activeTab === "students" && <RosterTab roster={roster} loading={loadingRoster} selectedStudentId={selectedStudentId} onSelect={jumpToGrading} />}{activeTab === "course" && <CoursePlanTab classId={classId} />}{activeTab === "training" && <TrainingGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}{activeTab === "makeup" && <MakeupGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}{activeTab === "hair" && <HairGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}{activeTab === "graduation" && <GraduationTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}{activeTab === "competency" && <CompetencyTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}{activeTab === "settings" && <SettingsTab />}</>}
-  </main></div>;
+
+  return <div className={styles.workspace}>
+    <aside className={styles.sidebar}>
+      <div className={styles.brand}><span>H2OBOOK MODULE</span><strong>THỦY H2O MAKEUP</strong><small>Student Management &amp; Competency</small></div>
+      <p className={styles.navTitle}>Quản lý</p><nav className={styles.nav}>{TABS.slice(0, 8).map((tab) => <TabButton key={tab.key} tab={tab} active={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} />)}</nav>
+      <p className={styles.navTitle}>Hệ thống</p><nav className={styles.nav}><TabButton tab={TABS[8]} active={activeTab === "settings"} onClick={() => setActiveTab("settings")} /></nav>
+      <div className={styles.sidebarFooter}><b>{klass?.name ?? "Khóa Makeup Chuyên nghiệp"}</b><span>{klass?.code ?? "Chưa có lớp"} · 3 tháng · 60 buổi</span><span>Theo dõi năng lực sau từng buổi</span></div>
+    </aside>
+    <main className={styles.main}>
+      <header className={styles.topbar}><div><Link className={styles.back} href="/instructor/classes"><ArrowLeft size={14} />Danh sách lớp</Link><h1>{active.label}</h1><p>{active.description}</p></div><div className={styles.context}>
+        {classes.length > 1 ? <select aria-label="Chọn lớp" value={classId ?? ""} onChange={(event) => { const selected = classes.find((item) => item.id === event.target.value) ?? null; setKlass(selected); setClassId(selected?.id ?? null); setSelectedStudentId(""); }}><option value="">Chọn lớp</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select> : <span>{klass?.code ?? "Lớp học"}</span>}<b>{roster.length} học viên</b>
+      </div></header>
+      {loadError && <div className={styles.errorBanner}>{loadError}<button type="button" onClick={() => void loadClasses(classId ?? undefined)}>Thử lại</button></div>}
+      {loadingClasses ? <section className={styles.emptyModule}><p>Đang tải Student Management &amp; Competency…</p></section> : !classId ? <EmptyModuleState onCreated={(createdId) => void loadClasses(createdId)} /> : <>
+        {activeTab === "overview" && <OverviewTab classId={classId} />}
+        {activeTab === "students" && <RosterTab classId={classId} roster={roster} candidates={candidates} loading={loadingRoster} selectedStudentId={selectedStudentId} onSelect={jumpToGrading} onRosterChanged={loadRoster} />}
+        {activeTab === "course" && <CoursePlanTab classId={classId} />}
+        {activeTab === "training" && <TrainingGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "makeup" && <MakeupGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "hair" && <HairGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "graduation" && <GraduationTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "competency" && <CompetencyTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "settings" && <SettingsTab />}
+      </>}
+    </main>
+  </div>;
 }
-function TabButton({ tab, active, onClick }: { tab: typeof TABS[number]; active: boolean; onClick: () => void }) { const Icon = tab.icon; return <button type="button" className={styles.navButton} data-active={active} onClick={onClick}><Icon size={16} /><span>{tab.label}</span></button>; }
-function EmptyModuleState() { return <section className={styles.emptyModule}><Users size={34} /><h2>Chưa có lớp học để quản lý</h2><p>Workspace Student Management &amp; Competency đã sẵn sàng. Hãy tạo một lớp hoặc phân công bạn làm giáo viên để hiển thị học viên, 60 buổi và các phiếu đánh giá.</p><Link href="/instructor/classes" className={styles.primaryLink}>Mở danh sách lớp</Link></section>; }
-function CoursePlanTab({ classId }: { classId: string }) { const [sessions, setSessions] = useState<ClassSession[] | null>(null); const [seeding, setSeeding] = useState(false); const [message, setMessage] = useState<string | null>(null); const load = async () => { const response = await fetch(`/api/teaching/classes/${classId}/sessions`); const json = await response.json().catch(() => null); if (response.ok) setSessions((json?.sessions ?? []) as ClassSession[]); }; useEffect(() => { void load(); }, [classId]); const counts = new Map<SessionType, { created: number; completed: number }>(); for (const session of sessions ?? []) { const entry = counts.get(session.sessionType) ?? { created: 0, completed: 0 }; entry.created++; if (session.status === "completed") entry.completed++; counts.set(session.sessionType, entry); } const seed = async () => { setSeeding(true); const response = await fetch(`/api/teaching/classes/${classId}/sessions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seedCurriculum: true }) }); const json = await response.json().catch(() => null); setSeeding(false); setMessage(response.ok ? (json.count ? `Đã thêm ${json.count} buổi theo khung chuẩn.` : "Lớp này đã có đủ khung 60 buổi.") : (json?.error ?? "Không thể khởi tạo chương trình.")); await load(); }; return <section className={styles.section}><div className={styles.sectionHead}><div><h2>Khung chương trình 3 tháng · 60 buổi</h2><p>Cấu trúc cố định; nội dung và ngày học từng buổi quản lý theo lớp.</p></div>{sessions?.length === 0 && <button className={styles.primaryButton} disabled={seeding} onClick={() => void seed()}>{seeding ? "Đang khởi tạo…" : "Khởi tạo 60 buổi"}</button>}</div><div className={styles.courseGrid}>{CURRICULUM_DEFAULTS.map((group) => { const value = counts.get(group.type) ?? { created: 0, completed: 0 }; return <article key={group.type} className={styles.courseCard}><span>{SESSION_TYPE_LABEL[group.type]}</span><strong>{group.count}</strong><small>{value.completed}/{group.count} hoàn thành · {value.created}/{group.count} đã tạo</small></article>; })}</div><article className={styles.card}><div className={styles.cardHeader}><h2>Ngoại khóa chuyên môn &amp; nghề nghiệp</h2><span>4 buổi / khóa</span></div><div className={styles.cardBody}><div className={styles.pills}><span>Marketing</span><span>Chụp ảnh</span><span>Chỉnh ảnh</span><span>Kỹ năng mềm</span><span>Makeup Show thực tế</span></div><p className={styles.notice}>Nội dung ngoại khóa có thể luân phiên theo từng khóa, nhưng tổng số buổi chuẩn trong kế hoạch là <b>4 buổi</b>.</p>{message && <p className={styles.message}>{message}</p>}</div></article></section>; }
-function SettingsTab() { return <section className={styles.section}><div className={styles.sectionHead}><div><h2>Cài đặt tiêu chí</h2><p>Rubric được version hóa; không sửa đè rubric đã có dữ liệu đánh giá.</p></div></div><article className={styles.card}><div className={styles.cardBody}><div className={styles.settingsGrid}><label>Ngưỡng đạt bài<input value="90" readOnly /></label><label>Tỷ lệ bài ≥90 để tốt nghiệp<input value="50%" readOnly /></label><label>Số buổi bổ sung chuẩn<input value="10" readOnly /></label></div><p className={styles.notice}>Chỉ owner/admin tạo phiên bản rubric mới. Lịch sử chấm điểm luôn giữ rubric và điểm đã áp dụng tại thời điểm lưu.</p></div></article></section>; }
+
+function TabButton({ tab, active, onClick }: { tab: typeof TABS[number]; active: boolean; onClick: () => void }) {
+  const Icon = tab.icon;
+  return <button type="button" className={styles.navButton} data-active={active} onClick={onClick}><Icon size={16} /><span>{tab.label}</span></button>;
+}
+
+function EmptyModuleState({ onCreated }: { onCreated: (classId: string) => void }) {
+  const [name, setName] = useState("Khóa Makeup Chuyên nghiệp"); const [code, setCode] = useState("");
+  const [saving, setSaving] = useState(false); const [message, setMessage] = useState<string | null>(null);
+  const create = async () => {
+    if (!name.trim() || !code.trim()) { setMessage("Nhập tên lớp và mã lớp."); return; }
+    setSaving(true); setMessage(null);
+    const response = await fetch("/api/teaching/classes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, code, totalSessions: 60 }) });
+    const json = await response.json().catch(() => null); setSaving(false);
+    if (!response.ok) { setMessage(json?.error === "CLASS_CODE_ALREADY_EXISTS" ? "Mã lớp đã tồn tại." : (json?.error ?? "Không thể tạo lớp.")); return; }
+    onCreated(String(json.class.id));
+  };
+  return <section className={styles.emptyModule}><Users size={34} /><h2>Chưa có lớp học để quản lý</h2><p>Tạo lớp thật trên Supabase. Lớp mới được phân công cho tài khoản hiện tại và có thể ghi danh các tài khoản học viên Academy.</p><div className={styles.createClassForm}><label>Tên lớp<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Mã lớp<input value={code} onChange={(event) => setCode(event.target.value)} placeholder="Ví dụ: C26-08" /></label><button type="button" className={styles.primaryButton} disabled={saving} onClick={() => void create()}>{saving ? "Đang tạo…" : "Tạo lớp 60 buổi"}</button></div>{message && <p className={styles.message}>{message}</p>}</section>;
+}

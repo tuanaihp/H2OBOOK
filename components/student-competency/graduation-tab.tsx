@@ -4,7 +4,7 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import styles from "@/components/operations/operations.module.css";
 import formStyles from "./student-competency.module.css";
 
-type Requirement = "passing_evaluation_ratio" | "required_criteria" | "evidence_profile" | "final_assessment";
+type Requirement = "passing_evaluation_ratio" | "required_criteria" | "course_completion" | "evidence_profile" | "final_assessment";
 interface GraduationResult {
   passingEvaluationRatio: number; avgScore: number; evaluationCount: number;
   missingRequirements: Requirement[]; graduationStatus: "graduated" | "not_ready"; recommendedSupplementSessions: number;
@@ -12,6 +12,7 @@ interface GraduationResult {
 const REQUIREMENT_LABEL: Record<Requirement, string> = {
   passing_evaluation_ratio: "Tối thiểu 50% số lần đánh giá đạt ≥ 90/100",
   required_criteria: "Hoàn thành đầy đủ tiêu chí bắt buộc",
+  course_completion: "Hoàn thành đầy đủ khung 60 buổi của lớp",
   evidence_profile: "Đầy đủ hồ sơ ảnh/video/ghi chép",
   final_assessment: "Đạt đánh giá cuối khóa (buổi thực hành cuối ≥ 90/100)"
 };

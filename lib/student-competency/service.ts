@@ -54,6 +54,7 @@ export async function listClassSessions(access: TeachingAccessSnapshot, classId:
 }
 
 export interface CreateSessionInput { sessionNo: number; sessionType: SessionType; title?: string; sessionDate?: string }
+export interface UpdateSessionInput { sessionId: string; title?: string; sessionDate?: string | null; status?: ClassSession["status"] }
 
 export async function createClassSessions(access: TeachingAccessSnapshot, classId: string, sessions: CreateSessionInput[]) {
   if (!canAccessClass(access, classId)) return { ok: false as const, error: "FORBIDDEN_CLASS_SCOPE" };
@@ -86,10 +87,28 @@ export async function seedCurriculumSessions(access: TeachingAccessSnapshot, cla
   return createClassSessions(access, classId, toCreate);
 }
 
+export async function updateClassSession(access: TeachingAccessSnapshot, classId: string, input: UpdateSessionInput) {
+  if (!canAccessClass(access, classId)) return { ok: false as const, error: "FORBIDDEN_CLASS_SCOPE" };
+  const admin = createSupabaseAdminClient();
+  if (!admin) return { ok: false as const, error: "SUPABASE_NOT_CONFIGURED" };
+  const { data: existing } = await admin.from("class_sessions").select("id,class_id").eq("id", input.sessionId).eq("organization_id", access.organizationId).maybeSingle();
+  if (!existing || String(existing.class_id) !== classId) return { ok: false as const, error: "SESSION_NOT_FOUND" };
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.title !== undefined) patch.title = input.title.trim();
+  if (input.sessionDate !== undefined) patch.session_date = input.sessionDate || null;
+  if (input.status !== undefined) patch.status = input.status;
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false as const, error: "SUPABASE_NOT_CONFIGURED" };
+  const { data, error } = await supabase.from("class_sessions").update(patch).eq("id", input.sessionId).eq("class_id", classId)
+    .select("id,class_id,session_no,session_type,title,session_date,status").single();
+  if (error || !data) return { ok: false as const, error: error?.message ?? "SESSION_UPDATE_FAILED" };
+  return { ok: true as const, session: mapSession(data as Record<string, unknown>) };
+}
+
 export async function listRubrics(access: TeachingAccessSnapshot, category?: "training" | "makeup" | "hair"): Promise<RubricView[]> {
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
-  let query = admin.from("rubrics").select("id,title,updated_at,category").eq("organization_id", access.organizationId);
+  let query = admin.from("rubrics").select("id,title,description,updated_at,category").eq("organization_id", access.organizationId);
   if (category) query = query.eq("category", category);
   const { data: rubricRows } = await query.order("updated_at", { ascending: false });
   const rubrics = rubricRows ?? [];
@@ -108,7 +127,46 @@ export async function listRubrics(access: TeachingAccessSnapshot, category?: "tr
     });
     byRubric.set(String(row.rubric_id), list);
   }
-  return rubrics.map((r) => ({ id: String(r.id), title: String(r.title), updatedAt: String(r.updated_at), criteria: byRubric.get(String(r.id)) ?? [] }));
+  return rubrics.map((r) => {
+    let quickIssues: string[] = [];
+    try {
+      const metadata = JSON.parse(String(r.description ?? "{}")) as { quickIssues?: unknown };
+      if (Array.isArray(metadata.quickIssues)) quickIssues = metadata.quickIssues.filter((item): item is string => typeof item === "string");
+    } catch { /* Older rubrics may contain a plain-text description. */ }
+    return { id: String(r.id), title: String(r.title), category: r.category ? r.category as RubricView["category"] : null, quickIssues, updatedAt: String(r.updated_at), criteria: byRubric.get(String(r.id)) ?? [] };
+  });
+}
+
+export interface CreateRubricVersionInput {
+  category: "training" | "makeup" | "hair";
+  title: string;
+  quickIssues?: string[];
+  criteria: { title: string; description?: string; maxScore: number; required?: boolean; skillKey?: string | null }[];
+}
+
+export async function createRubricVersion(access: TeachingAccessSnapshot, input: CreateRubricVersionInput) {
+  if (access.role !== "owner" && access.role !== "admin") return { ok: false as const, error: "ADMIN_REQUIRED" };
+  const title = input.title.trim();
+  const criteria = input.criteria.filter((criterion) => criterion.title.trim());
+  const total = criteria.reduce((sum, criterion) => sum + Number(criterion.maxScore || 0), 0);
+  if (!title || !criteria.length) return { ok: false as const, error: "RUBRIC_TITLE_AND_CRITERIA_REQUIRED" };
+  if (Math.abs(total - 100) > 0.001) return { ok: false as const, error: "RUBRIC_TOTAL_MUST_EQUAL_100" };
+  if (criteria.some((criterion) => !Number.isFinite(criterion.maxScore) || criterion.maxScore <= 0 || criterion.maxScore > 100)) return { ok: false as const, error: "INVALID_CRITERION_SCORE" };
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false as const, error: "SUPABASE_NOT_CONFIGURED" };
+  const quickIssues = [...new Set((input.quickIssues ?? []).map((issue) => issue.trim()).filter(Boolean))].slice(0, 30);
+  const { data: rubric, error } = await supabase.from("rubrics").insert({ organization_id: access.organizationId, title, description: JSON.stringify({ quickIssues }), category: input.category, updated_at: new Date().toISOString() }).select("id").single();
+  if (error || !rubric) return { ok: false as const, error: error?.message ?? "RUBRIC_CREATE_FAILED" };
+  const rows = criteria.map((criterion, position) => ({
+    organization_id: access.organizationId, rubric_id: rubric.id, title: criterion.title.trim(), description: criterion.description?.trim() ?? "",
+    max_score: criterion.maxScore, position, required: criterion.required ?? true, skill_key: criterion.skillKey || null
+  }));
+  const { error: criteriaError } = await supabase.from("rubric_criteria").insert(rows);
+  if (criteriaError) {
+    await supabase.from("rubrics").delete().eq("id", rubric.id);
+    return { ok: false as const, error: criteriaError.message };
+  }
+  return { ok: true as const, rubricId: String(rubric.id) };
 }
 
 export interface RosterMember { studentId: string; name: string; avatarUrl: string | null; joinedAt: string | null; status: string }
@@ -117,7 +175,7 @@ export async function getClassRoster(access: TeachingAccessSnapshot, classId: st
   if (!canAccessClass(access, classId)) return null;
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
-  const { data: memberRows } = await admin.from("class_members").select("user_id,status,joined_at").eq("class_id", classId).eq("role", "student");
+  const { data: memberRows } = await admin.from("class_members").select("user_id,status,joined_at").eq("class_id", classId).eq("role", "student").in("status", ["active", "completed"]);
   const studentIds = (memberRows ?? []).map((row) => String(row.user_id));
   if (!studentIds.length) return [];
   const { data: profileRows } = await admin.from("profiles").select("id,full_name,avatar_url").in("id", studentIds);
@@ -134,7 +192,72 @@ export async function getClassRoster(access: TeachingAccessSnapshot, classId: st
   });
 }
 
+export async function getClassStudentDetail(access: TeachingAccessSnapshot, classId: string, studentId: string) {
+  if (!canAccessClass(access, classId) || !canAccessStudent(access, studentId)) return null;
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+  const [{ data: membership }, { data: profile }, { data: sessionRows }] = await Promise.all([
+    admin.from("class_members").select("status,joined_at").eq("class_id", classId).eq("user_id", studentId).eq("role", "student").in("status", ["active", "completed"]).maybeSingle(),
+    admin.from("profiles").select("id,full_name,email,phone,avatar_url").eq("id", studentId).maybeSingle(),
+    admin.from("class_sessions").select("id,session_no,session_type,title,status,session_date").eq("organization_id", access.organizationId).eq("class_id", classId).order("session_no")
+  ]);
+  if (!membership || !profile) return null;
+  const sessions = sessionRows ?? [];
+  const sessionIds = sessions.map((session) => String(session.id));
+  const { data: evaluationRows } = sessionIds.length ? await admin.from("class_evaluations").select("id,class_session_id,total_score,max_score,notes,asset_ids,updated_at").eq("organization_id", access.organizationId).eq("student_id", studentId).in("class_session_id", sessionIds).order("updated_at", { ascending: false }) : { data: [] };
+  const sessionById = new Map(sessions.map((session) => [String(session.id), session]));
+  const evaluations = (evaluationRows ?? []).map((evaluation) => {
+    const session = sessionById.get(String(evaluation.class_session_id));
+    return { id: String(evaluation.id), sessionNo: Number(session?.session_no ?? 0), sessionType: String(session?.session_type ?? ""), sessionTitle: String(session?.title ?? ""), totalScore: Number(evaluation.total_score), maxScore: Number(evaluation.max_score), notes: String(evaluation.notes ?? ""), evidenceCount: (evaluation.asset_ids ?? []).length, updatedAt: String(evaluation.updated_at) };
+  });
+  const evaluationBySessionId = new Map((evaluationRows ?? []).map((evaluation) => [String(evaluation.class_session_id), evaluation]));
+  const sessionHistory = sessions.map((session) => {
+    const evaluation = evaluationBySessionId.get(String(session.id));
+    return {
+      id: String(session.id),
+      sessionNo: Number(session.session_no),
+      sessionType: String(session.session_type),
+      title: String(session.title ?? ""),
+      sessionDate: session.session_date ? String(session.session_date) : null,
+      status: String(session.status),
+      evaluated: Boolean(evaluation),
+      score: evaluation && Number(evaluation.max_score) > 0
+        ? Math.round(Number(evaluation.total_score) / Number(evaluation.max_score) * 100)
+        : null
+    };
+  });
+  const percentages = evaluations.filter((evaluation) => evaluation.maxScore > 0).map((evaluation) => evaluation.totalScore / evaluation.maxScore * 100);
+  const [graduation, competency] = await Promise.all([getGraduationForStudent(access, classId, studentId), getCompetencyForStudent(access, studentId)]);
+  return {
+    studentId, name: String(profile.full_name || profile.email || "Học viên"), email: String(profile.email || ""), phone: String(profile.phone || ""), avatarUrl: profile.avatar_url ? String(profile.avatar_url) : null,
+    status: String(membership.status), joinedAt: membership.joined_at ? String(membership.joined_at) : null,
+    completedSessions: sessions.filter((session) => session.status === "completed").length, totalSessions: sessions.length,
+    evaluationCount: evaluations.length, avgScore: percentages.length ? Math.round(percentages.reduce((sum, score) => sum + score, 0) / percentages.length) : 0,
+    sessionHistory, evaluations, graduation, competency
+  };
+}
+
+export async function getOwnStudentCompetency(studentId: string) {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return [];
+  const { data: memberRows } = await admin.from("class_members").select("class_id").eq("user_id", studentId).eq("role", "student").in("status", ["active", "completed"]);
+  const classIds = [...new Set((memberRows ?? []).map((row) => String(row.class_id)))];
+  if (!classIds.length) return [];
+  const { data: classRows } = await admin.from("classes").select("id,organization_id,name,code,status").in("id", classIds);
+  const results = [];
+  for (const klass of classRows ?? []) {
+    // This synthetic snapshot is only passed to read-only service methods. Keeping the existing
+    // narrow TeachingRole avoids accidentally granting a real student access to /api/teaching/*;
+    // the scope is still exactly one verified membership and the student's own user id.
+    const access: TeachingAccessSnapshot = { userId: studentId, organizationId: String(klass.organization_id), role: "teacher", assignedClassIds: [String(klass.id)], assignedStudentIds: [studentId], canViewAllStudents: false, canViewAllClasses: false };
+    const detail = await getClassStudentDetail(access, String(klass.id), studentId);
+    if (detail) results.push({ class: { id: String(klass.id), name: String(klass.name), code: String(klass.code), status: String(klass.status) }, ...detail });
+  }
+  return results;
+}
+
 export interface UpsertEvaluationInput {
+  classId?: string;
   classSessionId: string;
   studentId: string;
   rubricId: string;
@@ -156,15 +279,24 @@ export async function upsertEvaluation(access: TeachingAccessSnapshot, input: Up
   const admin = createSupabaseAdminClient();
   if (!admin) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
 
-  const { data: session } = await admin.from("class_sessions").select("id,class_id").eq("id", input.classSessionId).eq("organization_id", access.organizationId).maybeSingle();
+  const { data: session } = await admin.from("class_sessions").select("id,class_id,session_type").eq("id", input.classSessionId).eq("organization_id", access.organizationId).maybeSingle();
   if (!session) return { ok: false, error: "SESSION_NOT_FOUND" };
+  if (input.classId && String(session.class_id) !== input.classId) return { ok: false, error: "SESSION_NOT_IN_CLASS" };
   if (!canAccessClass(access, String(session.class_id))) return { ok: false, error: "FORBIDDEN_CLASS_SCOPE" };
   if (!canAccessStudent(access, input.studentId)) return { ok: false, error: "FORBIDDEN_STUDENT_SCOPE" };
   const { data: membership } = await admin.from("class_members").select("user_id").eq("class_id", String(session.class_id)).eq("user_id", input.studentId).eq("role", "student").in("status", ["active", "completed"]).maybeSingle();
   if (!membership) return { ok: false, error: "STUDENT_NOT_IN_CLASS" };
 
-  const { data: rubric } = await admin.from("rubrics").select("id,title,updated_at").eq("id", input.rubricId).eq("organization_id", access.organizationId).maybeSingle();
+  const { data: rubric } = await admin.from("rubrics").select("id,title,updated_at,category").eq("id", input.rubricId).eq("organization_id", access.organizationId).maybeSingle();
   if (!rubric) return { ok: false, error: "RUBRIC_NOT_FOUND" };
+  const allowedSessionTypes: Record<string, string[]> = {
+    training: ["training_makeup_hair", "training_hair"],
+    makeup: ["practice_makeup_hair"],
+    hair: ["practice_hair"]
+  };
+  if (!rubric.category || !(allowedSessionTypes[String(rubric.category)] ?? []).includes(String(session.session_type))) {
+    return { ok: false, error: "RUBRIC_SESSION_TYPE_MISMATCH" };
+  }
   const { data: criteriaRows } = await admin.from("rubric_criteria").select("id,max_score,required,skill_key").eq("rubric_id", input.rubricId);
   const criteria = (criteriaRows ?? []) as { id: string; max_score: number; required: boolean; skill_key: string | null }[];
   const maxScore = criteria.reduce((sum, c) => sum + Number(c.max_score), 0) || 100;
@@ -178,6 +310,12 @@ export async function upsertEvaluation(access: TeachingAccessSnapshot, input: Up
   }
   totalScore = Math.round(totalScore * 100) / 100;
 
+  const assetIds = [...new Set(input.assetIds ?? [])];
+  if (assetIds.length) {
+    const { data: assets } = await admin.from("assets").select("id").eq("organization_id", access.organizationId).eq("status", "ready").in("id", assetIds);
+    if ((assets ?? []).length !== assetIds.length) return { ok: false, error: "INVALID_EVIDENCE_ASSET" };
+  }
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
   const row = {
@@ -190,7 +328,7 @@ export async function upsertEvaluation(access: TeachingAccessSnapshot, input: Up
     max_score: maxScore,
     criterion_scores: clampedScores,
     notes: input.notes ?? "",
-    asset_ids: input.assetIds ?? [],
+    asset_ids: assetIds,
     graded_by: access.userId,
     updated_at: new Date().toISOString()
   };
@@ -268,17 +406,20 @@ export async function getGraduationForStudent(access: TeachingAccessSnapshot, cl
   const admin = createSupabaseAdminClient();
   if (!admin) return null;
 
-  const [{ data: sessionRows }, { data: evalRows }] = await Promise.all([
-    admin.from("class_sessions").select("id,session_no,session_type").eq("organization_id", access.organizationId).eq("class_id", classId),
+  const [{ data: classRow }, { data: sessionRows }, { data: evalRows }] = await Promise.all([
+    admin.from("classes").select("total_sessions").eq("organization_id", access.organizationId).eq("id", classId).maybeSingle(),
+    admin.from("class_sessions").select("id,session_no,session_type,status").eq("organization_id", access.organizationId).eq("class_id", classId),
     admin.from("class_evaluations").select("id,class_session_id,rubric_id,total_score,max_score,criterion_scores,notes,asset_ids").eq("organization_id", access.organizationId).eq("student_id", studentId)
   ]);
-  const sessions = (sessionRows ?? []) as { id: string; session_no: number; session_type: string }[];
+  const sessions = (sessionRows ?? []) as { id: string; session_no: number; session_type: string; status: string }[];
+  const expectedSessionCount = Number(classRow?.total_sessions ?? 60);
+  const courseCompleted = sessions.length >= expectedSessionCount && sessions.every((session) => session.status === "completed");
   const sessionIds = new Set(sessions.map((s) => String(s.id)));
   const evals = ((evalRows ?? []) as { id: string; class_session_id: string; rubric_id: string; total_score: number; max_score: number; criterion_scores: Record<string, number>; notes: string; asset_ids: string[] }[])
     .filter((e) => sessionIds.has(String(e.class_session_id)));
 
   if (!evals.length) {
-    return calculateGraduationStatus({ evaluations: [], requiredCriteriaMet: false, evidenceComplete: false, finalAssessmentPassed: false, supplementSessionsConfig: options?.supplementSessionsConfig });
+    return calculateGraduationStatus({ evaluations: [], requiredCriteriaMet: false, courseCompleted, evidenceComplete: false, finalAssessmentPassed: false, supplementSessionsConfig: options?.supplementSessionsConfig });
   }
 
   const rubricIds = [...new Set(evals.map((e) => String(e.rubric_id)))];
@@ -296,8 +437,8 @@ export async function getGraduationForStudent(access: TeachingAccessSnapshot, cl
   for (const evaluation of evals) {
     const requiredIds = requiredByRubric.get(String(evaluation.rubric_id)) ?? [];
     const scores = evaluation.criterion_scores ?? {};
-    if (requiredIds.some((id) => !(id in scores))) requiredCriteriaMet = false;
-    const hasEvidence = (evaluation.asset_ids?.length ?? 0) > 0 || Boolean(evaluation.notes && evaluation.notes.trim());
+    if (requiredIds.some((id) => !(id in scores) || !Number.isFinite(Number(scores[id])) || Number(scores[id]) <= 0)) requiredCriteriaMet = false;
+    const hasEvidence = (evaluation.asset_ids?.length ?? 0) > 0 && Boolean(evaluation.notes && evaluation.notes.trim());
     if (!hasEvidence) evidenceComplete = false;
   }
 
@@ -306,10 +447,9 @@ export async function getGraduationForStudent(access: TeachingAccessSnapshot, cl
   const finalSession = practiceSessions.find((s) => Number(s.session_no) === lastPracticeSessionNo);
   const finalEval = finalSession ? evals.find((e) => String(e.class_session_id) === String(finalSession.id)) : undefined;
   const finalAssessmentPassed = finalEval ? (Number(finalEval.total_score) / Number(finalEval.max_score)) * 100 >= 90 : false;
-
   return calculateGraduationStatus({
     evaluations: evals.map((e) => ({ totalScore: Number(e.total_score), maxScore: Number(e.max_score) })),
-    requiredCriteriaMet, evidenceComplete, finalAssessmentPassed,
+    requiredCriteriaMet, courseCompleted, evidenceComplete, finalAssessmentPassed,
     supplementSessionsConfig: options?.supplementSessionsConfig
   });
 }
@@ -332,6 +472,7 @@ export interface ClassOverview {
   passingRatioPercent: number;
   attentionCount: number;
   evidenceMissingCount: number;
+  graduationReadyCount: number;
 }
 
 export async function getClassOverview(access: TeachingAccessSnapshot, classId: string): Promise<ClassOverview | null> {
@@ -360,7 +501,7 @@ export async function getClassOverview(access: TeachingAccessSnapshot, classId: 
     const key = s.session_type as SessionType;
     sessionsByType[key] = (sessionsByType[key] ?? 0) + 1;
   }
-  const evidenceMissingCount = evals.filter((e) => (e.asset_ids?.length ?? 0) === 0 && !(e.notes && e.notes.trim())).length;
+  const evidenceMissingCount = evals.filter((e) => (e.asset_ids?.length ?? 0) === 0 || !(e.notes && e.notes.trim())).length;
 
   const byStudent = new Map<string, number[]>();
   for (const e of evals) {
@@ -374,6 +515,8 @@ export async function getClassOverview(access: TeachingAccessSnapshot, classId: 
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     if (avg < 70) attentionCount++;
   }
+  const graduationRows = await Promise.all((memberRows ?? []).map((member) => getGraduationForStudent(access, classId, String(member.user_id))));
+  const graduationReadyCount = graduationRows.filter((result) => result?.graduationStatus === "graduated").length;
 
   return {
     studentCount: (memberRows ?? []).length,
@@ -383,6 +526,7 @@ export async function getClassOverview(access: TeachingAccessSnapshot, classId: 
     avgScore,
     passingRatioPercent,
     attentionCount,
-    evidenceMissingCount
+    evidenceMissingCount,
+    graduationReadyCount
   };
 }

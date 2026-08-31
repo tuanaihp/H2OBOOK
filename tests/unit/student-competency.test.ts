@@ -7,6 +7,7 @@ describe("student competency rules", () => {
     const result = calculateGraduationStatus({
       evaluations: [{ totalScore: 90, maxScore: 100 }, { totalScore: 80, maxScore: 100 }],
       requiredCriteriaMet: true,
+      courseCompleted: true,
       evidenceComplete: true,
       finalAssessmentPassed: true,
       supplementSessionsConfig: 25
@@ -19,11 +20,13 @@ describe("student competency rules", () => {
     const notReady = calculateGraduationStatus({
       evaluations: [{ totalScore: 80, maxScore: 100 }],
       requiredCriteriaMet: false,
+      courseCompleted: false,
       evidenceComplete: false,
       finalAssessmentPassed: false,
       supplementSessionsConfig: 25
     });
     expect(notReady.graduationStatus).toBe("not_ready");
+    expect(notReady.missingRequirements).toContain("course_completion");
     expect(notReady.recommendedSupplementSessions).toBe(15);
   });
 
@@ -35,7 +38,7 @@ describe("student competency rules", () => {
       { skillKey: "brows", score: 88, occurredAt: "2026-08-25T12:00:00.000Z" }
     ], now);
 
-    expect(profile.find((skill) => skill.key === "foundation")).toMatchObject({ latestScore: 90, trend30: 80, evidenceCount: 2 });
+    expect(profile.find((skill) => skill.key === "foundation")).toMatchObject({ latestScore: 90, trend30: 80, evidenceCount: 2, weakEvidenceCount: 0 });
     expect(estimateClientReadiness(profile)).toBe("san_sang");
   });
 });

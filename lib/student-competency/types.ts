@@ -51,6 +51,8 @@ export interface RubricCriterionView {
 export interface RubricView {
   id: string;
   title: string;
+  category: "training" | "makeup" | "hair" | null;
+  quickIssues: string[];
   updatedAt: string;
   criteria: RubricCriterionView[];
 }
@@ -114,10 +116,11 @@ export interface GraduationInput {
   requiredCriteriaMet: boolean;
   evidenceComplete: boolean;
   finalAssessmentPassed: boolean;
+  courseCompleted?: boolean;
   supplementSessionsConfig?: number;
 }
 
-export type GraduationRequirement = "passing_evaluation_ratio" | "required_criteria" | "evidence_profile" | "final_assessment";
+export type GraduationRequirement = "passing_evaluation_ratio" | "required_criteria" | "course_completion" | "evidence_profile" | "final_assessment";
 
 export interface GraduationResult {
   passingEvaluationRatio: number;
@@ -136,4 +139,5 @@ export interface CompetencySkillPoint {
   trend60: number | null;
   trend90: number | null;
   evidenceCount: number;
+  weakEvidenceCount: number;
 }

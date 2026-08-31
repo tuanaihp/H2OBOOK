@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, School } from "lucide-react";
+import { AlertTriangle, Plus, School } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
+import { Modal } from "@/components/ui/modal";
 import { instructorRoutes } from "@/lib/operations/routes";
 import styles from "@/components/operations/operations.module.css";
 
@@ -11,6 +12,11 @@ type TeachingClassSummary = { id: string; name: string; code: string; status: st
 export default function InstructorClassesPage() {
   const [classes, setClasses] = useState<TeachingClassSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("Khóa Makeup Chuyên nghiệp");
+  const [code, setCode] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -21,9 +27,20 @@ export default function InstructorClassesPage() {
     })();
   }, []);
 
+  const createClass = async () => {
+    if (!name.trim() || !code.trim()) { setMessage("Nhập tên lớp và mã lớp."); return; }
+    setSaving(true); setMessage(null);
+    const res = await fetch("/api/teaching/classes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, code, totalSessions: 60 }) });
+    const json = await res.json().catch(() => null); setSaving(false);
+    if (!res.ok) { setMessage(json?.error === "CLASS_CODE_ALREADY_EXISTS" ? "Mã lớp đã tồn tại." : (json?.error ?? "Không thể tạo lớp.")); return; }
+    const created = json.class as TeachingClassSummary;
+    setClasses((current) => [{ ...created, avgProgressPercent: 0, atRiskCount: 0 }, ...current]);
+    setOpen(false); setCode("");
+  };
+
   return <SimpleOperationsShell title="H2OBOOK Instructor" subtitle="Class Command Center" homeHref="/instructor" routes={instructorRoutes} accentLabel="Instructor Workspace">
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>CLASS COMMAND CENTER</span><h1>Lớp của tôi</h1><p>Tiến độ trung bình được tính từ Knowledge Space Progress thực tế của từng học viên trong lớp.</p></div>
+      <div><span className={styles.eyebrow}>CLASS COMMAND CENTER</span><h1>Lớp của tôi</h1><p>Tiến độ trung bình được tính từ Knowledge Space Progress thực tế của từng học viên trong lớp.</p></div><button className={`${styles.button} ${styles.buttonPrimary}`} onClick={() => setOpen(true)}><Plus size={15} />Tạo lớp 60 buổi</button>
     </header>
 
     <div className={styles.card}>
@@ -51,5 +68,6 @@ export default function InstructorClassesPage() {
         )}
       </div>
     </div>
+    <Modal open={open} onClose={() => setOpen(false)} title="Tạo lớp học thật" description="Lớp được lưu vào Supabase và tự động phân công cho tài khoản hiện tại."><div className="form-grid"><label className="field full"><span>Tên lớp</span><input className="input" value={name} onChange={(event) => setName(event.target.value)} /></label><label className="field full"><span>Mã lớp</span><input className="input" value={code} onChange={(event) => setCode(event.target.value)} placeholder="Ví dụ: C26-08" /></label></div>{message && <p style={{ color: "#b42318", fontSize: 12 }}>{message}</p>}<div className="modal-actions"><button className="btn btn-secondary" onClick={() => setOpen(false)}>Hủy</button><button className="btn btn-primary" disabled={saving} onClick={() => void createClass()}>{saving ? "Đang tạo…" : "Tạo lớp"}</button></div></Modal>
   </SimpleOperationsShell>;
 }

@@ -35,7 +35,8 @@ export function aggregateCompetencyProfile(evidence: SkillEvidenceRow[], now: nu
       trend30: avgWithinWindow(rows, 30, now),
       trend60: avgWithinWindow(rows, 60, now),
       trend90: avgWithinWindow(rows, 90, now),
-      evidenceCount: rows.length
+      evidenceCount: rows.length,
+      weakEvidenceCount: rows.filter((row) => row.score < 70).length
     };
   });
 }

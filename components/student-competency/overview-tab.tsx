@@ -7,7 +7,7 @@ import styles from "@/components/operations/operations.module.css";
 interface ClassOverview {
   studentCount: number; totalSessions: number; completedSessions: number;
   sessionsByType: Partial<Record<SessionType, number>>; avgScore: number; passingRatioPercent: number;
-  attentionCount: number; evidenceMissingCount: number;
+  attentionCount: number; evidenceMissingCount: number; graduationReadyCount: number;
 }
 
 export function OverviewTab({ classId }: { classId: string }) {
@@ -41,6 +41,7 @@ export function OverviewTab({ classId }: { classId: string }) {
       <div className={styles.metric}><span className={styles.metricIcon}><CalendarCheck size={18} /></span><div><strong>{overview.completedSessions}/{overview.totalSessions}</strong><span>Buổi đã hoàn thành</span></div></div>
       <div className={styles.metric}><span className={styles.metricIcon}><Target size={18} /></span><div><strong>{overview.avgScore}</strong><span>Điểm trung bình</span></div></div>
       <div className={styles.metric}><span className={styles.metricIcon}><Target size={18} /></span><div><strong>{overview.passingRatioPercent}%</strong><span>Tỷ lệ đánh giá ≥90</span></div></div>
+      <div className={styles.metric}><span className={styles.metricIcon}><Target size={18} /></span><div><strong>{overview.graduationReadyCount}/{overview.studentCount}</strong><span>Đủ điều kiện tốt nghiệp</span></div></div>
     </div>
 
     {(overview.attentionCount > 0 || overview.evidenceMissingCount > 0) && <div className={styles.card}>

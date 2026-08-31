@@ -21,6 +21,12 @@ interface PassportData {
   career: { direction: string | null; careerMapSummary: string | null; ninetyDayGoal: string | null };
   credential: { status: "locked" | "eligible" | "issued"; certificateNo: string | null; issuedAt: string | null };
 }
+interface CompetencyClass {
+  class: { id: string; name: string; code: string; status: string };
+  completedSessions: number; totalSessions: number; avgScore: number; evaluationCount: number;
+  graduation: { graduationStatus: "graduated" | "not_ready"; passingEvaluationRatio: number; missingRequirements: string[] } | null;
+  competency: { key: string; label: string; latestScore: number | null; trend30: number | null; trend60: number | null; trend90: number | null }[] | null;
+}
 
 export default function StudentProfilePage() {
   const studentName = useStudentName("Học viên H2O");
@@ -41,12 +47,18 @@ export default function StudentProfilePage() {
   // and real Credential status, aggregated from Stage 1's actual Mission graph. null while loading
   // or if Stage 1 isn't configured yet — never a placeholder that reads as a real value.
   const [passport, setPassport] = useState<PassportData | null>(null);
+  const [competencyClasses, setCompetencyClasses] = useState<CompetencyClass[] | null>(null);
   useEffect(() => {
     if (!live) return;
     fetch("/api/student/passport", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: { passport?: PassportData } | null) => setPassport(payload?.passport ?? null))
       .catch(() => setPassport(null));
+  }, [live]);
+  useEffect(() => {
+    if (!live) return;
+    fetch("/api/student/competency", { cache: "no-store" }).then((response) => response.ok ? response.json() : null)
+      .then((payload: { classes?: CompetencyClass[] } | null) => setCompetencyClasses(payload?.classes ?? [])).catch(() => setCompetencyClasses([]));
   }, [live]);
   const production = summary?.mode === "production" ? summary : null;
 
@@ -134,5 +146,9 @@ export default function StudentProfilePage() {
             <small>Dữ liệu minh họa</small>
           </article>)}</div>}
     </section>
+
+    {live && <section className="h2o-student-card" style={{ marginTop: 18 }}><header className="h2o-student-card-head"><div><span>STUDENT MANAGEMENT &amp; COMPETENCY</span><h2>Hồ sơ năng lực tại lớp</h2><p>Điểm và nhận xét do giảng viên lưu; học viên chỉ có quyền xem.</p></div></header>
+      {competencyClasses === null ? <EmptyNote>Đang tải hồ sơ năng lực…</EmptyNote> : competencyClasses.length === 0 ? <EmptyNote>Bạn chưa được ghi danh vào lớp đào tạo trực tiếp nào.</EmptyNote> : competencyClasses.map((item) => { const strengths = (item.competency ?? []).filter((skill) => (skill.latestScore ?? 0) >= 85).slice(0, 3); const weaknesses = (item.competency ?? []).filter((skill) => skill.latestScore != null && skill.latestScore < 60).slice(0, 3); return <article key={item.class.id} style={{ borderTop: "1px solid #e8edf2", padding: "16px 0" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><strong>{item.class.name}</strong><p style={{ margin: "4px 0", fontSize: 12, color: "#718092" }}>{item.class.code} · {item.completedSessions}/{item.totalSessions || 60} buổi · {item.evaluationCount} lần đánh giá</p></div><span style={{ fontWeight: 700 }}>{item.avgScore}/100 · {item.graduation?.graduationStatus === "graduated" ? "Đủ điều kiện tốt nghiệp" : "Đang hoàn thiện"}</span></div><p style={{ fontSize: 12 }}><b>Điểm mạnh:</b> {strengths.length ? strengths.map((skill) => skill.label).join(", ") : "Chưa đủ dữ liệu"} · <b>Cần cải thiện:</b> {weaknesses.length ? weaknesses.map((skill) => skill.label).join(", ") : "Chưa phát hiện"}</p><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 8 }}>{(item.competency ?? []).filter((skill) => skill.latestScore != null).map((skill) => <div key={skill.key} style={{ border: "1px solid #e8edf2", borderRadius: 10, padding: 10 }}><small>{skill.label}</small><strong style={{ display: "block", fontSize: 20 }}>{skill.latestScore}</strong><small>30/60/90: {skill.trend30 ?? "—"}/{skill.trend60 ?? "—"}/{skill.trend90 ?? "—"}</small></div>)}</div></article>; })}
+    </section>}
   </>;
 }
