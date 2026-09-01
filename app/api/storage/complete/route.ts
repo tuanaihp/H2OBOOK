@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { headStoredObject, readStoredObjectPrefix } from "@/lib/storage/r2";
 import { isR2Configured } from "@/lib/runtime-config";
 import { validateMagicBytes, validateUpload } from "@/lib/security/uploads";
-import { scanStoredFile } from "@/lib/security/file-scan";
+import { scanStoredFile, isFileScannerConfigured } from "@/lib/security/file-scan";
 import { checkStorageQuota } from "@/lib/storage/quota";
 import { findDuplicateAsset, hashStoredObject } from "@/lib/storage/hash";
 
@@ -39,7 +39,13 @@ export async function POST(request: Request) {
     const quota = await checkStorageQuota(supabase, access.organizationId, auth.user!.id, access.role, stored.sizeBytes);
     if (!quota.ok) return NextResponse.json({ error: "STORAGE_QUOTA_EXCEEDED", usedBytes: quota.usedBytes, limitBytes: quota.limitBytes }, { status: 413 });
   }
-  const status = scan.status === "clean" ? "ready" : scan.status === "blocked" ? "blocked" : "processing";
+  // "pending" means the scanner has not returned a verdict. With a scanner configured that is a
+  // transient state (asset stays "processing" until a verdict lands); with NO scanner there will
+  // never be a verdict, so treat unscanned uploads as usable — quarantine_status still records
+  // that they were never scanned, and a scanner added later can still flip them to "blocked".
+  const status = scan.status === "clean" ? "ready"
+    : scan.status === "blocked" ? "blocked"
+    : isFileScannerConfigured() ? "processing" : "ready";
 
   // Computed server-side from the object actually sitting in R2, not trusted from the client — a
   // client-reported hash could not be verified without re-reading the object anyway, so there is no

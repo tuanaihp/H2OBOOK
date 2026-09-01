@@ -10,6 +10,9 @@ import { Activity, AlertTriangle, CheckCircle2, Cloud, Database, HardDrive, Refr
 
 type RuntimeCapability = { key: string; label: string; configured: boolean; required: boolean; description: string };
 type AdminJob = { id: string; externalJobId?: string; type: string; status: string; progress: number; createdAt: string; updatedAt?: string; error?: string };
+type StorageHealthDto = { provider: string; configured: boolean; usedBytes: number; limitBytes: number; ratio: number; level: "ok" | "warn" | "critical" };
+
+const gib = (bytes: number) => bytes / (1024 * 1024 * 1024);
 
 export default function AdminPage() {
   const store = useAppStore();
@@ -17,15 +20,24 @@ export default function AdminPage() {
   const [capabilities, setCapabilities] = useState<RuntimeCapability[]>([]);
   const [systemStatus, setSystemStatus] = useState("loading");
   const [mode, setMode] = useState("demo");
+  const [storage, setStorage] = useState<StorageHealthDto | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const usage = Math.round(store.workspace.storageUsedMb / store.workspace.storageLimitMb * 100);
+  const usage = storage
+    ? Math.round(storage.ratio * 100)
+    : Math.round(store.workspace.storageUsedMb / store.workspace.storageLimitMb * 100);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [readinessResponse, jobsResponse] = await Promise.all([fetch("/api/readiness", { cache: "no-store" }), fetch("/api/jobs", { cache: "no-store" })]);
+      const [readinessResponse, jobsResponse, storageResponse] = await Promise.all([
+        fetch("/api/readiness", { cache: "no-store" }),
+        fetch("/api/jobs", { cache: "no-store" }),
+        fetch("/api/admin/storage-health", { cache: "no-store" }),
+      ]);
       const readiness = await readinessResponse.json(); const jobPayload = await jobsResponse.json();
+      const storagePayload = await storageResponse.json().catch(() => null) as { storage?: StorageHealthDto } | null;
       setCapabilities(readiness.capabilities ?? []); setSystemStatus(readiness.status ?? "degraded"); setMode(readiness.mode ?? "demo"); setJobs(jobPayload.jobs ?? []);
+      setStorage(storageResponse.ok ? storagePayload?.storage ?? null : null);
     } finally { setRefreshing(false); }
   }, []);
 
@@ -35,7 +47,9 @@ export default function AdminPage() {
 
   return <AppShell>
     <div className="page-header"><div><span className="eyebrow">SYSTEM ADMINISTRATION</span><h1>Trung tâm quản trị production</h1><p>Giám sát workspace, document worker, tích hợp, bảo mật và audit log theo dữ liệu runtime.</p></div><Badge tone={systemStatus === "ready" ? "success" : "warning"}>{systemStatus === "ready" ? <CheckCircle2/> : <AlertTriangle/>}{systemStatus === "ready" ? "Production ready" : `${mode} / degraded`}</Badge></div>
-    <section className="metric-grid"><MetricCard label="Người dùng hệ thống" value={String(store.users.length + store.students.length)} note={`${store.users.filter(item => item.status === "active").length} nhân sự nội bộ`} icon={Users}/><MetricCard label="Dung lượng sử dụng" value={`${usage}%`} note={`${(store.workspace.storageUsedMb/1024).toFixed(1)} / ${(store.workspace.storageLimitMb/1024).toFixed(0)} GB`} icon={HardDrive} tone="warning"/><MetricCard label="Job đang chạy" value={String(jobs.filter(item => item.status === "processing" || item.status === "queued").length)} note={`${jobs.filter(item => item.status === "failed").length} job lỗi`} icon={Server} tone="blue"/><MetricCard label="Dịch vụ đã kết nối" value={`${configured}/${capabilities.length || 8}`} note={`${securityWarnings} kết nối bắt buộc còn thiếu`} icon={ShieldCheck} tone={securityWarnings ? "warning" : "success"}/></section>
+    {storage && !storage.configured && <div className="page-alert warning" role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 16px", borderRadius: 12, background: "#fbecec", color: "#8a1f1f", margin: "0 0 16px" }}><AlertTriangle style={{ flex: "none", marginTop: 2 }}/><span><strong>Kho lưu trữ ảnh (Cloudflare R2) chưa cấu hình.</strong> Ảnh học viên/giảng viên tải lên hiện KHÔNG được lưu ở máy chủ. Thêm biến <code>R2_*</code> + <code>NEXT_PUBLIC_APP_MODE=production</code> trên Vercel rồi redeploy.</span></div>}
+    {storage && storage.configured && storage.level !== "ok" && <div className={`page-alert ${storage.level === "critical" ? "danger" : "warning"}`} role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 16px", borderRadius: 12, background: storage.level === "critical" ? "#fbecec" : "#fdf3e2", color: storage.level === "critical" ? "#8a1f1f" : "#8a5a12", margin: "0 0 16px" }}><AlertTriangle style={{ flex: "none", marginTop: 2 }}/><span><strong>Dung lượng lưu trữ R2 đã dùng {usage}%</strong> ({gib(storage.usedBytes).toFixed(2)} / {gib(storage.limitBytes).toFixed(0)} GB). {storage.level === "critical" ? "Gần hết — cần chuyển sang cổng dự phòng (Google Drive) hoặc dọn bớt file ngay." : "Sắp đầy — chuẩn bị cổng dự phòng (Google Drive) hoặc dọn bớt file."}</span></div>}
+    <section className="metric-grid"><MetricCard label="Người dùng hệ thống" value={String(store.users.length + store.students.length)} note={`${store.users.filter(item => item.status === "active").length} nhân sự nội bộ`} icon={Users}/><MetricCard label="Dung lượng sử dụng" value={`${usage}%`} note={storage ? `${gib(storage.usedBytes).toFixed(2)} / ${gib(storage.limitBytes).toFixed(0)} GB · R2${storage.configured ? "" : " (chưa cấu hình)"}` : `${(store.workspace.storageUsedMb/1024).toFixed(1)} / ${(store.workspace.storageLimitMb/1024).toFixed(0)} GB`} icon={HardDrive} tone={!storage || storage.level !== "ok" ? "warning" : "success"}/><MetricCard label="Job đang chạy" value={String(jobs.filter(item => item.status === "processing" || item.status === "queued").length)} note={`${jobs.filter(item => item.status === "failed").length} job lỗi`} icon={Server} tone="blue"/><MetricCard label="Dịch vụ đã kết nối" value={`${configured}/${capabilities.length || 8}`} note={`${securityWarnings} kết nối bắt buộc còn thiếu`} icon={ShieldCheck} tone={securityWarnings ? "warning" : "success"}/></section>
     <div className="admin-grid"><section className="section-card admin-wide"><div className="section-head"><div><h2>Document Processing Queue</h2><p>Dữ liệu từ Supabase/Redis; Demo Mode dùng memory fallback.</p></div><button className="btn btn-secondary btn-sm" disabled={refreshing} onClick={refresh}><RefreshCw className={refreshing ? "spin" : ""}/>Làm mới</button></div><div className="table-responsive"><table className="data-table"><thead><tr><th>Job</th><th>Loại</th><th>Tiến độ</th><th>Trạng thái</th><th>Bắt đầu</th></tr></thead><tbody>{jobs.length ? jobs.map(job => <tr key={job.id}><td><strong>{job.id.slice(0, 12)}</strong>{job.externalJobId && <small className="block-muted">Queue: {job.externalJobId}</small>}</td><td>{job.type}</td><td><div className="progress-cell"><div className="progress"><span style={{ width: `${job.progress}%` }}/></div><strong>{job.progress}%</strong></div></td><td><Badge tone={job.status === "completed" ? "success" : job.status === "failed" ? "warning" : "purple"}>{job.status}</Badge>{job.error && <small className="block-muted">{job.error}</small>}</td><td>{formatDate(job.createdAt)}</td></tr>) : <tr><td colSpan={5}><div className="table-empty">Chưa có job. Tạo tác vụ tại Document Queue.</div></td></tr>}</tbody></table></div></section>
       <section className="section-card"><div className="section-head"><div><h2>Hạ tầng runtime</h2><p>Đọc trực tiếp từ biến môi trường server.</p></div><Cloud/></div><div className="section-body service-list">{capabilities.map(capability => <div key={capability.key}><span className="service-icon">{capability.key === "database" ? <Database/> : capability.key === "queue" ? <Server/> : <Cloud/>}</span><span><strong>{capability.label}</strong><small>{capability.configured ? "Đã cấu hình" : capability.required ? "Bắt buộc còn thiếu" : "Tùy chọn"}</small></span><i className={capability.configured ? "online" : "pending"}/></div>)}</div></section>
       <section className="section-card admin-wide"><div className="section-head"><div><h2>Audit Log</h2><p>Các hành động quan trọng trong workspace local hiện tại.</p></div><Activity/></div><div className="section-body audit-list">{store.activities.map(item => <div key={item.id}><span className={`audit-icon ${item.tone}`}><Activity/></span><span><strong>{item.actor}</strong> {item.action} <b>{item.target}</b><small>{new Date(item.createdAt).toLocaleString("vi-VN")}</small></span></div>)}</div></section>

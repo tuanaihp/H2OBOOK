@@ -17,6 +17,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     .select("id,storage_key,original_name,status,quarantine_status")
     .eq("id", id).eq("organization_id", access.organizationId).is("deleted_at", null).maybeSingle();
   if (error || !data) return NextResponse.json({ error: "ASSET_NOT_FOUND" }, { status: 404 });
-  if (data.status !== "ready" || data.quarantine_status !== "clean") return NextResponse.json({ error: "ASSET_NOT_READY" }, { status: 423 });
+  // Serve anything that isn't explicitly malware/policy-blocked. "pending" = never scanned (no
+  // scanner configured), not "unsafe" — blocking it would make every upload undisplayable.
+  if (data.status !== "ready" || data.quarantine_status === "blocked") return NextResponse.json({ error: "ASSET_NOT_READY" }, { status: 423 });
   return NextResponse.json({ url: await createDownloadUrl(data.storage_key, data.original_name), expiresIn: 300 });
 }

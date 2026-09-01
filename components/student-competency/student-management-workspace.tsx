@@ -36,6 +36,7 @@ export function StudentManagementWorkspace({ classId: requestedClassId }: { clas
   const [classes, setClasses] = useState<TeachingClass[]>([]);
   const [klass, setKlass] = useState<TeachingClass | null>(null);
   const [classId, setClassId] = useState<string | null>(requestedClassId ?? null);
+  const [organizationId, setOrganizationId] = useState<string | undefined>(undefined);
   const [roster, setRoster] = useState<RosterMember[]>([]);
   const [candidates, setCandidates] = useState<StudentCandidate[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
@@ -52,6 +53,7 @@ export function StudentManagementWorkspace({ classId: requestedClassId }: { clas
       const nextClasses = (json?.classes ?? []) as TeachingClass[];
       const selected = nextClasses.find((item) => item.id === (preferredClassId ?? requestedClassId)) ?? nextClasses[0] ?? null;
       setClasses(nextClasses); setKlass(selected); setClassId(selected?.id ?? null);
+      setOrganizationId(typeof json?.organizationId === "string" ? json.organizationId : undefined);
     } catch (error) {
       setClasses([]); setKlass(null); setClassId(null); setLoadError(error instanceof Error ? error.message : "Không tải được danh sách lớp.");
     } finally { setLoadingClasses(false); }
@@ -92,9 +94,9 @@ export function StudentManagementWorkspace({ classId: requestedClassId }: { clas
         {activeTab === "overview" && <OverviewTab classId={classId} />}
         {activeTab === "students" && <RosterTab classId={classId} roster={roster} candidates={candidates} loading={loadingRoster} selectedStudentId={selectedStudentId} onSelect={jumpToGrading} onRosterChanged={loadRoster} />}
         {activeTab === "course" && <CoursePlanTab classId={classId} />}
-        {activeTab === "training" && <TrainingGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
-        {activeTab === "makeup" && <MakeupGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
-        {activeTab === "hair" && <HairGradingTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "training" && <TrainingGradingTab classId={classId} organizationId={organizationId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "makeup" && <MakeupGradingTab classId={classId} organizationId={organizationId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
+        {activeTab === "hair" && <HairGradingTab classId={classId} organizationId={organizationId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
         {activeTab === "graduation" && <GraduationTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
         {activeTab === "competency" && <CompetencyTab classId={classId} roster={rosterOptions} initialStudentId={selectedStudentId} />}
         {activeTab === "settings" && <SettingsTab />}

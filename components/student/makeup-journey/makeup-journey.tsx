@@ -17,7 +17,7 @@ interface Rubric { id: string; title: string; category: "training" | "makeup" | 
 interface Evaluation { classSessionId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
 interface Submission { classSessionId: string; assetIds: string[]; note: string; updatedAt: string }
 interface Journey {
-  class: { id: string; name: string; code: string; status: string; totalSessions: number; startedAt: string | null };
+  class: { id: string; organizationId: string; name: string; code: string; status: string; totalSessions: number; startedAt: string | null };
   sessions: ClassSession[];
   evaluations: Evaluation[];
   submissions: Submission[];
@@ -230,6 +230,7 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved }: {
 
   const detailProps = (session: ClassSession) => ({
     session,
+    organizationId: journey.class.organizationId,
     rubric: rubricByCategory.get(RUBRIC_FOR_TYPE[session.sessionType] ?? null) ?? null,
     evaluation: evaluationBySession.get(session.id) ?? null,
     submission: submissionBySession.get(session.id) ?? null,
@@ -349,8 +350,9 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, rubric, evaluation, submission, onSaved }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, onSaved }: {
   session: ClassSession;
+  organizationId: string;
   rubric: Rubric | null;
   evaluation: Evaluation | null;
   submission: Submission | null;
@@ -365,7 +367,7 @@ function SessionDetail({ session, rubric, evaluation, submission, onSaved }: {
     </div>
     {session.title && <p className={styles.detailTitle}>{session.title}</p>}
 
-    <SessionEvidence sessionId={session.id} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} />
+    <SessionEvidence sessionId={session.id} organizationId={organizationId} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} />
 
     {evaluation
       ? <GradePanel evaluation={evaluation} rubric={rubric} />
@@ -385,8 +387,9 @@ function SessionDetail({ session, rubric, evaluation, submission, onSaved }: {
   </div>;
 }
 
-function SessionEvidence({ sessionId, submission, locked, onSaved }: {
+function SessionEvidence({ sessionId, organizationId, submission, locked, onSaved }: {
   sessionId: string;
+  organizationId: string;
   submission: Submission | null;
   locked: boolean;
   onSaved: (next: Submission) => void;
@@ -415,7 +418,7 @@ function SessionEvidence({ sessionId, submission, locked, onSaved }: {
     try {
       for (const file of files.slice(0, room)) {
         if (!file.type.startsWith("image/")) continue;
-        const asset = await uploadAsset(file, { category: "student-competency", assetType: "image", compress: true });
+        const asset = await uploadAsset(file, { organizationId, category: "student-competency", assetType: "image", compress: true });
         setAssetIds((current) => [...current, asset.assetId]);
       }
     } catch {
@@ -435,7 +438,13 @@ function SessionEvidence({ sessionId, submission, locked, onSaved }: {
       });
       const payload = await response.json().catch(() => null) as { error?: string; submission?: Submission } | null;
       if (!response.ok || !payload?.submission) {
-        setMessage(payload?.error === "STUDENT_NOT_IN_CLASS" ? "Bạn không còn trong lớp này." : "Không lưu được minh chứng.");
+        const code = payload?.error;
+        setMessage(
+          code === "STUDENT_NOT_IN_CLASS" ? "Bạn không còn trong lớp này."
+            : code === "INVALID_EVIDENCE_ASSET" ? "Ảnh chưa lưu được lên máy chủ (kho lưu trữ chưa cấu hình). Báo quản trị."
+            : code ? `Không lưu được minh chứng (${code}).`
+            : "Không lưu được minh chứng."
+        );
         return;
       }
       onSaved(payload.submission);

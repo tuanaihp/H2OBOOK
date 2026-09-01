@@ -270,7 +270,7 @@ export async function getOwnStudentCompetency(studentId: string) {
 // --- Student "Khóa Makeup 60 buổi" learning-space section ------------------
 
 export interface ClassJourney {
-  class: { id: string; name: string; code: string; status: string; totalSessions: number; startedAt: string | null };
+  class: { id: string; organizationId: string; name: string; code: string; status: string; totalSessions: number; startedAt: string | null };
   sessions: ClassSession[];
   evaluations: ClassEvaluation[];
   submissions: ClassSessionSubmission[];
@@ -311,7 +311,7 @@ export async function getOwnClassJourney(studentId: string): Promise<ClassJourne
 
   return {
     class: {
-      id: classId, name: String(classRow.name), code: String(classRow.code),
+      id: classId, organizationId, name: String(classRow.name), code: String(classRow.code),
       status: String(classRow.status), totalSessions: Number(classRow.total_sessions ?? 60),
       startedAt: classRow.start_date ? String(classRow.start_date) : classRow.created_at ? String(classRow.created_at) : null
     },
@@ -354,7 +354,7 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
 
   const assetIds = [...new Set((input.assetIds ?? []).filter(Boolean))].slice(0, 6);
   if (assetIds.length) {
-    const { data: assets } = await admin.from("assets").select("id").eq("organization_id", organizationId).in("id", assetIds);
+    const { data: assets } = await admin.from("assets").select("id").eq("organization_id", organizationId).neq("quarantine_status", "blocked").in("id", assetIds);
     if ((assets ?? []).length !== assetIds.length) return { ok: false, error: "INVALID_EVIDENCE_ASSET" };
   }
   const note = (input.note ?? "").trim().slice(0, 500);
@@ -430,7 +430,7 @@ export async function upsertEvaluation(access: TeachingAccessSnapshot, input: Up
 
   const assetIds = [...new Set(input.assetIds ?? [])];
   if (assetIds.length) {
-    const { data: assets } = await admin.from("assets").select("id").eq("organization_id", access.organizationId).eq("status", "ready").in("id", assetIds);
+    const { data: assets } = await admin.from("assets").select("id").eq("organization_id", access.organizationId).neq("quarantine_status", "blocked").in("id", assetIds);
     if ((assets ?? []).length !== assetIds.length) return { ok: false, error: "INVALID_EVIDENCE_ASSET" };
   }
 

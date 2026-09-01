@@ -26,8 +26,8 @@ const QUICK_ISSUES = {
  * — the same pipeline components/student/mission-workspace/daily-practice-logger.tsx already uses
  * for student practice photos, not a new upload path.
  */
-export function GradingForm({ classId, roster, category, sessionTypeFilter, emptyRubricHint, initialStudentId }: {
-  classId: string; roster: RosterMember[]; category: "training" | "makeup" | "hair"; sessionTypeFilter: SessionType[]; emptyRubricHint: string; initialStudentId?: string;
+export function GradingForm({ classId, organizationId, roster, category, sessionTypeFilter, emptyRubricHint, initialStudentId }: {
+  classId: string; organizationId?: string; roster: RosterMember[]; category: "training" | "makeup" | "hair"; sessionTypeFilter: SessionType[]; emptyRubricHint: string; initialStudentId?: string;
 }) {
   const [rubric, setRubric] = useState<RubricView | null | undefined>(undefined);
   const [sessions, setSessions] = useState<ClassSession[]>([]);
@@ -134,7 +134,7 @@ export function GradingForm({ classId, roster, category, sessionTypeFilter, empt
     setUploading(true);
     try {
       for (const file of files.slice(0, room)) {
-        const asset = await uploadAsset(file, { category: "student-competency", assetType: file.type.startsWith("video/") ? "video" : "image", compress: file.type.startsWith("image/") });
+        const asset = await uploadAsset(file, { organizationId, category: "student-competency", assetType: file.type.startsWith("video/") ? "video" : "image", compress: file.type.startsWith("image/") });
         setAssetIds((v) => [...v, asset.assetId]);
       }
     } catch {
