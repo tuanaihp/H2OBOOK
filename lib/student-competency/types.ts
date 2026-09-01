@@ -85,6 +85,24 @@ export interface ClassSessionSubmission {
   updatedAt: string;
 }
 
+// One AI draft assessment of a student's session submission (migration 0065). Always a DRAFT —
+// the official score is class_evaluations, which AI never writes. History is kept per analyze.
+export interface ClassAiAssessment {
+  id: string;
+  classSessionId: string;
+  studentId: string;
+  provider: string;
+  model: string | null;
+  status: "ai_draft" | "unavailable";
+  totalScore: number | null;
+  maxScore: number;
+  summary: string;
+  priorityFixes: string[];
+  criterionScores: Record<string, { score: number; maxScore: number; strength: string; issue: string; recommendation: string }>;
+  rubricSnapshot: { id: string; label: string; maxScore: number; description?: string }[];
+  createdAt: string;
+}
+
 // Append-only snapshots from class_evaluation_audit.  This is intentionally separate from
 // ClassEvaluation (the editable current state) so a client cannot mistake a historical score for
 // the current one when rendering a grading form.

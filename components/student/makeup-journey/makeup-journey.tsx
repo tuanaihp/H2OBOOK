@@ -16,11 +16,26 @@ interface RubricCriterion { id: string; title: string; description: string; maxS
 interface Rubric { id: string; title: string; category: "training" | "makeup" | "hair" | null; criteria: RubricCriterion[] }
 interface Evaluation { classSessionId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
 interface Submission { classSessionId: string; assetIds: string[]; note: string; updatedAt: string }
+interface AiCriterion { score: number; maxScore: number; strength: string; issue: string; recommendation: string }
+interface AiAssessment {
+  id: string;
+  classSessionId: string;
+  provider: string;
+  status: "ai_draft" | "unavailable";
+  totalScore: number | null;
+  maxScore: number;
+  summary: string;
+  priorityFixes: string[];
+  criterionScores: Record<string, AiCriterion>;
+  rubricSnapshot: { id: string; label: string; maxScore: number; description?: string }[];
+  createdAt: string;
+}
 interface Journey {
   class: { id: string; organizationId: string; name: string; code: string; status: string; totalSessions: number; startedAt: string | null };
   sessions: ClassSession[];
   evaluations: Evaluation[];
   submissions: Submission[];
+  aiAssessments: AiAssessment[];
   rubrics: Rubric[];
 }
 
@@ -100,6 +115,14 @@ export function MakeupJourney({ view }: { view: JourneyView }) {
     });
   }, []);
 
+  const onAiAssessed = useCallback((next: AiAssessment) => {
+    setJourney((current) => {
+      if (!current) return current;
+      const rest = current.aiAssessments.filter((a) => a.classSessionId !== next.classSessionId);
+      return { ...current, aiAssessments: [next, ...rest] };
+    });
+  }, []);
+
   const meta = VIEW_META[view];
 
   const head = (
@@ -158,17 +181,18 @@ export function MakeupJourney({ view }: { view: JourneyView }) {
       </div>
     </section>
 
-    <CurriculumCalendar journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} />
+    <CurriculumCalendar journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
   </>;
 }
 
 // =========================================================================
 type CalItem = { session: ClassSession; date: Date | null; synthetic: boolean };
 
-function CurriculumCalendar({ journey, view, onSubmissionSaved }: {
-  journey: Journey; view: JourneyView; onSubmissionSaved: (s: Submission) => void;
+function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: {
+  journey: Journey; view: JourneyView; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
 }) {
   const evaluationBySession = useMemo(() => new Map(journey.evaluations.map((e) => [e.classSessionId, e])), [journey.evaluations]);
+  const aiBySession = useMemo(() => new Map(journey.aiAssessments.map((a) => [a.classSessionId, a])), [journey.aiAssessments]);
   const submissionBySession = useMemo(() => new Map(journey.submissions.map((s) => [s.classSessionId, s])), [journey.submissions]);
   const rubricByCategory = useMemo(() => new Map(journey.rubrics.map((r) => [r.category, r])), [journey.rubrics]);
 
@@ -234,7 +258,9 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved }: {
     rubric: rubricByCategory.get(RUBRIC_FOR_TYPE[session.sessionType] ?? null) ?? null,
     evaluation: evaluationBySession.get(session.id) ?? null,
     submission: submissionBySession.get(session.id) ?? null,
-    onSaved: onSubmissionSaved
+    aiAssessment: aiBySession.get(session.id) ?? null,
+    onSaved: onSubmissionSaved,
+    onAiAssessed
   });
 
   return <div className={styles.calWrap}>
@@ -350,14 +376,18 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, onSaved }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, onSaved, onAiAssessed }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
   evaluation: Evaluation | null;
   submission: Submission | null;
+  aiAssessment: AiAssessment | null;
   onSaved: (next: Submission) => void;
+  onAiAssessed: (a: AiAssessment) => void;
 }) {
+  const [coachOpen, setCoachOpen] = useState(false);
+  const hasEvidence = (submission?.assetIds.length ?? 0) > 0;
   return <div className={styles.detail}>
     <div className={styles.detailHead}>
       <strong>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</strong>
@@ -384,7 +414,155 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
               </>
             : <p>Buổi này chưa gắn bộ tiêu chí chấm.</p>}
         </div>}
+
+    {(rubric?.criteria.length ?? 0) > 0 && (
+      <AiDraftSection
+        sessionId={session.id}
+        assessment={aiAssessment}
+        canRun={hasEvidence}
+        onAiAssessed={onAiAssessed}
+        onOpenCoach={() => setCoachOpen(true)}
+      />
+    )}
+
+    {coachOpen && <AICoachSheet sessionId={session.id} sessionTitle={`Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}`} onClose={() => setCoachOpen(false)} />}
   </div>;
+}
+
+function AiDraftSection({ sessionId, assessment, canRun, onAiAssessed, onOpenCoach }: {
+  sessionId: string;
+  assessment: AiAssessment | null;
+  canRun: boolean;
+  onAiAssessed: (a: AiAssessment) => void;
+  onOpenCoach: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function run() {
+    setRunning(true); setMessage(null);
+    try {
+      const response = await fetch("/api/student/makeup-journey/ai-assess", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classSessionId: sessionId }),
+      });
+      const payload = await response.json().catch(() => null) as { assessment?: AiAssessment; error?: string } | null;
+      if (!response.ok || !payload?.assessment) {
+        setMessage(payload?.error === "NO_RUBRIC_FOR_SESSION" ? "Buổi này chưa có rubric để AI chấm." : "Không chạy được phân tích AI. Bài nộp của bạn vẫn được giữ.");
+        return;
+      }
+      onAiAssessed(payload.assessment);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const a = assessment;
+  return <div className={styles.aiCard}>
+    <div className={styles.aiHead}>
+      <strong>✦ Phân tích bằng AI</strong>
+      <span className={styles.aiDraftTag}>NHÁP · không phải điểm chính thức</span>
+    </div>
+
+    {a && a.status === "ai_draft" && (
+      <>
+        <div className={styles.aiScore}>
+          <div><small>Điểm AI (nháp)</small><strong>{a.totalScore ?? "—"}<i>/{a.maxScore}</i></strong></div>
+          <span className={styles.pill} data-tone="info">{a.provider === "mock" ? "AI demo" : a.provider}</span>
+        </div>
+        {a.summary && <p className={styles.aiSummary}>{a.summary}</p>}
+        {a.rubricSnapshot.length > 0 && (
+          <ul className={styles.criteriaList}>
+            {a.rubricSnapshot.map((c) => {
+              const s = a.criterionScores[c.id];
+              return <li key={c.id}>
+                <span>{c.label}{s?.issue ? <em className={styles.aiIssue}> · {s.issue}</em> : null}</span>
+                <b>{s ? `${s.score} / ${c.maxScore}` : `— / ${c.maxScore}`}</b>
+              </li>;
+            })}
+          </ul>
+        )}
+        {a.priorityFixes.length > 0 && (
+          <div className={styles.aiFixes}>
+            <strong>Ưu tiên sửa</strong>
+            {a.priorityFixes.map((f, i) => <div key={f}><b>{i + 1}</b><span>{f}</span></div>)}
+          </div>
+        )}
+        <small className={styles.aiTime}>AI chấm lúc {new Date(a.createdAt).toLocaleString("vi-VN")}</small>
+      </>
+    )}
+
+    {a && a.status === "unavailable" && (
+      <p className={styles.aiSummary}>AI tạm thời không khả dụng ({a.provider}). Bài nộp của bạn vẫn được lưu — thử lại sau.</p>
+    )}
+
+    {message && <p className={styles.aiSummary} style={{ color: "#b22949" }}>{message}</p>}
+
+    {!canRun && !a && <p className={styles.aiSummary}>Tải minh chứng (ảnh) trước để AI phân tích.</p>}
+
+    <div className={styles.aiActions}>
+      <button type="button" className="h2o-student-primary" disabled={running || !canRun} onClick={run}>
+        {running ? "Đang phân tích…" : a ? "Phân tích lại" : "✦ Phân tích bằng AI"}
+      </button>
+      {a && a.status === "ai_draft" && (
+        <button type="button" className={styles.aiCoachBtn} onClick={onOpenCoach}>Hỏi H2O Copilot</button>
+      )}
+    </div>
+    <p className={styles.aiPrivacy}>AI chỉ dùng ảnh bài nộp + rubric của buổi học. Điểm chính thức do giảng viên quyết định.</p>
+  </div>;
+}
+
+function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string; sessionTitle: string; onClose: () => void }) {
+  const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([
+    { id: "welcome", role: "assistant", content: `Mình là H2O Learning Copilot cho ${sessionTitle}. Mình chỉ dùng rubric giảng viên đã cài cho buổi này.` },
+  ]);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function send(content: string) {
+    const c = content.trim();
+    if (!c || loading) return;
+    const userMsg = { id: crypto.randomUUID(), role: "user" as const, content: c };
+    const next = [...messages, userMsg];
+    setMessages(next); setText(""); setLoading(true);
+    try {
+      const response = await fetch("/api/student/makeup-journey/ai-chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classSessionId: sessionId, messages: next.filter((m) => m.id !== "welcome").map((m) => ({ role: m.role, content: m.content })) }),
+      });
+      const payload = await response.json().catch(() => null) as { reply?: string } | null;
+      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", content: payload?.reply ?? "Xin lỗi, chưa phản hồi được." }]);
+    } catch {
+      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", content: "Lỗi kết nối — thử lại nhé." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return <>
+    <div className={styles.coachBackdrop} onClick={onClose} />
+    <section className={styles.coachSheet} role="dialog" aria-label="H2O Learning Copilot">
+      <div className={styles.coachHead}>
+        <div><small>✦ H2O Learning Copilot</small><strong>{sessionTitle}</strong></div>
+        <button type="button" aria-label="Đóng" onClick={onClose}><X size={16} /></button>
+      </div>
+      <div className={styles.coachBody}>
+        {messages.map((m) => <div key={m.id} className={styles.bubble} data-role={m.role}>{m.content}</div>)}
+        {loading && <div className={styles.bubble} data-role="assistant">Đang soạn…</div>}
+      </div>
+      <div className={styles.coachQuick}>
+        {["Em sai ở đâu nhiều nhất?", "Cho checklist làm lại", "Ưu tiên sửa gì trước?", "So với buổi trước?"].map((q) => (
+          <button key={q} type="button" onClick={() => send(q)}>{q}</button>
+        ))}
+      </div>
+      <div className={styles.coachInput}>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Nhập câu hỏi…" onKeyDown={(e) => e.key === "Enter" && send(text)} />
+        <button type="button" onClick={() => send(text)} aria-label="Gửi">➤</button>
+      </div>
+    </section>
+  </>;
 }
 
 function SessionEvidence({ sessionId, organizationId, submission, locked, onSaved }: {

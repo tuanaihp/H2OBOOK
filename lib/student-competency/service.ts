@@ -6,7 +6,8 @@ import type { TeachingAccessSnapshot } from "@/lib/teaching/types";
 import { calculateGraduationStatus } from "./graduation";
 import { aggregateCompetencyProfile } from "./competency";
 import { CURRICULUM_DEFAULTS } from "./types";
-import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
+import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, ClassAiAssessment, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
+import type { AiAssessment } from "@/lib/h2obook/ai/types";
 
 // Service layer for the Student Management & Competency module (spec: v6-tich-hop-them). Reads go
 // through the admin client + app-layer canAccessClass/canAccessStudent checks, matching
@@ -41,6 +42,32 @@ function mapEvaluation(row: Record<string, unknown>): ClassEvaluation {
     gradedBy: row.graded_by ? String(row.graded_by) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at)
+  };
+}
+
+const AI_CATEGORY_BY_SESSION_TYPE: Record<string, "training" | "makeup" | "hair" | null> = {
+  training_makeup_hair: "training",
+  training_hair: "training",
+  practice_makeup_hair: "makeup",
+  practice_hair: "hair",
+  extracurricular: null,
+};
+
+function mapAiAssessment(row: Record<string, unknown>): ClassAiAssessment {
+  return {
+    id: String(row.id),
+    classSessionId: String(row.class_session_id),
+    studentId: String(row.student_id),
+    provider: String(row.provider ?? ""),
+    model: row.model ? String(row.model) : null,
+    status: (row.status as ClassAiAssessment["status"]) ?? "ai_draft",
+    totalScore: row.total_score == null ? null : Number(row.total_score),
+    maxScore: Number(row.max_score ?? 100),
+    summary: String(row.summary ?? ""),
+    priorityFixes: (row.priority_fixes ?? []) as string[],
+    criterionScores: (row.criterion_scores ?? {}) as ClassAiAssessment["criterionScores"],
+    rubricSnapshot: (row.rubric_snapshot ?? []) as ClassAiAssessment["rubricSnapshot"],
+    createdAt: String(row.created_at),
   };
 }
 
@@ -274,6 +301,7 @@ export interface ClassJourney {
   sessions: ClassSession[];
   evaluations: ClassEvaluation[];
   submissions: ClassSessionSubmission[];
+  aiAssessments: ClassAiAssessment[];
   rubrics: RubricView[];
 }
 
@@ -302,10 +330,11 @@ export async function getOwnClassJourney(studentId: string): Promise<ClassJourne
     canViewAllStudents: false, canViewAllClasses: false
   };
 
-  const [sessions, evaluations, submissions, rubrics] = await Promise.all([
+  const [sessions, evaluations, submissions, aiAssessments, rubrics] = await Promise.all([
     listClassSessions(access, classId),
     listEvaluationsForStudent(access, classId, studentId),
     listSessionSubmissions(access, classId, studentId),
+    listOwnAiAssessments(studentId, classId),
     listRubrics(access)
   ]);
 
@@ -318,8 +347,115 @@ export async function getOwnClassJourney(studentId: string): Promise<ClassJourne
     sessions: sessions ?? [],
     evaluations: evaluations ?? [],
     submissions: submissions ?? [],
+    aiAssessments,
     rubrics: rubrics ?? []
   };
+}
+
+/** Latest AI draft per session for one student (used by getOwnClassJourney). */
+export async function listOwnAiAssessments(studentId: string, classId: string): Promise<ClassAiAssessment[]> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return [];
+  const { data } = await admin.from("class_ai_assessments")
+    .select("id,class_session_id,student_id,provider,model,status,total_score,max_score,summary,priority_fixes,criterion_scores,rubric_snapshot,created_at")
+    .eq("student_id", studentId).eq("class_id", classId).order("created_at", { ascending: false });
+  const seen = new Set<string>();
+  const latest: ClassAiAssessment[] = [];
+  for (const row of data ?? []) {
+    const sid = String(row.class_session_id);
+    if (seen.has(sid)) continue;
+    seen.add(sid);
+    latest.push(mapAiAssessment(row as Record<string, unknown>));
+  }
+  return latest;
+}
+
+export interface SessionAiContext {
+  organizationId: string;
+  classId: string;
+  sessionTitle: string;
+  sessionType: string;
+  rubric: { id: string; label: string; maxScore: number; description?: string }[];
+  note: string;
+  assetIds: string[];
+}
+
+/** Resolves everything the AI routes need for one session, after verifying the student's membership. */
+export async function getStudentSessionAiContext(studentId: string, classSessionId: string): Promise<{ ok: true; context: SessionAiContext } | { ok: false; error: string }> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
+
+  const { data: session } = await admin.from("class_sessions")
+    .select("id,class_id,organization_id,session_type,title")
+    .eq("id", classSessionId).maybeSingle();
+  if (!session) return { ok: false, error: "SESSION_NOT_FOUND" };
+  const classId = String(session.class_id);
+  const organizationId = String(session.organization_id);
+
+  const { data: membership } = await admin.from("class_members").select("user_id")
+    .eq("class_id", classId).eq("user_id", studentId).eq("role", "student").in("status", ["active", "completed"]).maybeSingle();
+  if (!membership) return { ok: false, error: "STUDENT_NOT_IN_CLASS" };
+
+  const category = AI_CATEGORY_BY_SESSION_TYPE[String(session.session_type)] ?? null;
+  const access: TeachingAccessSnapshot = {
+    userId: studentId, organizationId, role: "teacher",
+    assignedClassIds: [classId], assignedStudentIds: [studentId],
+    canViewAllStudents: false, canViewAllClasses: false,
+  };
+  const rubrics = category ? await listRubrics(access, category) : [];
+  const rubric = (rubrics[0]?.criteria ?? []).map((c) => ({ id: c.id, label: c.title, maxScore: c.maxScore, description: c.description || undefined }));
+
+  const { data: submission } = await admin.from("class_session_submissions")
+    .select("note,asset_ids").eq("class_session_id", classSessionId).eq("student_id", studentId).maybeSingle();
+
+  return {
+    ok: true,
+    context: {
+      organizationId, classId,
+      sessionTitle: String(session.title ?? ""),
+      sessionType: String(session.session_type ?? ""),
+      rubric,
+      note: String(submission?.note ?? ""),
+      assetIds: (submission?.asset_ids ?? []) as string[],
+    },
+  };
+}
+
+/** Inserts one AI draft row (history is kept). `result` null → status "unavailable". */
+export async function saveClassAiAssessment(args: {
+  studentId: string;
+  classSessionId: string;
+  context: SessionAiContext;
+  result: AiAssessment | null;
+  provider: string;
+  model: string | null;
+}): Promise<ClassAiAssessment | null> {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+  const row = {
+    organization_id: args.context.organizationId,
+    class_id: args.context.classId,
+    class_session_id: args.classSessionId,
+    student_id: args.studentId,
+    provider: args.provider,
+    model: args.model,
+    rubric_snapshot: args.context.rubric,
+    criterion_scores: args.result
+      ? Object.fromEntries(args.result.criteria.map((c) => [c.criterionId, { score: c.score, maxScore: c.maxScore, strength: c.strength, issue: c.issue, recommendation: c.recommendation }]))
+      : {},
+    total_score: args.result?.totalScore ?? null,
+    max_score: args.result?.maxScore ?? (args.context.rubric.reduce((s, c) => s + c.maxScore, 0) || 100),
+    summary: args.result?.summary ?? "",
+    priority_fixes: args.result?.priorityFixes ?? [],
+    source_note: args.context.note,
+    source_asset_ids: args.context.assetIds,
+    status: args.result ? "ai_draft" : "unavailable",
+  };
+  const { data, error } = await admin.from("class_ai_assessments").insert(row)
+    .select("id,class_session_id,student_id,provider,model,status,total_score,max_score,summary,priority_fixes,criterion_scores,rubric_snapshot,created_at")
+    .single();
+  if (error || !data) return null;
+  return mapAiAssessment(data as Record<string, unknown>);
 }
 
 export async function listSessionSubmissions(access: TeachingAccessSnapshot, classId: string, studentId: string): Promise<ClassSessionSubmission[] | null> {
