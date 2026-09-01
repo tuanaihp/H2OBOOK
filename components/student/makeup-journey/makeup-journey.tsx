@@ -164,25 +164,51 @@ export function MakeupJourney({ view }: { view: JourneyView }) {
 
   const { class: klass, sessions, evaluations } = journey;
   const completedCount = sessions.filter((s) => s.status === "completed").length;
+  const totalSessions = klass.totalSessions || 60;
+  const overallPct = totalSessions ? Math.round((completedCount / totalSessions) * 100) : 0;
   const gradedPercents = evaluations.filter((e) => e.maxScore > 0).map((e) => pct(e.totalScore, e.maxScore));
   const avgScore = gradedPercents.length ? Math.round(gradedPercents.reduce((a, b) => a + b, 0) / gradedPercents.length) : null;
 
-  return <>{head}{viewNav}
-
-    <section className={styles.classBar}>
-      <div>
-        <strong>{klass.name}</strong>
-        <span>Mã lớp {klass.code} · {klass.totalSessions} buổi</span>
-      </div>
-      <div className={styles.classMetrics}>
-        <span><b>{completedCount}</b>/{klass.totalSessions} buổi đã học</span>
-        <span><b>{evaluations.length}</b> buổi đã chấm</span>
-        <span><b>{avgScore === null ? "—" : `${avgScore}%`}</b> điểm trung bình</span>
-      </div>
-    </section>
+  return <div className={styles.root}>
+    <HeroCard name={klass.name} code={klass.code} progressPct={overallPct} />
+    <ProgressStrip completed={completedCount} total={totalSessions} graded={evaluations.length} avgScore={avgScore} />
+    <p className={styles.viewSub}>{meta.sub}</p>
+    {viewNav}
 
     <CurriculumCalendar journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
-  </>;
+  </div>;
+}
+
+function HeroCard({ name, code, progressPct }: { name: string; code: string; progressPct: number }) {
+  return (
+    <section className={styles.hero}>
+      <div>
+        <p className={styles.heroEyebrow}>CHƯƠNG TRÌNH ĐÀO TẠO</p>
+        <h1 className={styles.heroTitle}>{name}</h1>
+        <span className={styles.heroPill}>Mã lớp {code} · Lộ trình 60 buổi</span>
+      </div>
+      <div className={styles.heroRing} style={{ "--p": `${progressPct}%` } as React.CSSProperties}>
+        <span>{progressPct}%</span>
+      </div>
+    </section>
+  );
+}
+
+function ProgressStrip({ completed, total, graded, avgScore }: { completed: number; total: number; graded: number; avgScore: number | null }) {
+  const donePct = total ? Math.round((completed / total) * 100) : 0;
+  const remaining = Math.max(total - completed, 0);
+  return (
+    <section className={styles.progressStrip}>
+      <div className={styles.progressHead}>
+        <div><small>TIẾN ĐỘ KHÓA HỌC</small><strong>{completed}/{total} buổi</strong></div>
+        <span>{donePct}%</span>
+      </div>
+      <div className={styles.progressBar}><i style={{ width: `${donePct}%` }} /></div>
+      <small className={styles.progressNote}>
+        {graded} buổi đã chấm{avgScore !== null ? ` · điểm TB ${avgScore}%` : ""} · còn {remaining} buổi nữa để tốt nghiệp
+      </small>
+    </section>
+  );
 }
 
 // =========================================================================
@@ -221,6 +247,16 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
   const dated = useMemo(() => items.filter((i) => i.date), [items]);
   const undated = useMemo(() => items.filter((i) => !i.date), [items]);
 
+  // The nearest session to today in this lane — today/upcoming first, else the most recent past
+  // one. Powers the bundle-style "Hôm nay" quick-open card.
+  const featured = useMemo(() => {
+    if (!dated.length) return null;
+    const todayTs = startOfDay(new Date()).getTime();
+    const upcoming = dated.filter((i) => i.date!.getTime() >= todayTs).sort((a, b) => a.date!.getTime() - b.date!.getTime());
+    if (upcoming.length) return upcoming[0];
+    return [...dated].sort((a, b) => b.date!.getTime() - a.date!.getTime())[0];
+  }, [dated]);
+
   const itemsByDay = useMemo(() => {
     const map = new Map<string, CalItem[]>();
     for (const it of dated) {
@@ -234,6 +270,7 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
   }, [dated]);
 
   const [month, setMonth] = useState<Date>(() => {
+    if (featured) return startOfMonth(featured.date!);
     const first = dated.map((i) => i.date!.getTime()).sort((a, b) => a - b)[0];
     return startOfMonth(first ? new Date(first) : new Date());
   });
@@ -252,6 +289,26 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
     setDrawer({ label: fmtDate(day), sessions: dayItems.map((i) => i.session), note: dayItems[0].synthetic ? "Ngày dự kiến — giảng viên chưa xếp lịch chính thức." : undefined });
   };
 
+  const openItem = (it: CalItem) => {
+    setDrawer({
+      label: it.date ? fmtDate(it.date) : `Buổi ${it.session.sessionNo}`,
+      sessions: [it.session],
+      note: it.synthetic ? "Ngày dự kiến — giảng viên chưa xếp lịch chính thức." : undefined,
+    });
+  };
+
+  const todayTs = startOfDay(new Date()).getTime();
+  const featuredKind = featured
+    ? isoKey(featured.date!) === todayKey ? "Hôm nay"
+      : featured.date!.getTime() >= todayTs ? "Buổi tiếp theo"
+      : "Buổi gần nhất"
+    : "";
+  const featuredStatus = featured
+    ? evaluationBySession.get(featured.session.id) ? "Đã chấm điểm"
+      : (submissionBySession.get(featured.session.id)?.assetIds.length ?? 0) > 0 ? "Đã nộp minh chứng · chờ chấm"
+      : "Chưa nộp minh chứng"
+    : "";
+
   const detailProps = (session: ClassSession) => ({
     session,
     organizationId: journey.class.organizationId,
@@ -264,6 +321,18 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
   });
 
   return <div className={styles.calWrap}>
+    {featured && (
+      <button type="button" className={styles.todayCard} onClick={() => openItem(featured)}>
+        <div className={styles.todayBox}><b>{featured.session.sessionNo}</b><span>BUỔI</span></div>
+        <div className={styles.todayCopy}>
+          <span>{featuredKind} · {featured.date!.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
+          <strong>{SESSION_TYPE_LABEL[featured.session.sessionType]}{featured.session.title ? ` · ${featured.session.title}` : ""}</strong>
+          <small>{featuredStatus}</small>
+        </div>
+        <div className={styles.todayArrow}>›</div>
+      </button>
+    )}
+
     {!hasRealDates && dated.length > 0 && (
       <p className={styles.calHint}>Lịch đang hiển thị <b>theo dự kiến</b> (mỗi 2 ngày từ lúc mở lớp). Khi giảng viên xếp lịch chính thức, ngày sẽ tự cập nhật.</p>
     )}
