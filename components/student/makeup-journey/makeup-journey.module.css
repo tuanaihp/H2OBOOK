@@ -1,4 +1,5 @@
-/* Student "Khóa Makeup 60 buổi" section. Tokens borrowed from app/globals.css --student-*. */
+/* "Chương trình đào tạo" — Google-Calendar-style view of the 60-session course.
+   Tokens borrowed from app/globals.css --student-*. Scoped via CSS Module. */
 
 .muted { color: var(--student-muted, #718092); font-size: 13px; }
 
@@ -13,20 +14,29 @@
 .notice strong { display: block; font-size: 14px; }
 .notice p { margin: 4px 0 0; color: var(--student-muted, #718092); font-size: 13px; }
 
-.emptyCard { display: grid; gap: 10px; justify-items: start; text-align: left; padding: 30px; }
+.emptyCard { display: grid; gap: 10px; justify-items: start; padding: 30px; }
 .emptyCard svg { color: var(--student-wine, #8d1d50); }
 .emptyCard h2 { margin: 4px 0 0; font-size: 17px; }
 .emptyCard p { margin: 0; color: var(--student-muted, #718092); font-size: 13px; line-height: 1.7; max-width: 62ch; }
 .emptyCard a { margin-top: 6px; }
+
+/* --- view nav (Lịch học / Training / Thực hành / Bới tóc) --- */
+.viewNav { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 14px; }
+.viewNav a {
+  border: 1px solid var(--student-line, #dfe7ee);
+  background: var(--student-panel, #fff);
+  color: var(--student-muted, #718092);
+  border-radius: 10px; padding: 8px 13px; font-size: 13px; font-weight: 700; text-decoration: none;
+}
+.viewNav a:hover { color: var(--student-ink, #111724); }
+.viewNav a[data-active="true"] { background: var(--student-ink, #111724); color: #fff; border-color: var(--student-ink, #111724); }
 
 /* --- class bar --- */
 .classBar {
   display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
   background: var(--student-panel, #fff);
   border: 1px solid var(--student-line, #dfe7ee);
-  border-radius: 16px;
-  padding: 16px 20px;
-  margin-bottom: 14px;
+  border-radius: 16px; padding: 16px 20px; margin-bottom: 14px;
 }
 .classBar > div:first-child strong { display: block; font-size: 15px; }
 .classBar > div:first-child span { font-size: 12px; color: var(--student-muted, #718092); }
@@ -34,43 +44,109 @@
 .classMetrics span { font-size: 12px; color: var(--student-muted, #718092); }
 .classMetrics b { font-size: 16px; color: var(--student-ink, #111724); margin-right: 3px; }
 
-/* --- tabs --- */
-.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-.tabs button {
-  display: inline-flex; align-items: center; gap: 7px;
-  border: 1px solid var(--student-line, #dfe7ee);
+/* --- calendar --- */
+.calWrap { position: relative; }
+.calHint {
+  margin: 0 0 12px; font-size: 12px; line-height: 1.6;
+  background: #fff4e6; color: #a05a13; border-radius: 10px; padding: 9px 12px;
+}
+.calCard {
   background: var(--student-panel, #fff);
-  color: var(--student-muted, #718092);
-  border-radius: 11px; padding: 9px 13px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--student-line, #dfe7ee);
+  border-radius: 16px; padding: 16px 18px;
 }
-.tabs button:hover { color: var(--student-ink, #111724); }
-.tabs button[data-active="true"] {
-  background: var(--student-ink, #111724); color: #fff; border-color: var(--student-ink, #111724);
+.calHead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.calNav { display: flex; align-items: center; gap: 10px; }
+.calNav strong { font-size: 16px; text-transform: capitalize; min-width: 150px; text-align: center; }
+.calNav button {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--student-line, #dfe7ee);
+  background: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
+.calNav button:hover { border-color: var(--student-wine, #8d1d50); color: var(--student-wine, #8d1d50); }
+.todayBtn {
+  border: 1px solid var(--student-line, #dfe7ee); background: #fff; border-radius: 8px;
+  padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--student-muted, #718092);
+}
+.todayBtn:hover { color: var(--student-ink, #111724); }
 
-/* --- schedule table --- */
-.scheduleWrap {
-  background: var(--student-panel, #fff);
-  border: 1px solid var(--student-line, #dfe7ee);
-  border-radius: 16px; overflow-x: auto;
-}
-.schedule { width: 100%; border-collapse: collapse; }
-.schedule th, .schedule td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--student-line, #dfe7ee); font-size: 13px; white-space: nowrap; }
-.schedule th { background: #f6f9fc; color: var(--student-muted, #718092); font-weight: 700; }
-.schedule tbody tr:last-child td { border-bottom: 0; }
-.schedule td strong { display: block; font-weight: 700; }
-.schedule td small { color: var(--student-muted, #718092); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.legend span { font-size: 11px; color: var(--student-muted, #718092); display: inline-flex; align-items: center; gap: 5px; }
+.legend span::before { content: ""; width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.legend span[data-cat="training"]::before { background: #176d9b; }
+.legend span[data-cat="makeup"]::before { background: #b0295a; }
+.legend span[data-cat="hair"]::before { background: #6b4fc7; }
+.legend span[data-cat="extra"]::before { background: #8a94a3; }
 
-/* --- session cards --- */
-.sessionList { display: grid; gap: 14px; }
-.card {
-  background: var(--student-panel, #fff);
-  border: 1px solid var(--student-line, #dfe7ee);
-  border-radius: 16px; padding: 18px 20px;
+.calGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.dow {
+  text-align: center; font-size: 11px; font-weight: 700; color: var(--student-muted, #718092);
+  padding: 4px 0 6px;
 }
-.cardHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.cardHead strong { font-size: 14px; }
-.cardHead p { margin: 3px 0 0; font-size: 12px; color: var(--student-muted, #718092); }
+.cell {
+  min-height: 96px; border: 1px solid var(--student-line, #eef2f6); border-radius: 8px;
+  background: #fff; padding: 5px 5px 6px; text-align: left; cursor: default;
+  display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+}
+.cell[data-has] { cursor: pointer; }
+.cell[data-has]:hover { border-color: var(--student-wine, #8d1d50); }
+.cell[data-outside] { opacity: 0.4; }
+.cellDate { font-size: 11px; font-weight: 700; color: var(--student-muted, #718092); align-self: flex-start; padding: 1px 4px; }
+.cell[data-today] .cellDate {
+  background: var(--student-wine, #8d1d50); color: #fff; border-radius: 999px; min-width: 18px; text-align: center;
+}
+.cellChips { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.chip {
+  font-size: 10px; line-height: 1.35; padding: 2px 5px; border-radius: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+  background: #eef2f6; color: var(--student-muted, #718092); border: 1px solid transparent;
+}
+.chip[data-cat="training"] { background: #e7f0fa; color: #135a80; }
+.chip[data-cat="makeup"] { background: #fbe9ef; color: #9c2350; }
+.chip[data-cat="hair"] { background: #efeafc; color: #5b41ad; }
+.chip[data-cat="extra"] { background: #eef1f4; color: #5d6a78; }
+.chip[data-graded] { font-weight: 800; box-shadow: inset 3px 0 0 currentColor; }
+.chip[data-sub] { border-style: dashed; border-color: currentColor; }
+.chipMore { font-size: 10px; color: var(--student-muted, #718092); padding-left: 2px; }
+
+/* --- undated strip --- */
+.undated {
+  margin-top: 14px; background: var(--student-panel, #fff);
+  border: 1px solid var(--student-line, #dfe7ee); border-radius: 14px; padding: 12px 16px;
+}
+.undatedHead { font-size: 12px; font-weight: 700; color: var(--student-ink, #111724); margin-bottom: 8px; }
+.undatedRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.undatedRow .chip { font-size: 11px; padding: 5px 9px; cursor: pointer; }
+.undatedRow .chip:hover { filter: brightness(0.96); }
+
+/* --- drawer --- */
+.backdrop { position: fixed; inset: 0; background: rgba(17, 23, 36, 0.34); z-index: 60; }
+.drawer {
+  position: fixed; right: 0; top: 0; height: 100vh; width: min(460px, 94vw);
+  background: var(--student-panel, #fff); border-left: 1px solid var(--student-line, #dfe7ee);
+  box-shadow: -18px 0 48px rgba(17, 23, 36, 0.14); z-index: 61;
+  display: flex; flex-direction: column;
+  animation: mjSlide 0.16s ease-out;
+}
+@keyframes mjSlide { from { transform: translateX(24px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.drawerHead {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 16px 18px; border-bottom: 1px solid var(--student-line, #dfe7ee);
+}
+.drawerHead strong { display: block; font-size: 14px; text-transform: capitalize; }
+.drawerHead small { display: block; margin-top: 3px; font-size: 11px; color: #a05a13; }
+.drawerHead button {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--student-line, #dfe7ee);
+  background: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;
+}
+.drawerBody { flex: 1; overflow-y: auto; padding: 16px 18px; display: grid; gap: 14px; }
+
+.detailFold { border: 1px solid var(--student-line, #dfe7ee); border-radius: 12px; padding: 4px 12px 12px; }
+.detailFold > summary { cursor: pointer; font-size: 13px; font-weight: 700; padding: 10px 0; }
+
+.detail { display: grid; gap: 10px; }
+.detailHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.detailHead strong { font-size: 14px; }
+.detailTitle { margin: 0; font-size: 12px; color: var(--student-muted, #718092); }
 
 /* --- pill --- */
 .pill {
@@ -84,20 +160,20 @@
 .pill[data-tone="off"] { background: #eee; color: #9aa6b2; }
 
 /* --- evidence --- */
-.evidence { margin-top: 14px; border-top: 1px dashed var(--student-line, #dfe7ee); padding-top: 14px; }
+.evidence { border-top: 1px dashed var(--student-line, #dfe7ee); padding-top: 12px; }
 .evidenceHead span { font-size: 12px; font-weight: 700; color: var(--student-ink, #111724); }
 .evidenceHead em { font-weight: 500; color: var(--student-muted, #718092); font-style: normal; }
 .thumbRow { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-.thumb { position: relative; width: 76px; height: 76px; border-radius: 10px; overflow: hidden; border: 1px solid var(--student-line, #dfe7ee); background: #f6f9fc; }
+.thumb { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--student-line, #dfe7ee); background: #f6f9fc; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb button {
   position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
-  border: 0; background: rgba(17, 23, 36, .72); color: #fff; cursor: pointer;
+  border: 0; background: rgba(17, 23, 36, 0.72); color: #fff; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; padding: 0;
 }
 .thumbPlaceholder { width: 100%; height: 100%; display: inline-flex; align-items: center; justify-content: center; color: #b7c2cd; }
 .addThumb {
-  width: 76px; height: 76px; border-radius: 10px; border: 1px dashed var(--student-line, #cdd8e2);
+  width: 72px; height: 72px; border-radius: 10px; border: 1px dashed var(--student-line, #cdd8e2);
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   font-size: 10px; color: var(--student-muted, #718092); cursor: pointer; text-align: center;
 }
@@ -108,13 +184,13 @@
 }
 .note:focus { outline: none; border-color: var(--student-wine, #8d1d50); }
 .lockedNote { margin: 6px 0 0; font-size: 13px; color: var(--student-ink, #111724); line-height: 1.6; }
-.evidenceActions { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.evidenceActions { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 .message { font-size: 12px; color: var(--student-muted, #718092); }
 
 /* --- grade panel --- */
-.gradePanel { margin-top: 14px; border-top: 1px solid var(--student-line, #dfe7ee); padding-top: 14px; display: grid; gap: 12px; }
+.gradePanel { border-top: 1px solid var(--student-line, #dfe7ee); padding-top: 12px; display: grid; gap: 12px; }
 .gradeTop { display: flex; justify-content: space-between; align-items: center; }
-.gradeTop span { font-size: 11px; letter-spacing: .08em; color: var(--student-muted, #718092); font-weight: 700; }
+.gradeTop span { font-size: 11px; letter-spacing: 0.08em; color: var(--student-muted, #718092); font-weight: 700; }
 .gradeTop strong { display: block; font-size: 26px; }
 .gradeTop strong i { font-size: 14px; color: var(--student-muted, #718092); font-style: normal; }
 .gradeNotes {
@@ -122,18 +198,27 @@
   color: #5d6a78; font-size: 13px; line-height: 1.7; background: #f8fafc; border-radius: 0 8px 8px 0;
 }
 
-/* --- criteria list (shared: pending + graded) --- */
+/* --- criteria list (pending + graded) --- */
 .criteriaList { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .criteriaList li { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid #eef2f6; }
 .criteriaList li:last-child { border-bottom: 0; }
 .criteriaList li span { color: var(--student-ink, #111724); }
 .criteriaList li b { color: var(--student-muted, #718092); white-space: nowrap; }
-.criteriaList li b[data-low=""] { color: #b22949; }
+.criteriaList li b[data-low] { color: #b22949; }
 
 /* --- pending panel --- */
-.pendingPanel { margin-top: 14px; border-top: 1px solid var(--student-line, #dfe7ee); padding-top: 14px; display: grid; gap: 10px; }
+.pendingPanel { border-top: 1px solid var(--student-line, #dfe7ee); padding-top: 12px; display: grid; gap: 10px; }
 .pendingPanel p { margin: 0; font-size: 13px; color: var(--student-muted, #718092); line-height: 1.6; }
 .pendingTag {
   justify-self: start; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700;
   background: #fff4e6; color: #a05a13;
+}
+
+/* --- responsive --- */
+@media (max-width: 720px) {
+  .calGrid { gap: 3px; }
+  .cell { min-height: 68px; padding: 3px; }
+  .cellDate { font-size: 10px; }
+  .chip { font-size: 9px; padding: 1px 3px; }
+  .calNav strong { min-width: 110px; font-size: 14px; }
 }

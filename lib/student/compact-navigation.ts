@@ -39,16 +39,26 @@ export function hasAnyFeature(context: UserAccessContext, features: LearnerFeatu
 }
 
 export interface CompactNavItem { id: string; label: string; href: string; feature?: LearnerFeature }
-export interface CompactNavGroup { id: "home" | "learn" | "create" | "teach" | "business"; label: string; items: CompactNavItem[] }
+export interface CompactNavGroup { id: "home" | "curriculum" | "learn" | "create" | "teach" | "business"; label: string; items: CompactNavItem[] }
 
 function learnerGroups(context: UserAccessContext): CompactNavGroup[] {
   const groups: CompactNavGroup[] = [
     { id: "home", label: "HOME", items: [{ id: "smart-home", label: "Smart Home", href: "/student" }] },
     {
+      // Academy 60-session course. Collapsible group with a Google-Calendar-style view per lane;
+      // sits above LEARN because for an Academy student this is the spine of their programme.
+      id: "curriculum", label: "CHƯƠNG TRÌNH ĐÀO TẠO",
+      items: ([
+        { id: "curriculum-schedule", label: "Lịch học", href: "/student/makeup-journey", feature: "learn.journey" },
+        { id: "curriculum-training", label: "Học training", href: "/student/makeup-journey/training", feature: "learn.journey" },
+        { id: "curriculum-practice", label: "Học thực hành", href: "/student/makeup-journey/practice", feature: "learn.journey" },
+        { id: "curriculum-hair", label: "Bới tóc", href: "/student/makeup-journey/hair", feature: "learn.journey" }
+      ] satisfies CompactNavItem[]).filter((item) => !item.feature || hasFeature(context, item.feature))
+    },
+    {
       id: "learn", label: "LEARN",
       items: ([
         { id: "journey", label: "Hành trình của tôi", href: "/student/courses", feature: "learn.journey" },
-        { id: "makeup-journey", label: "Khóa Makeup 60 buổi", href: "/student/makeup-journey", feature: "learn.journey" },
         { id: "learn-memory", label: "Học & ghi nhớ", href: "/student/learn", feature: "learn.journey" },
         { id: "library", label: "Thư viện của tôi", href: "/student/library", feature: "learn.library" },
         { id: "practice", label: "Thực hành & kết quả", href: "/student/assignments", feature: "learn.practice" }

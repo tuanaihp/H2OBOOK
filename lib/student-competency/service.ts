@@ -270,7 +270,7 @@ export async function getOwnStudentCompetency(studentId: string) {
 // --- Student "Khóa Makeup 60 buổi" learning-space section ------------------
 
 export interface ClassJourney {
-  class: { id: string; name: string; code: string; status: string; totalSessions: number };
+  class: { id: string; name: string; code: string; status: string; totalSessions: number; startedAt: string | null };
   sessions: ClassSession[];
   evaluations: ClassEvaluation[];
   submissions: ClassSessionSubmission[];
@@ -293,7 +293,7 @@ export async function getOwnClassJourney(studentId: string): Promise<ClassJourne
   rows.sort((a, b) => (a.status !== b.status ? (a.status === "active" ? -1 : 1) : String(b.joined_at ?? "").localeCompare(String(a.joined_at ?? ""))));
   const classId = String(rows[0].class_id);
 
-  const { data: classRow } = await admin.from("classes").select("id,organization_id,name,code,status,total_sessions").eq("id", classId).maybeSingle();
+  const { data: classRow } = await admin.from("classes").select("id,organization_id,name,code,status,total_sessions,start_date,created_at").eq("id", classId).maybeSingle();
   if (!classRow) return null;
   const organizationId = String(classRow.organization_id);
   const access: TeachingAccessSnapshot = {
@@ -312,7 +312,8 @@ export async function getOwnClassJourney(studentId: string): Promise<ClassJourne
   return {
     class: {
       id: classId, name: String(classRow.name), code: String(classRow.code),
-      status: String(classRow.status), totalSessions: Number(classRow.total_sessions ?? 60)
+      status: String(classRow.status), totalSessions: Number(classRow.total_sessions ?? 60),
+      startedAt: classRow.start_date ? String(classRow.start_date) : classRow.created_at ? String(classRow.created_at) : null
     },
     sessions: sessions ?? [],
     evaluations: evaluations ?? [],

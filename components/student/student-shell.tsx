@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BookOpen, Bot, Brain, Briefcase, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
+import { BookOpen, Bot, Brain, Briefcase, CalendarDays, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Scissors, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
 import { buildCompactNavigation, resolveActiveItem, toAccountRole } from "@/lib/student/compact-navigation";
 import { StudentDataProvider, useStudentName, useStudentProgress } from "./student-data";
@@ -13,9 +13,11 @@ import { NotificationBell } from "./notification-bell";
 // Compact Navigation Upgrade V2: HOME / LEARN / CREATE (if unlocked) / BUSINESS instead of the
 // previous flat 8-item list. Group membership and unlock rules live in
 // lib/student/compact-navigation.ts (buildCompactNavigation) — this component only renders it.
-const GROUP_ICONS: Record<string, typeof Home> = { home: Home, learn: GraduationCap, create: FolderKanban, business: ShoppingBag, teach: ClipboardCheck };
+const GROUP_ICONS: Record<string, typeof Home> = { home: Home, curriculum: CalendarDays, learn: GraduationCap, create: FolderKanban, business: ShoppingBag, teach: ClipboardCheck };
 const ITEM_ICONS: Record<string, typeof Home> = {
-  "smart-home": Home, journey: GraduationCap, "makeup-journey": Sparkles, "learn-memory": Brain, library: LibraryBig, practice: ClipboardCheck,
+  "smart-home": Home,
+  "curriculum-schedule": CalendarDays, "curriculum-training": ClipboardCheck, "curriculum-practice": Sparkles, "curriculum-hair": Scissors,
+  journey: GraduationCap, "learn-memory": Brain, library: LibraryBig, practice: ClipboardCheck,
   studio: Wand2, "my-projects": FolderKanban, "my-tools": Bot, store: ShoppingBag, "account-commerce": Trophy,
   "business-command": Briefcase, "business-customers": UsersRound, "business-growth": TrendingUp, "business-operations": Trophy
 };

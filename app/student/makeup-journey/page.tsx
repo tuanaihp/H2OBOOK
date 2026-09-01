@@ -2,8 +2,8 @@
 
 import { MakeupJourney } from "@/components/student/makeup-journey/makeup-journey";
 
-// Student-facing view of the 60-session Makeup course: schedule + per-session evidence upload +
-// the instructor's grade once it lands. Backed by /api/student/makeup-journey.
-export default function StudentMakeupJourneyPage() {
-  return <MakeupJourney />;
+// "Chương trình đào tạo" — the Academy 60-session course. This is the "Lịch học" lane (all
+// session types). /training, /practice and /hair are the filtered lanes.
+export default function CurriculumSchedulePage() {
+  return <MakeupJourney view="schedule" />;
 }
