@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, GraduationCap, Home, ImagePlus, Scissors, Sparkles, X } from "lucide-react";
 import { uploadAsset, resolveAssetUrl } from "@/lib/assets/asset-client";
@@ -131,6 +131,48 @@ function engineBadge(ai: AiInfo | null): string {
   if (!ai || ai.provider === "mock") return "OFFLINE";
   if (ai.provider === "local-http" || ai.provider === "ollama") return ai.live ? "LOCAL AI" : "OFFLINE";
   return ai.live ? "AI NÂNG CAO" : "OFFLINE";
+}
+
+type ChatMsg = { id: string; role: "user" | "assistant"; content: string; images?: string[] };
+const COACH_QUICK = ["Em sai ở đâu nhiều nhất?", "Cho checklist làm lại", "Ưu tiên sửa gì trước?", "Ảnh còn thiếu minh chứng gì?"];
+
+// Shared chat transcript for one session — used by the mobile bottom sheet and the desktop
+// Chat Coach tab. The desktop panel also injects photo-attach and assessment-result messages.
+function useCoachThread(sessionId: string, sessionTitle: string) {
+  const welcome = (): ChatMsg[] => [
+    { id: "welcome", role: "assistant", content: `Mình là H2O Learning Copilot cho ${sessionTitle}. Em gửi ảnh vào đây, mình chấm sơ bộ theo rubric giảng viên rồi trả kết quả lại cho em. Điểm chính thức vẫn do giảng viên duyệt.` },
+  ];
+  const [messages, setMessages] = useState<ChatMsg[]>(welcome);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { setMessages(welcome()); /* reset when the selected session changes */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, sessionTitle]);
+
+  const append = useCallback((m: ChatMsg) => setMessages((cur) => [...cur, m]), []);
+
+  const send = useCallback(async (raw: string) => {
+    const c = raw.trim();
+    if (!c || loading) return;
+    const mine: ChatMsg = { id: crypto.randomUUID(), role: "user", content: c };
+    setMessages((cur) => [...cur, mine]);
+    setLoading(true);
+    try {
+      const history = [...messages, mine].filter((m) => m.id !== "welcome").map((m) => ({ role: m.role, content: m.content }));
+      const res = await fetch("/api/student/makeup-journey/ai-chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classSessionId: sessionId, messages: history }),
+      });
+      const payload = await res.json().catch(() => null) as { reply?: string } | null;
+      append({ id: crypto.randomUUID(), role: "assistant", content: payload?.reply ?? "Xin lỗi, chưa phản hồi được." });
+    } catch {
+      append({ id: crypto.randomUUID(), role: "assistant", content: "Lỗi kết nối — thử lại nhé." });
+    } finally {
+      setLoading(false);
+    }
+  }, [append, loading, messages, sessionId]);
+
+  return { messages, loading, send, append };
 }
 
 // One session's rubric + latest evidence/grade/AI draft, resolved from the journey payload.
@@ -334,6 +376,9 @@ function JourneyFooter() {
 
 // =========================================================================
 // The persistent Learning Copilot panel — bound to whichever session is selected.
+// Flow: student drops photos in "Chat Coach" -> panel saves the submission and
+// jumps to "Đánh giá ảnh" -> the rubric pre-check runs -> its result is posted
+// back into the chat thread for the student to read.
 // =========================================================================
 function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssessed }: {
   journey: Journey;
@@ -342,10 +387,70 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
   onSubmissionSaved: (s: Submission) => void;
   onAiAssessed: (a: AiAssessment) => void;
 }) {
-  const [tab, setTab] = useState<"assess" | "chat" | "rubric">("assess");
+  const [tab, setTab] = useState<"chat" | "assess" | "rubric">("chat");
+  const [autoAssessAt, setAutoAssessAt] = useState(0);
+  const [attaching, setAttaching] = useState(false);
   const offline = isOfflineEngine(aiInfo);
   const ctx = session ? sessionContext(journey, session) : null;
   const status = ctx?.evaluation ? "Đã chấm" : (ctx?.submission?.assetIds.length ?? 0) > 0 ? "Đã nộp" : "Chưa chấm";
+
+  const thread = useCoachThread(
+    session?.id ?? "none",
+    session ? `Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}` : "buổi học",
+  );
+  const previewUrls = useRef<string[]>([]);
+  useEffect(() => () => { previewUrls.current.forEach(URL.revokeObjectURL); previewUrls.current = []; }, []);
+  useEffect(() => { setTab("chat"); setAutoAssessAt(0); }, [session?.id]);
+
+  const say = (content: string): ChatMsg => ({ id: crypto.randomUUID(), role: "assistant", content });
+
+  async function attachPhotos(files: File[]) {
+    if (!session || !ctx || attaching) return;
+    const imgs = files.filter((f) => f.type.startsWith("image/")).slice(0, MAX_EVIDENCE);
+    if (!imgs.length) return;
+    const previews = imgs.map((f) => { const u = URL.createObjectURL(f); previewUrls.current.push(u); return u; });
+    thread.append({ id: crypto.randomUUID(), role: "user", content: imgs.length > 1 ? `Em gửi ${imgs.length} ảnh cho buổi này.` : "Em gửi ảnh cho buổi này.", images: previews });
+    setAttaching(true);
+    try {
+      const uploaded: string[] = [];
+      for (const f of imgs) {
+        try {
+          const a = await uploadAsset(f, { organizationId: journey.class.organizationId, category: "student-competency", assetType: "image", compress: true });
+          uploaded.push(a.assetId);
+        } catch { /* skip a bad file, keep the rest */ }
+      }
+      if (!uploaded.length) { thread.append(say("Ảnh chưa tải lên được — mở tab “Đánh giá ảnh” để thử lại nhé.")); return; }
+      const merged = [...(ctx.submission?.assetIds ?? []), ...uploaded].slice(0, MAX_EVIDENCE);
+      const res = await fetch("/api/student/makeup-journey/submission", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classSessionId: session.id, assetIds: merged, note: ctx.submission?.note ?? "" }),
+      });
+      const payload = await res.json().catch(() => null) as { submission?: Submission; error?: string } | null;
+      if (!res.ok || !payload?.submission) { thread.append(say("Lưu minh chứng chưa thành công — mở tab “Đánh giá ảnh” để thử lại.")); return; }
+      onSubmissionSaved(payload.submission);
+      thread.append(say("Đã nhận ảnh và lưu minh chứng. Mình chuyển sang tab “Đánh giá ảnh” để chấm sơ bộ theo rubric…"));
+      setTab("assess");
+      setAutoAssessAt(Date.now());
+    } finally {
+      setAttaching(false);
+    }
+  }
+
+  // AiDraftSection reports here (in the panel) so a fresh draft can be summarised into the chat.
+  function handleAssessed(a: AiAssessment) {
+    onAiAssessed(a);
+    if (a.status === "ai_draft") {
+      const parts = [`Kết quả sơ bộ theo rubric: ${a.totalScore ?? "—"}/${a.maxScore}.`];
+      if (a.summary) parts.push(a.summary);
+      if (a.priorityFixes.length) parts.push("Ưu tiên sửa:\n" + a.priorityFixes.slice(0, 3).map((f, i) => `${i + 1}. ${f}`).join("\n"));
+      parts.push("Đây là điểm nháp — giảng viên sẽ chấm chính thức.");
+      thread.append(say(parts.join("\n\n")));
+    } else {
+      thread.append(say("Bộ đánh giá tạm thời không khả dụng — ảnh của em vẫn được lưu, thử lại sau nhé."));
+    }
+    setTab("chat");
+  }
 
   return (
     <aside className={styles.copilot}>
@@ -359,13 +464,13 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
       </div>
 
       <div className={styles.copilotTabs}>
-        <button type="button" data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
         <button type="button" data-active={tab === "chat" || undefined} onClick={() => setTab("chat")}>Chat Coach</button>
+        <button type="button" data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
         <button type="button" data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Rubric</button>
       </div>
 
       {!session || !ctx ? (
-        <p className={styles.copilotEmpty}>Chọn một buổi trong lịch để nộp minh chứng và nhận nhận xét theo rubric.</p>
+        <p className={styles.copilotEmpty}>Chọn một buổi trong lịch để trò chuyện và nộp minh chứng.</p>
       ) : (
         <div className={styles.copilotBody}>
           <div className={styles.copilotSession}>
@@ -373,6 +478,16 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
             <span className={styles.pill} data-tone={ctx.evaluation ? "done" : (ctx.submission?.assetIds.length ?? 0) > 0 ? "info" : undefined}>{status}</span>
           </div>
 
+          {tab === "chat" && (
+            <div className={styles.copilotChat}>
+              <CoachConversation
+                messages={thread.messages}
+                loading={thread.loading || attaching}
+                onSend={thread.send}
+                onAttach={ctx.evaluation ? undefined : attachPhotos}
+              />
+            </div>
+          )}
           {tab === "assess" && (
             <SessionDetail
               key={session.id}
@@ -383,16 +498,12 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
               submission={ctx.submission}
               aiAssessment={ctx.aiAssessment}
               aiInfo={aiInfo}
+              autoAssessAt={autoAssessAt}
               onSaved={onSubmissionSaved}
-              onAiAssessed={onAiAssessed}
+              onAiAssessed={handleAssessed}
               onRequestCoach={() => setTab("chat")}
               variant="panel"
             />
-          )}
-          {tab === "chat" && (
-            <div className={styles.copilotChat}>
-              <CoachConversation sessionId={session.id} sessionTitle={`Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}`} />
-            </div>
           )}
           {tab === "rubric" && <RubricSummary rubric={ctx.rubric} detailed />}
         </div>
@@ -880,7 +991,7 @@ function CurriculumCalendar({ journey, view, selectedId, onSelect }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, onSaved, onAiAssessed, onRequestCoach, variant }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, autoAssessAt, onSaved, onAiAssessed, onRequestCoach, variant }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
@@ -888,6 +999,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   submission: Submission | null;
   aiAssessment: AiAssessment | null;
   aiInfo?: AiInfo | null;
+  autoAssessAt?: number;
   onSaved: (next: Submission) => void;
   onAiAssessed: (a: AiAssessment) => void;
   onRequestCoach?: () => void;
@@ -932,6 +1044,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
         assessment={aiAssessment}
         canRun={hasEvidence}
         offline={offline}
+        autoRunAt={autoAssessAt}
         onAiAssessed={onAiAssessed}
         onOpenCoach={openCoach}
       />
@@ -941,11 +1054,12 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   </div>;
 }
 
-function AiDraftSection({ sessionId, assessment, canRun, offline, onAiAssessed, onOpenCoach }: {
+function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onAiAssessed, onOpenCoach }: {
   sessionId: string;
   assessment: AiAssessment | null;
   canRun: boolean;
   offline: boolean;
+  autoRunAt?: number;
   onAiAssessed: (a: AiAssessment) => void;
   onOpenCoach: () => void;
 }) {
@@ -971,6 +1085,13 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, onAiAssessed, 
       setRunning(false);
     }
   }
+
+  // Kicked from the chat flow: photos were just saved, run the rubric pre-check once.
+  useEffect(() => {
+    if (!autoRunAt || !canRun || running) return;
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunAt]);
 
   const a = assessment;
   return <div className={styles.aiCard}>
@@ -1027,53 +1148,53 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, onAiAssessed, 
   </div>;
 }
 
-// The chat conversation itself — reused by the mobile bottom sheet and the desktop "Chat Coach" tab.
-function CoachConversation({ sessionId, sessionTitle }: { sessionId: string; sessionTitle: string }) {
-  const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([
-    { id: "welcome", role: "assistant", content: `Mình là H2O Learning Copilot cho ${sessionTitle}. Mình chỉ dùng rubric giảng viên đã cài cho buổi này.` },
-  ]);
+// Controlled chat surface — the transcript lives in useCoachThread (mobile sheet) or in
+// CopilotPanel (desktop tab, which also feeds it photo + assessment messages).
+function CoachConversation({ messages, loading, onSend, onAttach }: {
+  messages: ChatMsg[];
+  loading: boolean;
+  onSend: (text: string) => void;
+  onAttach?: (files: File[]) => void;
+}) {
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight }); }, [messages, loading]);
 
-  async function send(content: string) {
-    const c = content.trim();
-    if (!c || loading) return;
-    const userMsg = { id: crypto.randomUUID(), role: "user" as const, content: c };
-    const next = [...messages, userMsg];
-    setMessages(next); setText(""); setLoading(true);
-    try {
-      const response = await fetch("/api/student/makeup-journey/ai-chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ classSessionId: sessionId, messages: next.filter((m) => m.id !== "welcome").map((m) => ({ role: m.role, content: m.content })) }),
-      });
-      const payload = await response.json().catch(() => null) as { reply?: string } | null;
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", content: payload?.reply ?? "Xin lỗi, chưa phản hồi được." }]);
-    } catch {
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", content: "Lỗi kết nối — thử lại nhé." }]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const submit = () => { const c = text.trim(); if (!c) return; onSend(c); setText(""); };
 
   return <>
-    <div className={styles.coachBody}>
-      {messages.map((m) => <div key={m.id} className={styles.bubble} data-role={m.role}>{m.content}</div>)}
-      {loading && <div className={styles.bubble} data-role="assistant">Đang soạn…</div>}
+    <div className={styles.coachBody} ref={bodyRef}>
+      {messages.map((m) => (
+        <div key={m.id} className={styles.bubble} data-role={m.role}>
+          {m.images && m.images.length > 0 && (
+            <span className={styles.bubbleThumbs}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {m.images.map((src) => <img key={src} src={src} alt="Ảnh minh chứng" />)}
+            </span>
+          )}
+          {m.content}
+        </div>
+      ))}
+      {loading && <div className={styles.bubble} data-role="assistant">Đang xử lý…</div>}
     </div>
     <div className={styles.coachQuick}>
-      {["Em sai ở đâu nhiều nhất?", "Cho checklist làm lại", "Ưu tiên sửa gì trước?", "Ảnh còn thiếu minh chứng gì?"].map((q) => (
-        <button key={q} type="button" onClick={() => send(q)}>{q}</button>
-      ))}
+      {onAttach && (
+        <label className={styles.coachAttach}>
+          <ImagePlus size={14} /> Gửi ảnh
+          <input type="file" accept="image/*" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.currentTarget.value = ""; if (fs.length) onAttach(fs); }} />
+        </label>
+      )}
+      {COACH_QUICK.map((q) => <button key={q} type="button" onClick={() => onSend(q)}>{q}</button>)}
     </div>
     <div className={styles.coachInput}>
-      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Hỏi H2O Mentor…" onKeyDown={(e) => e.key === "Enter" && send(text)} />
-      <button type="button" onClick={() => send(text)} aria-label="Gửi">➤</button>
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Hỏi H2O Mentor…" onKeyDown={(e) => e.key === "Enter" && submit()} />
+      <button type="button" onClick={submit} aria-label="Gửi">➤</button>
     </div>
   </>;
 }
 
 function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string; sessionTitle: string; onClose: () => void }) {
+  const thread = useCoachThread(sessionId, sessionTitle);
   return <>
     <div className={styles.coachBackdrop} onClick={onClose} />
     <section className={styles.coachSheet} role="dialog" aria-label="H2O Learning Copilot">
@@ -1081,7 +1202,7 @@ function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string;
         <div><small>✦ H2O Learning Copilot</small><strong>{sessionTitle}</strong></div>
         <button type="button" aria-label="Đóng" onClick={onClose}><X size={16} /></button>
       </div>
-      <CoachConversation sessionId={sessionId} sessionTitle={sessionTitle} />
+      <CoachConversation messages={thread.messages} loading={thread.loading} onSend={thread.send} />
     </section>
   </>;
 }
