@@ -38,6 +38,8 @@ interface Journey {
   aiAssessments: AiAssessment[];
   rubrics: Rubric[];
 }
+// GET /api/student/makeup-journey `ai` — describes the wired pre-check engine, never a key.
+interface AiInfo { provider: string; model: string | null; live: boolean }
 
 const MAX_EVIDENCE = 6;
 
@@ -95,6 +97,14 @@ const BOTTOM_NAV: { key: string; label: string; href: string; icon: typeof Home 
   { key: "hair", label: "Bới tóc", href: "/student/makeup-journey/hair", icon: Scissors },
 ];
 
+const JOURNEY_CARDS = [
+  { title: "Nhật ký 90 ngày", body: "Mỗi buổi lưu ảnh, ghi chú, rubric và phản hồi." },
+  { title: "Skill Map tự cập nhật", body: "Chỉ cập nhật sau khi giảng viên duyệt điểm." },
+  { title: "Portfolio Evidence", body: "Ảnh đạt yêu cầu có thể đưa vào portfolio." },
+];
+const FLOW_LINE = "Rubric giảng viên → Nộp minh chứng → AI tiền chấm (offline) → Coaching học viên → Giảng viên duyệt → Điểm chính thức → Skill Map → Portfolio.";
+const AI_NOTE = "Learning Copilot chỉ đưa ra nhận xét sơ bộ theo rubric giảng viên. Điểm chính thức vẫn do giảng viên duyệt.";
+
 // --- date helpers (no external dep) ---------------------------------------
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
@@ -105,7 +115,6 @@ function parseDateOnly(value: string): Date {
   const [y, m, d] = value.split("T")[0].split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
-const fmtDate = (d: Date) => d.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
 const fmtShort = (d: Date) => d.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" });
 const isTodayD = (d: Date) => startOfDay(d).getTime() === startOfDay(new Date()).getTime();
 
@@ -113,8 +122,30 @@ function pct(score: number, max: number) {
   return max > 0 ? Math.round((score / max) * 100) : 0;
 }
 
+// Coaching bot V1 is a local, rubric-only pre-check (provider "mock", or a "local-http"/"ollama"
+// gateway on the studio LAN). V2 = a hosted model (gemini/openai) grading higher-order criteria.
+function isOfflineEngine(ai: AiInfo | null): boolean {
+  return !ai || ai.provider === "mock" || ai.provider === "local-http" || ai.provider === "ollama";
+}
+function engineBadge(ai: AiInfo | null): string {
+  if (!ai || ai.provider === "mock") return "OFFLINE";
+  if (ai.provider === "local-http" || ai.provider === "ollama") return ai.live ? "LOCAL AI" : "OFFLINE";
+  return ai.live ? "AI NÂNG CAO" : "OFFLINE";
+}
+
+// One session's rubric + latest evidence/grade/AI draft, resolved from the journey payload.
+function sessionContext(journey: Journey, session: ClassSession) {
+  const rubric = journey.rubrics.find((r) => r.category === (RUBRIC_FOR_TYPE[session.sessionType] ?? null)) ?? null;
+  return {
+    rubric,
+    evaluation: journey.evaluations.find((e) => e.classSessionId === session.id) ?? null,
+    submission: journey.submissions.find((s) => s.classSessionId === session.id) ?? null,
+    aiAssessment: journey.aiAssessments.find((a) => a.classSessionId === session.id) ?? null,
+  };
+}
+
 // Below this width the section becomes a standalone mobile app (no sidebar, bottom nav);
-// at or above it, the normal in-shell desktop layout (calendar + drawer) is used.
+// at or above it, the normal in-shell desktop layout (calendar + copilot panel) is used.
 function useIsMobile(breakpoint = 900) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   useEffect(() => {
@@ -131,6 +162,7 @@ type JourneyRenderProps = {
   view: JourneyView;
   journey: Journey | null;
   mode: "demo" | "production" | null;
+  aiInfo: AiInfo | null;
   onSubmissionSaved: (s: Submission) => void;
   onAiAssessed: (a: AiAssessment) => void;
 };
@@ -139,12 +171,14 @@ type JourneyRenderProps = {
 export function MakeupJourney({ view }: { view: JourneyView }) {
   const [journey, setJourney] = useState<Journey | null | undefined>(undefined);
   const [mode, setMode] = useState<"demo" | "production" | null>(null);
+  const [aiInfo, setAiInfo] = useState<AiInfo | null>(null);
   const isMobile = useIsMobile();
 
   const load = useCallback(async () => {
     const response = await fetch("/api/student/makeup-journey", { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as { mode?: "demo" | "production"; journey?: Journey | null } | null;
+    const payload = await response.json().catch(() => null) as { mode?: "demo" | "production"; journey?: Journey | null; ai?: AiInfo } | null;
     setMode(payload?.mode ?? null);
+    setAiInfo(payload?.ai ?? null);
     setJourney(payload?.journey ?? null);
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -171,15 +205,15 @@ export function MakeupJourney({ view }: { view: JourneyView }) {
     return <p className={styles.bootLoading}>Đang tải chương trình…</p>;
   }
 
-  const shared: JourneyRenderProps = { view, journey, mode, onSubmissionSaved, onAiAssessed };
+  const shared: JourneyRenderProps = { view, journey, mode, aiInfo, onSubmissionSaved, onAiAssessed };
   return isMobile ? <MobileJourney {...shared} /> : <DesktopJourney {...shared} />;
 }
 
 // =========================================================================
-// DESKTOP — stays inside the shared StudentShell (sidebar + topbar), wide layout,
-// month calendar + side drawer.
+// DESKTOP — inside the shared StudentShell: calendar on the left, a persistent
+// H2O Learning Copilot panel on the right (upload · offline rubric pre-check · chat).
 // =========================================================================
-function DesktopJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }: JourneyRenderProps) {
+function DesktopJourney({ view, journey, mode, aiInfo, onSubmissionSaved, onAiAssessed }: JourneyRenderProps) {
   const meta = VIEW_META[view];
 
   const head = (
@@ -187,7 +221,7 @@ function DesktopJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }
       <div>
         <span>CHƯƠNG TRÌNH ĐÀO TẠO · {meta.title.toUpperCase()}</span>
         <h1>Chương trình đào tạo</h1>
-        <p>{meta.sub}</p>
+        <p>Lịch học, minh chứng thực hành và đánh giá năng lực trong cùng một hành trình.</p>
       </div>
     </section>
   );
@@ -199,6 +233,16 @@ function DesktopJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }
       ))}
     </nav>
   );
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Reset the selection whenever the lane changes.
+  useEffect(() => { setSelectedId(null); }, [view]);
+
+  const laneSessions = useMemo(() => {
+    const types = meta.types;
+    const list = !journey ? [] : types === null ? journey.sessions : journey.sessions.filter((s) => types.includes(s.sessionType));
+    return [...list].sort((a, b) => a.sessionNo - b.sessionNo);
+  }, [journey, meta.types]);
 
   if (mode === "demo") {
     return <>{head}
@@ -217,28 +261,171 @@ function DesktopJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }
     </>;
   }
 
-  const { class: klass, sessions, evaluations } = journey;
-  const completedCount = sessions.filter((s) => s.status === "completed").length;
-  const totalSessions = klass.totalSessions || 60;
-  const overallPct = totalSessions ? Math.round((completedCount / totalSessions) * 100) : 0;
-  const gradedPercents = evaluations.filter((e) => e.maxScore > 0).map((e) => pct(e.totalScore, e.maxScore));
-  const avgScore = gradedPercents.length ? Math.round(gradedPercents.reduce((a, b) => a + b, 0) / gradedPercents.length) : null;
+  const totalSessions = journey.class.totalSessions || 60;
+  const selectedSession =
+    laneSessions.find((s) => s.id === selectedId) ??
+    laneSessions.find((s) => s.status !== "completed") ??
+    laneSessions[laneSessions.length - 1] ??
+    null;
 
   return <div className={styles.root}>
-    <HeroCard name={klass.name} code={klass.code} progressPct={overallPct} />
-    <ProgressStrip completed={completedCount} total={totalSessions} graded={evaluations.length} avgScore={avgScore} />
+    <ClassBar journey={journey} />
     <p className={styles.viewSub}>{meta.sub}</p>
     {viewNav}
+    <div className={styles.noteBanner}><Sparkles size={14} /><span>{AI_NOTE}</span></div>
 
-    <CurriculumCalendar journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
+    <div className={styles.copilotLayout}>
+      <CurriculumCalendar
+        journey={journey}
+        view={view}
+        selectedId={selectedSession?.id ?? null}
+        onSelect={setSelectedId}
+      />
+      <CopilotPanel
+        journey={journey}
+        session={selectedSession}
+        aiInfo={aiInfo}
+        onSubmissionSaved={onSubmissionSaved}
+        onAiAssessed={onAiAssessed}
+      />
+    </div>
+
+    <JourneyFooter />
+    <p className={styles.flowLine}><b>Luồng chuẩn:</b> {FLOW_LINE}</p>
+    <p className={styles.viewSub} style={{ marginTop: 6 }}>Đã xếp {totalSessions} buổi cho lộ trình 3 tháng.</p>
   </div>;
+}
+
+function ClassBar({ journey }: { journey: Journey }) {
+  const total = journey.class.totalSessions || 60;
+  const learned = journey.sessions.filter((s) => s.status === "completed").length;
+  const submitted = journey.submissions.filter((s) => s.assetIds.length > 0).length;
+  const graded = journey.evaluations.filter((e) => e.maxScore > 0);
+  const avg10 = graded.length
+    ? (graded.reduce((sum, e) => sum + (e.totalScore / e.maxScore) * 10, 0) / graded.length).toFixed(1)
+    : "—";
+  return (
+    <section className={styles.classBar}>
+      <div>
+        <strong>{journey.class.name}</strong>
+        <span>Mã lớp {journey.class.code} · {total} buổi · 3 tháng</span>
+      </div>
+      <div className={styles.classMetrics}>
+        <span><b>{learned}</b>/{total} đã học</span>
+        <span><b>{submitted}</b> đã nộp</span>
+        <span><b>{avg10}</b> điểm TB</span>
+      </div>
+    </section>
+  );
+}
+
+function JourneyFooter() {
+  return (
+    <div className={styles.journeyFooter}>
+      {JOURNEY_CARDS.map((c) => (
+        <div key={c.title} className={styles.footCard}>
+          <strong>{c.title}</strong>
+          <span>{c.body}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// =========================================================================
+// The persistent Learning Copilot panel — bound to whichever session is selected.
+// =========================================================================
+function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssessed }: {
+  journey: Journey;
+  session: ClassSession | null;
+  aiInfo: AiInfo | null;
+  onSubmissionSaved: (s: Submission) => void;
+  onAiAssessed: (a: AiAssessment) => void;
+}) {
+  const [tab, setTab] = useState<"assess" | "chat" | "rubric">("assess");
+  const offline = isOfflineEngine(aiInfo);
+  const ctx = session ? sessionContext(journey, session) : null;
+  const status = ctx?.evaluation ? "Đã chấm" : (ctx?.submission?.assetIds.length ?? 0) > 0 ? "Đã nộp" : "Chưa chấm";
+
+  return (
+    <aside className={styles.copilot}>
+      <div className={styles.copilotHead}>
+        <div className={styles.copilotAvatar}>✦</div>
+        <div className={styles.copilotId}>
+          <strong>H2O Learning Copilot</strong>
+          <small>{offline ? "Rubric-aware · Local-first" : "AI nâng cao · Online"}</small>
+        </div>
+        <span className={styles.copilotBadge} data-live={!offline && aiInfo?.live ? "" : undefined}>{engineBadge(aiInfo)}</span>
+      </div>
+
+      <div className={styles.copilotTabs}>
+        <button type="button" data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
+        <button type="button" data-active={tab === "chat" || undefined} onClick={() => setTab("chat")}>Chat Coach</button>
+        <button type="button" data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Rubric</button>
+      </div>
+
+      {!session || !ctx ? (
+        <p className={styles.copilotEmpty}>Chọn một buổi trong lịch để nộp minh chứng và nhận nhận xét theo rubric.</p>
+      ) : (
+        <div className={styles.copilotBody}>
+          <div className={styles.copilotSession}>
+            <div><small>BUỔI HỌC ĐANG CHỌN</small><strong>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</strong></div>
+            <span className={styles.pill} data-tone={ctx.evaluation ? "done" : (ctx.submission?.assetIds.length ?? 0) > 0 ? "info" : undefined}>{status}</span>
+          </div>
+
+          {tab === "assess" && (
+            <SessionDetail
+              key={session.id}
+              session={session}
+              organizationId={journey.class.organizationId}
+              rubric={ctx.rubric}
+              evaluation={ctx.evaluation}
+              submission={ctx.submission}
+              aiAssessment={ctx.aiAssessment}
+              aiInfo={aiInfo}
+              onSaved={onSubmissionSaved}
+              onAiAssessed={onAiAssessed}
+              onRequestCoach={() => setTab("chat")}
+              variant="panel"
+            />
+          )}
+          {tab === "chat" && (
+            <div className={styles.copilotChat}>
+              <CoachConversation sessionId={session.id} sessionTitle={`Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}`} />
+            </div>
+          )}
+          {tab === "rubric" && <RubricSummary rubric={ctx.rubric} detailed />}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function RubricSummary({ rubric, detailed = false }: { rubric: Rubric | null; detailed?: boolean }) {
+  if (!rubric || rubric.criteria.length === 0) {
+    return <p className={styles.copilotEmpty}>Buổi này chưa gắn bộ tiêu chí chấm.</p>;
+  }
+  const totalMax = rubric.criteria.reduce((s, c) => s + c.maxScore, 0);
+  return (
+    <div className={styles.rubricSummary}>
+      <div className={styles.rubricSummaryHead}>Rubric giảng viên đã khóa · {rubric.criteria.length} tiêu chí / {totalMax}đ</div>
+      <ul className={styles.criteriaList}>
+        {rubric.criteria.map((c) => (
+          <li key={c.id}>
+            <span>{c.title}{detailed && c.description ? <em className={styles.rubricDesc}> — {c.description}</em> : null}</span>
+            <b>{c.maxScore}</b>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // =========================================================================
 // MOBILE — full-screen takeover that escapes the shared shell: compact topbar,
 // own scroll body, 5-icon bottom nav, roadmap list, inline lesson workspace.
 // =========================================================================
-function MobileJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }: JourneyRenderProps) {
+function MobileJourney({ view, journey, mode, aiInfo, onSubmissionSaved, onAiAssessed }: JourneyRenderProps) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -259,7 +446,7 @@ function MobileJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }:
             <Link href="/student/courses" className={styles.linkBtn}>Về trang khóa học</Link>
           </section>
         ) : (
-          <JourneyBody journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
+          <JourneyBody journey={journey} view={view} aiInfo={aiInfo} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
         )}
       </div>
       <BottomNav view={view} />
@@ -295,8 +482,8 @@ function BottomNav({ view }: { view: JourneyView }) {
   );
 }
 
-function JourneyBody({ journey, view, onSubmissionSaved, onAiAssessed }: {
-  journey: Journey; view: JourneyView; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
+function JourneyBody({ journey, view, aiInfo, onSubmissionSaved, onAiAssessed }: {
+  journey: Journey; view: JourneyView; aiInfo: AiInfo | null; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
 }) {
   const { class: klass, sessions, evaluations } = journey;
   const meta = VIEW_META[view];
@@ -309,9 +496,12 @@ function JourneyBody({ journey, view, onSubmissionSaved, onAiAssessed }: {
   return <>
     <HeroCard name={klass.name} code={klass.code} progressPct={overallPct} />
     <ProgressStrip completed={completedCount} total={totalSessions} graded={evaluations.length} avgScore={avgScore} />
+    <div className={styles.noteBanner}><Sparkles size={14} /><span>{AI_NOTE}</span></div>
     <RoadmapList sessions={sessions} />
     <p className={styles.viewSub}>{meta.title.toUpperCase()} · {meta.sub}</p>
-    <LaneWorkspace journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
+    <LaneWorkspace journey={journey} view={view} aiInfo={aiInfo} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
+    <JourneyFooter />
+    <p className={styles.flowLine}><b>Luồng chuẩn:</b> {FLOW_LINE}</p>
   </>;
 }
 
@@ -390,8 +580,8 @@ function RoadmapList({ sessions }: { sessions: ClassSession[] }) {
 }
 
 // =========================================================================
-function LaneWorkspace({ journey, view, onSubmissionSaved, onAiAssessed }: {
-  journey: Journey; view: JourneyView; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
+function LaneWorkspace({ journey, view, aiInfo, onSubmissionSaved, onAiAssessed }: {
+  journey: Journey; view: JourneyView; aiInfo: AiInfo | null; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
 }) {
   const evaluationBySession = useMemo(() => new Map(journey.evaluations.map((e) => [e.classSessionId, e])), [journey.evaluations]);
   const aiBySession = useMemo(() => new Map(journey.aiAssessments.map((a) => [a.classSessionId, a])), [journey.aiAssessments]);
@@ -444,6 +634,7 @@ function LaneWorkspace({ journey, view, onSubmissionSaved, onAiAssessed }: {
     evaluation: evaluationBySession.get(session.id) ?? null,
     submission: submissionBySession.get(session.id) ?? null,
     aiAssessment: aiBySession.get(session.id) ?? null,
+    aiInfo,
     onSaved: onSubmissionSaved,
     onAiAssessed,
   });
@@ -509,13 +700,11 @@ function LaneWorkspace({ journey, view, onSubmissionSaved, onAiAssessed }: {
 // =========================================================================
 type CalItem = { session: ClassSession; date: Date | null; synthetic: boolean };
 
-function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: {
-  journey: Journey; view: JourneyView; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
+function CurriculumCalendar({ journey, view, selectedId, onSelect }: {
+  journey: Journey; view: JourneyView; selectedId: string | null; onSelect: (id: string) => void;
 }) {
   const evaluationBySession = useMemo(() => new Map(journey.evaluations.map((e) => [e.classSessionId, e])), [journey.evaluations]);
-  const aiBySession = useMemo(() => new Map(journey.aiAssessments.map((a) => [a.classSessionId, a])), [journey.aiAssessments]);
   const submissionBySession = useMemo(() => new Map(journey.submissions.map((s) => [s.classSessionId, s])), [journey.submissions]);
-  const rubricByCategory = useMemo(() => new Map(journey.rubrics.map((r) => [r.category, r])), [journey.rubrics]);
 
   const hasRealDates = useMemo(() => journey.sessions.some((s) => s.sessionDate), [journey.sessions]);
 
@@ -542,8 +731,6 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
   const dated = useMemo(() => items.filter((i) => i.date), [items]);
   const undated = useMemo(() => items.filter((i) => !i.date), [items]);
 
-  // The nearest session to today in this lane — today/upcoming first, else the most recent past
-  // one. Powers the bundle-style "Hôm nay" quick-open card.
   const featured = useMemo(() => {
     if (!dated.length) return null;
     const todayTs = startOfDay(new Date()).getTime();
@@ -569,7 +756,6 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
     const first = dated.map((i) => i.date!.getTime()).sort((a, b) => a - b)[0];
     return startOfMonth(first ? new Date(first) : new Date());
   });
-  const [drawer, setDrawer] = useState<{ label: string; note?: string; sessions: ClassSession[] } | null>(null);
 
   const gridStart = useMemo(() => {
     const som = startOfMonth(month);
@@ -578,51 +764,26 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
   const cells = useMemo(() => Array.from({ length: 42 }, (_, i) => addDays(gridStart, i)), [gridStart]);
   const todayKey = isoKey(new Date());
 
-  const openDay = (day: Date) => {
+  const pickDay = (day: Date) => {
     const dayItems = itemsByDay.get(isoKey(day)) ?? [];
-    if (!dayItems.length) return;
-    setDrawer({ label: fmtDate(day), sessions: dayItems.map((i) => i.session), note: dayItems[0].synthetic ? "Ngày dự kiến — giảng viên chưa xếp lịch chính thức." : undefined });
+    if (dayItems.length) onSelect(dayItems[0].session.id);
   };
-
-  const openItem = (it: CalItem) => {
-    setDrawer({
-      label: it.date ? fmtDate(it.date) : `Buổi ${it.session.sessionNo}`,
-      sessions: [it.session],
-      note: it.synthetic ? "Ngày dự kiến — giảng viên chưa xếp lịch chính thức." : undefined,
-    });
-  };
-
-  const todayTs = startOfDay(new Date()).getTime();
-  const featuredKind = featured
-    ? isoKey(featured.date!) === todayKey ? "Hôm nay"
-      : featured.date!.getTime() >= todayTs ? "Buổi tiếp theo"
-      : "Buổi gần nhất"
-    : "";
-  const featuredStatus = featured
-    ? evaluationBySession.get(featured.session.id) ? "Đã chấm điểm"
-      : (submissionBySession.get(featured.session.id)?.assetIds.length ?? 0) > 0 ? "Đã nộp minh chứng · chờ chấm"
-      : "Chưa nộp minh chứng"
-    : "";
-
-  const detailProps = (session: ClassSession) => ({
-    session,
-    organizationId: journey.class.organizationId,
-    rubric: rubricByCategory.get(RUBRIC_FOR_TYPE[session.sessionType] ?? null) ?? null,
-    evaluation: evaluationBySession.get(session.id) ?? null,
-    submission: submissionBySession.get(session.id) ?? null,
-    aiAssessment: aiBySession.get(session.id) ?? null,
-    onSaved: onSubmissionSaved,
-    onAiAssessed
-  });
 
   return <div className={styles.calWrap}>
     {featured && (
-      <button type="button" className={styles.todayCard} onClick={() => openItem(featured)}>
+      <button type="button" className={styles.todayCard} onClick={() => onSelect(featured.session.id)}>
         <div className={styles.todayBox}><b>{featured.session.sessionNo}</b><span>BUỔI</span></div>
         <div className={styles.todayCopy}>
-          <span>{featuredKind} · {featured.date!.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
+          <span>
+            {isoKey(featured.date!) === todayKey ? "Hôm nay" : featured.date!.getTime() >= startOfDay(new Date()).getTime() ? "Buổi tiếp theo" : "Buổi gần nhất"}
+            {` · ${fmtShort(featured.date!)}`}
+          </span>
           <strong>{SESSION_TYPE_LABEL[featured.session.sessionType]}{featured.session.title ? ` · ${featured.session.title}` : ""}</strong>
-          <small>{featuredStatus}</small>
+          <small>
+            {evaluationBySession.get(featured.session.id) ? "Đã chấm điểm"
+              : (submissionBySession.get(featured.session.id)?.assetIds.length ?? 0) > 0 ? "Đã nộp minh chứng · chờ chấm"
+              : "Chưa nộp minh chứng"}
+          </small>
         </div>
         <div className={styles.todayArrow}>›</div>
       </button>
@@ -655,6 +816,7 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
           const key = isoKey(day);
           const dayItems = itemsByDay.get(key) ?? [];
           const inMonth = day.getMonth() === month.getMonth();
+          const hasSelected = dayItems.some((it) => it.session.id === selectedId);
           return (
             <button
               key={key}
@@ -663,7 +825,8 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
               data-outside={!inMonth || undefined}
               data-today={key === todayKey || undefined}
               data-has={dayItems.length ? "" : undefined}
-              onClick={() => openDay(day)}
+              data-selected={hasSelected || undefined}
+              onClick={() => pickDay(day)}
             >
               <span className={styles.cellDate}>{day.getDate()}</span>
               <span className={styles.cellChips}>
@@ -676,6 +839,7 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
                     data-cat={CATEGORY_FOR_TYPE[it.session.sessionType]}
                     data-graded={ev ? "" : undefined}
                     data-sub={!ev && (sub?.assetIds.length ?? 0) > 0 ? "" : undefined}
+                    data-on={it.session.id === selectedId ? "" : undefined}
                   >
                     B{it.session.sessionNo} · {SESSION_TYPE_SHORT[it.session.sessionType]}
                     {ev ? ` · ${ev.totalScore}` : ""}
@@ -701,7 +865,8 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
               className={styles.chip}
               data-cat={CATEGORY_FOR_TYPE[it.session.sessionType]}
               data-graded={ev ? "" : undefined}
-              onClick={() => setDrawer({ label: `Buổi ${it.session.sessionNo} · ${SESSION_TYPE_LABEL[it.session.sessionType]}`, sessions: [it.session] })}
+              data-on={it.session.id === selectedId ? "" : undefined}
+              onClick={() => onSelect(it.session.id)}
             >
               B{it.session.sessionNo} · {SESSION_TYPE_SHORT[it.session.sessionType]}{ev ? ` · ${ev.totalScore}` : ""}
             </button>;
@@ -711,57 +876,39 @@ function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: 
     )}
 
     {items.length === 0 && <p className={styles.muted}>Chưa có buổi nào thuộc nhóm này. Giảng viên sẽ bổ sung vào lịch.</p>}
-
-    {drawer && (
-      <>
-        <div className={styles.backdrop} onClick={() => setDrawer(null)} />
-        <aside className={styles.drawer} role="dialog" aria-label={drawer.label}>
-          <div className={styles.drawerHead}>
-            <div>
-              <strong>{drawer.label}</strong>
-              {drawer.note && <small>{drawer.note}</small>}
-            </div>
-            <button type="button" aria-label="Đóng" onClick={() => setDrawer(null)}><X size={16} /></button>
-          </div>
-          <div className={styles.drawerBody}>
-            {drawer.sessions.map((session, idx) =>
-              drawer.sessions.length > 1
-                ? <details key={session.id} className={styles.detailFold} open={idx === 0}>
-                    <summary>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</summary>
-                    <SessionDetail {...detailProps(session)} />
-                  </details>
-                : <SessionDetail key={session.id} {...detailProps(session)} />
-            )}
-          </div>
-        </aside>
-      </>
-    )}
   </div>;
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, onSaved, onAiAssessed }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, onSaved, onAiAssessed, onRequestCoach, variant }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
   evaluation: Evaluation | null;
   submission: Submission | null;
   aiAssessment: AiAssessment | null;
+  aiInfo?: AiInfo | null;
   onSaved: (next: Submission) => void;
   onAiAssessed: (a: AiAssessment) => void;
+  onRequestCoach?: () => void;
+  variant?: "panel";
 }) {
   const [coachOpen, setCoachOpen] = useState(false);
   const hasEvidence = (submission?.assetIds.length ?? 0) > 0;
+  const offline = isOfflineEngine(aiInfo ?? null);
+  const openCoach = onRequestCoach ?? (() => setCoachOpen(true));
   return <div className={styles.detail}>
-    <div className={styles.detailHead}>
-      <strong>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</strong>
-      <span className={styles.pill} data-tone={session.status === "completed" ? "done" : session.status === "cancelled" ? "off" : undefined}>
-        {SESSION_STATUS_LABEL[session.status]}
-      </span>
-    </div>
-    {session.title && <p className={styles.detailTitle}>{session.title}</p>}
+    {variant !== "panel" && (
+      <div className={styles.detailHead}>
+        <strong>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</strong>
+        <span className={styles.pill} data-tone={session.status === "completed" ? "done" : session.status === "cancelled" ? "off" : undefined}>
+          {SESSION_STATUS_LABEL[session.status]}
+        </span>
+      </div>
+    )}
+    {variant !== "panel" && session.title && <p className={styles.detailTitle}>{session.title}</p>}
 
-    <SessionEvidence sessionId={session.id} organizationId={organizationId} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} />
+    <SessionEvidence sessionId={session.id} organizationId={organizationId} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} />
 
     {evaluation
       ? <GradePanel evaluation={evaluation} rubric={rubric} />
@@ -784,24 +931,27 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
         sessionId={session.id}
         assessment={aiAssessment}
         canRun={hasEvidence}
+        offline={offline}
         onAiAssessed={onAiAssessed}
-        onOpenCoach={() => setCoachOpen(true)}
+        onOpenCoach={openCoach}
       />
     )}
 
-    {coachOpen && <AICoachSheet sessionId={session.id} sessionTitle={`Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}`} onClose={() => setCoachOpen(false)} />}
+    {!onRequestCoach && coachOpen && <AICoachSheet sessionId={session.id} sessionTitle={`Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}`} onClose={() => setCoachOpen(false)} />}
   </div>;
 }
 
-function AiDraftSection({ sessionId, assessment, canRun, onAiAssessed, onOpenCoach }: {
+function AiDraftSection({ sessionId, assessment, canRun, offline, onAiAssessed, onOpenCoach }: {
   sessionId: string;
   assessment: AiAssessment | null;
   canRun: boolean;
+  offline: boolean;
   onAiAssessed: (a: AiAssessment) => void;
   onOpenCoach: () => void;
 }) {
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const analyzeLabel = offline ? "✦ Phân tích offline theo rubric" : "✦ Phân tích bằng AI";
 
   async function run() {
     setRunning(true); setMessage(null);
@@ -813,7 +963,7 @@ function AiDraftSection({ sessionId, assessment, canRun, onAiAssessed, onOpenCoa
       });
       const payload = await response.json().catch(() => null) as { assessment?: AiAssessment; error?: string } | null;
       if (!response.ok || !payload?.assessment) {
-        setMessage(payload?.error === "NO_RUBRIC_FOR_SESSION" ? "Buổi này chưa có rubric để AI chấm." : "Không chạy được phân tích AI. Bài nộp của bạn vẫn được giữ.");
+        setMessage(payload?.error === "NO_RUBRIC_FOR_SESSION" ? "Buổi này chưa có rubric để chấm." : "Không chạy được phân tích. Bài nộp của bạn vẫn được giữ.");
         return;
       }
       onAiAssessed(payload.assessment);
@@ -825,15 +975,15 @@ function AiDraftSection({ sessionId, assessment, canRun, onAiAssessed, onOpenCoa
   const a = assessment;
   return <div className={styles.aiCard}>
     <div className={styles.aiHead}>
-      <strong>✦ Phân tích bằng AI</strong>
+      <strong>{offline ? "✦ Đánh giá offline theo rubric" : "✦ Đánh giá bằng AI"}</strong>
       <span className={styles.aiDraftTag}>NHÁP · không phải điểm chính thức</span>
     </div>
 
     {a && a.status === "ai_draft" && (
       <>
         <div className={styles.aiScore}>
-          <div><small>Điểm AI (nháp)</small><strong>{a.totalScore ?? "—"}<i>/{a.maxScore}</i></strong></div>
-          <span className={styles.pill} data-tone="info">{a.provider === "mock" ? "AI demo" : a.provider}</span>
+          <div><small>Điểm sơ bộ</small><strong>{a.totalScore ?? "—"}<i>/{a.maxScore}</i></strong></div>
+          <span className={styles.pill} data-tone="info">{offline ? "Offline · rubric" : a.provider}</span>
         </div>
         {a.summary && <p className={styles.aiSummary}>{a.summary}</p>}
         {a.rubricSnapshot.length > 0 && (
@@ -853,31 +1003,32 @@ function AiDraftSection({ sessionId, assessment, canRun, onAiAssessed, onOpenCoa
             {a.priorityFixes.map((f, i) => <div key={f}><b>{i + 1}</b><span>{f}</span></div>)}
           </div>
         )}
-        <small className={styles.aiTime}>AI chấm lúc {new Date(a.createdAt).toLocaleString("vi-VN")}</small>
+        <small className={styles.aiTime}>Chấm sơ bộ lúc {new Date(a.createdAt).toLocaleString("vi-VN")}</small>
       </>
     )}
 
     {a && a.status === "unavailable" && (
-      <p className={styles.aiSummary}>AI tạm thời không khả dụng ({a.provider}). Bài nộp của bạn vẫn được lưu — thử lại sau.</p>
+      <p className={styles.aiSummary}>Bộ đánh giá tạm thời không khả dụng ({a.provider}). Bài nộp của bạn vẫn được lưu — thử lại sau.</p>
     )}
 
     {message && <p className={styles.aiSummary} style={{ color: "#b22949" }}>{message}</p>}
 
-    {!canRun && !a && <p className={styles.aiSummary}>Tải minh chứng (ảnh) trước để AI phân tích.</p>}
+    {!canRun && !a && <p className={styles.aiSummary}>Tải minh chứng (ảnh) trước để chạy đánh giá theo rubric.</p>}
 
     <div className={styles.aiActions}>
       <button type="button" className={styles.primaryBtn} disabled={running || !canRun} onClick={run}>
-        {running ? "Đang phân tích…" : a ? "Phân tích lại" : "✦ Phân tích bằng AI"}
+        {running ? "Đang phân tích…" : a ? "Phân tích lại" : analyzeLabel}
       </button>
       {a && a.status === "ai_draft" && (
         <button type="button" className={styles.aiCoachBtn} onClick={onOpenCoach}>Hỏi H2O Copilot</button>
       )}
     </div>
-    <p className={styles.aiPrivacy}>AI chỉ dùng ảnh bài nộp + rubric của buổi học. Điểm chính thức do giảng viên quyết định.</p>
+    <p className={styles.aiPrivacy}>Chỉ dùng ảnh bài nộp + rubric của buổi học. Điểm chính thức do giảng viên quyết định.</p>
   </div>;
 }
 
-function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string; sessionTitle: string; onClose: () => void }) {
+// The chat conversation itself — reused by the mobile bottom sheet and the desktop "Chat Coach" tab.
+function CoachConversation({ sessionId, sessionTitle }: { sessionId: string; sessionTitle: string }) {
   const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([
     { id: "welcome", role: "assistant", content: `Mình là H2O Learning Copilot cho ${sessionTitle}. Mình chỉ dùng rubric giảng viên đã cài cho buổi này.` },
   ]);
@@ -906,35 +1057,42 @@ function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string;
   }
 
   return <>
+    <div className={styles.coachBody}>
+      {messages.map((m) => <div key={m.id} className={styles.bubble} data-role={m.role}>{m.content}</div>)}
+      {loading && <div className={styles.bubble} data-role="assistant">Đang soạn…</div>}
+    </div>
+    <div className={styles.coachQuick}>
+      {["Em sai ở đâu nhiều nhất?", "Cho checklist làm lại", "Ưu tiên sửa gì trước?", "Ảnh còn thiếu minh chứng gì?"].map((q) => (
+        <button key={q} type="button" onClick={() => send(q)}>{q}</button>
+      ))}
+    </div>
+    <div className={styles.coachInput}>
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Hỏi H2O Mentor…" onKeyDown={(e) => e.key === "Enter" && send(text)} />
+      <button type="button" onClick={() => send(text)} aria-label="Gửi">➤</button>
+    </div>
+  </>;
+}
+
+function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string; sessionTitle: string; onClose: () => void }) {
+  return <>
     <div className={styles.coachBackdrop} onClick={onClose} />
     <section className={styles.coachSheet} role="dialog" aria-label="H2O Learning Copilot">
       <div className={styles.coachHead}>
         <div><small>✦ H2O Learning Copilot</small><strong>{sessionTitle}</strong></div>
         <button type="button" aria-label="Đóng" onClick={onClose}><X size={16} /></button>
       </div>
-      <div className={styles.coachBody}>
-        {messages.map((m) => <div key={m.id} className={styles.bubble} data-role={m.role}>{m.content}</div>)}
-        {loading && <div className={styles.bubble} data-role="assistant">Đang soạn…</div>}
-      </div>
-      <div className={styles.coachQuick}>
-        {["Em sai ở đâu nhiều nhất?", "Cho checklist làm lại", "Ưu tiên sửa gì trước?", "So với buổi trước?"].map((q) => (
-          <button key={q} type="button" onClick={() => send(q)}>{q}</button>
-        ))}
-      </div>
-      <div className={styles.coachInput}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Nhập câu hỏi…" onKeyDown={(e) => e.key === "Enter" && send(text)} />
-        <button type="button" onClick={() => send(text)} aria-label="Gửi">➤</button>
-      </div>
+      <CoachConversation sessionId={sessionId} sessionTitle={sessionTitle} />
     </section>
   </>;
 }
 
-function SessionEvidence({ sessionId, organizationId, submission, locked, onSaved }: {
+function SessionEvidence({ sessionId, organizationId, submission, locked, onSaved, variant }: {
   sessionId: string;
   organizationId: string;
   submission: Submission | null;
   locked: boolean;
   onSaved: (next: Submission) => void;
+  variant?: "panel";
 }) {
   const [assetIds, setAssetIds] = useState<string[]>(submission?.assetIds ?? []);
   const [note, setNote] = useState(submission?.note ?? "");
@@ -996,6 +1154,8 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
     }
   }
 
+  const bigDrop = variant === "panel" && assetIds.length === 0 && !locked;
+
   return <div className={styles.evidence}>
     <div className={styles.evidenceHead}>
       <span>Minh chứng của bạn {locked && <em>· đã khoá vì buổi đã được chấm</em>}</span>
@@ -1008,8 +1168,10 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
         </span>
       ))}
       {!locked && assetIds.length < MAX_EVIDENCE && (
-        <label className={styles.addThumb}>
-          <ImagePlus size={16} />{uploading ? "Đang tải…" : "Thêm ảnh"}
+        <label className={bigDrop ? styles.dropzone : styles.addThumb}>
+          <ImagePlus size={bigDrop ? 22 : 16} />
+          <span>{uploading ? "Đang tải…" : bigDrop ? "Tải ảnh minh chứng" : "Thêm ảnh"}</span>
+          {bigDrop && <small>Ảnh được nén và xử lý ngay trên thiết bị trước khi lưu.</small>}
           <input type="file" accept="image/*" multiple disabled={uploading} onChange={onPick} hidden />
         </label>
       )}
@@ -1021,7 +1183,7 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
       onChange={(e) => setNote(e.target.value)}
       rows={2}
       maxLength={500}
-      placeholder="Ghi chú ngắn: makeup gì, cho ai, dùng kỹ thuật nào…"
+      placeholder="Ghi chú: makeup gì, cho ai, dùng kỹ thuật nào…"
     />}
     {locked && note && <p className={styles.lockedNote}>{note}</p>}
     {!locked && <div className={styles.evidenceActions}>

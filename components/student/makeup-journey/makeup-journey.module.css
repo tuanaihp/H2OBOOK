@@ -281,7 +281,9 @@
 .chip[data-cat="extra"] { background: #eef1f4; color: #5d6a78; }
 .chip[data-graded] { font-weight: 800; box-shadow: inset 3px 0 0 currentColor; }
 .chip[data-sub] { border-style: dashed; border-color: currentColor; }
+.chip[data-on] { outline: 2px solid #6e50e8; outline-offset: 1px; font-weight: 800; }
 .chipMore { font-size: 10px; color: var(--student-muted, #718092); padding-left: 2px; }
+.cell[data-selected] { border-color: #6e50e8; box-shadow: inset 0 0 0 1px #6e50e8; background: #faf8ff; }
 
 /* --- undated strip --- */
 .undated {
@@ -450,3 +452,86 @@
 .coachInput input { border: 1px solid var(--student-line, #e8e8f1); border-radius: 999px; padding: 0 14px; font: inherit; font-size: 13px; }
 .coachInput input:focus { outline: none; border-color: #7657e8; }
 .coachInput button { height: 42px; border: 0; border-radius: 50%; background: #7657e8; color: #fff; cursor: pointer; }
+
+/* =======================================================================
+   Desktop — Learning Assessment Copilot: calendar + persistent right panel.
+   (Prototype: H2OBOOK-Learning-Assessment-Copilot.)
+   ======================================================================= */
+.noteBanner {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0 0 14px; padding: 10px 14px; border-radius: 12px;
+  background: #fff4e6; color: #a05a13; font-size: 12px; line-height: 1.6;
+}
+.noteBanner svg { flex: none; margin-top: 2px; }
+
+.copilotLayout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 1160px) { .copilotLayout { grid-template-columns: 1fr; } }
+
+.copilot {
+  position: sticky; top: 14px; align-self: start;
+  border: 1px solid #e2dcff; border-radius: 16px; background: #fff; overflow: hidden;
+  max-height: calc(100vh - 28px); display: flex; flex-direction: column;
+}
+@media (max-width: 1160px) { .copilot { position: static; max-height: none; } }
+
+.copilotHead {
+  display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center;
+  padding: 14px 16px; background: linear-gradient(135deg, #f7f4ff, #efeafc); border-bottom: 1px solid #e6e1f4;
+}
+.copilotAvatar { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 17px; background: linear-gradient(135deg, #6e50e8, #a48bff); color: #fff; }
+.copilotId { min-width: 0; }
+.copilotId strong { display: block; font-size: 13px; color: #1c1740; }
+.copilotId small { font-size: 10px; color: #806fd4; font-weight: 700; letter-spacing: .04em; }
+.copilotBadge { font-size: 10px; font-weight: 800; letter-spacing: .06em; border-radius: 999px; padding: 4px 9px; background: #e7e2f8; color: #5b41ad; white-space: nowrap; }
+.copilotBadge[data-live] { background: #e4f4ec; color: #177a54; }
+
+.copilotTabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 10px 12px 0; }
+.copilotTabs button {
+  border: 1px solid transparent; background: none; border-radius: 9px; padding: 8px 6px;
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--student-muted, #718092); cursor: pointer;
+}
+.copilotTabs button:hover { color: #5b41ad; }
+.copilotTabs button[data-active] { background: #6e50e8; color: #fff; }
+
+.copilotBody { padding: 12px; overflow-y: auto; display: grid; gap: 12px; }
+.copilotEmpty { padding: 22px 16px; font-size: 12.5px; line-height: 1.6; color: var(--student-muted, #718092); }
+
+.copilotSession {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  border: 1px solid #e6e1f4; border-radius: 12px; padding: 10px 12px; background: #faf8ff;
+}
+.copilotSession small { font-size: 10px; letter-spacing: .06em; color: #806fd4; font-weight: 800; }
+.copilotSession strong { display: block; font-size: 13px; color: #1c1740; margin-top: 2px; }
+
+/* Copilot "Đánh giá ảnh" tab reuses SessionDetail — give the upload a real dropzone. */
+.copilot .detail { gap: 12px; }
+.copilot .evidence { border-top: 0; padding-top: 0; }
+.dropzone {
+  width: 100%; min-height: 96px; border-radius: 12px; border: 1.5px dashed #c7b8ff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 14px; text-align: center; cursor: pointer; background: #faf8ff; color: #5b41ad;
+}
+.dropzone:hover { border-color: #6e50e8; background: #f4f1ff; }
+.dropzone span { font-size: 13px; font-weight: 800; }
+.dropzone small { font-size: 10.5px; color: var(--student-muted, #718092); font-weight: 500; }
+
+.copilotChat {
+  display: grid; grid-template-rows: 1fr auto auto; height: min(56vh, 460px);
+  border: 1px solid #e6e1f4; border-radius: 12px; overflow: hidden;
+}
+
+.rubricSummary { border: 1px solid #e6e1f4; border-radius: 12px; padding: 12px; }
+.rubricSummaryHead { font-size: 12px; font-weight: 800; color: #1c1740; margin-bottom: 8px; }
+.rubricDesc { color: var(--student-muted, #718092); font-style: normal; font-weight: 400; }
+
+/* --- footer cards + standard-flow line (both breakpoints) --- */
+.journeyFooter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+@media (max-width: 720px) { .journeyFooter { grid-template-columns: 1fr; } }
+.footCard { border: 1px solid var(--student-line, #dfe7ee); border-radius: 14px; padding: 14px 16px; background: var(--student-panel, #fff); }
+.footCard strong { display: block; font-size: 13px; color: #1c1740; }
+.footCard span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.6; color: var(--student-muted, #718092); }
+.flowLine {
+  margin: 12px 0 0; padding: 12px 14px; border-radius: 12px;
+  background: #f4f1ff; color: #5b41ad; font-size: 11.5px; line-height: 1.7;
+}
+.flowLine b { color: #3f2fae; }
