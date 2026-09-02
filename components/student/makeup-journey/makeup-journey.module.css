@@ -8,6 +8,7 @@
 .appShell { --student-wine: #6e50e8; }
 
 .muted { color: var(--student-muted, #718092); font-size: 13px; }
+.bootLoading { padding: 24px 16px; color: var(--student-muted, #718092); font-size: 13px; }
 
 /* =======================================================================
    Standalone mobile-app shell — a full-screen takeover that escapes the

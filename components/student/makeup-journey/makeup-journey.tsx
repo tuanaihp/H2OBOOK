@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, CalendarDays, CheckCircle2, ClipboardList, GraduationCap, Home, ImagePlus, Scissors, Sparkles, X } from "lucide-react";
+import { Bell, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, GraduationCap, Home, ImagePlus, Scissors, Sparkles, X } from "lucide-react";
 import { uploadAsset, resolveAssetUrl } from "@/lib/assets/asset-client";
 import { SESSION_TYPE_LABEL, type SessionType } from "@/lib/student-competency/types";
 import styles from "./makeup-journey.module.css";
@@ -43,11 +43,18 @@ const MAX_EVIDENCE = 6;
 
 export type JourneyView = "schedule" | "training" | "practice" | "hair";
 
+const VIEWS: { key: JourneyView; label: string; href: string }[] = [
+  { key: "schedule", label: "Lịch học", href: "/student/makeup-journey" },
+  { key: "training", label: "Học training", href: "/student/makeup-journey/training" },
+  { key: "practice", label: "Học thực hành", href: "/student/makeup-journey/practice" },
+  { key: "hair", label: "Bới tóc", href: "/student/makeup-journey/hair" }
+];
+
 const VIEW_META: Record<JourneyView, { title: string; sub: string; types: SessionType[] | null }> = {
-  schedule: { title: "Lộ trình", sub: "Toàn bộ các buổi của chương trình.", types: null },
-  training: { title: "Học training", sub: "Các buổi Training Makeup & Tóc.", types: ["training_makeup_hair"] },
+  schedule: { title: "Lịch học", sub: "Toàn bộ các buổi của chương trình, xếp theo lịch.", types: null },
+  training: { title: "Học training", sub: "Các buổi Training Makeup & Tóc — quan sát, nghe giảng, ghi chép.", types: ["training_makeup_hair"] },
   practice: { title: "Học thực hành", sub: "Các buổi thực hành Makeup & Tóc trên mẫu.", types: ["practice_makeup_hair"] },
-  hair: { title: "Bới tóc", sub: "Các buổi Training Tóc và thực hành Tóc.", types: ["training_hair", "practice_hair"] },
+  hair: { title: "Bới tóc", sub: "Các buổi Training Tóc và thực hành Tóc.", types: ["training_hair", "practice_hair"] }
 };
 
 const CATEGORY_FOR_TYPE: Record<SessionType, "training" | "makeup" | "hair" | "extra"> = {
@@ -55,15 +62,23 @@ const CATEGORY_FOR_TYPE: Record<SessionType, "training" | "makeup" | "hair" | "e
   training_hair: "training",
   practice_makeup_hair: "makeup",
   practice_hair: "hair",
-  extracurricular: "extra",
+  extracurricular: "extra"
 };
 const RUBRIC_FOR_TYPE: Partial<Record<SessionType, "training" | "makeup" | "hair">> = {
   training_makeup_hair: "training", training_hair: "training",
-  practice_makeup_hair: "makeup", practice_hair: "hair",
+  practice_makeup_hair: "makeup", practice_hair: "hair"
+};
+const SESSION_TYPE_SHORT: Record<SessionType, string> = {
+  training_makeup_hair: "Training M&T",
+  training_hair: "Training Tóc",
+  practice_makeup_hair: "TH Makeup",
+  practice_hair: "TH Tóc",
+  extracurricular: "Ngoại khóa"
 };
 const SESSION_STATUS_LABEL: Record<SessionStatus, string> = { scheduled: "Chưa diễn ra", completed: "Đã học", cancelled: "Đã huỷ" };
+const DOW = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
-// Roadmap phases = the curriculum's session-type blocks, in order.
+// Roadmap phases = the curriculum's session-type blocks, in order (mobile only).
 const ROADMAP_PHASES: { types: SessionType[]; label: string; href: string }[] = [
   { types: ["training_makeup_hair"], label: "Training Makeup & Tóc", href: "/student/makeup-journey/training" },
   { types: ["practice_makeup_hair"], label: "Thực hành Makeup & Tóc", href: "/student/makeup-journey/practice" },
@@ -80,13 +95,17 @@ const BOTTOM_NAV: { key: string; label: string; href: string; icon: typeof Home 
   { key: "hair", label: "Bới tóc", href: "/student/makeup-journey/hair", icon: Scissors },
 ];
 
-// --- date helpers -------------------------------------------------------
+// --- date helpers (no external dep) ---------------------------------------
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
+const isoKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 function parseDateOnly(value: string): Date {
   const [y, m, d] = value.split("T")[0].split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
+const fmtDate = (d: Date) => d.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
 const fmtShort = (d: Date) => d.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" });
 const isTodayD = (d: Date) => startOfDay(d).getTime() === startOfDay(new Date()).getTime();
 
@@ -94,10 +113,33 @@ function pct(score: number, max: number) {
   return max > 0 ? Math.round((score / max) * 100) : 0;
 }
 
+// Below this width the section becomes a standalone mobile app (no sidebar, bottom nav);
+// at or above it, the normal in-shell desktop layout (calendar + drawer) is used.
+function useIsMobile(breakpoint = 900) {
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+type JourneyRenderProps = {
+  view: JourneyView;
+  journey: Journey | null;
+  mode: "demo" | "production" | null;
+  onSubmissionSaved: (s: Submission) => void;
+  onAiAssessed: (a: AiAssessment) => void;
+};
+
 // =========================================================================
 export function MakeupJourney({ view }: { view: JourneyView }) {
   const [journey, setJourney] = useState<Journey | null | undefined>(undefined);
   const [mode, setMode] = useState<"demo" | "production" | null>(null);
+  const isMobile = useIsMobile();
 
   const load = useCallback(async () => {
     const response = await fetch("/api/student/makeup-journey", { cache: "no-store" });
@@ -106,13 +148,6 @@ export function MakeupJourney({ view }: { view: JourneyView }) {
     setJourney(payload?.journey ?? null);
   }, []);
   useEffect(() => { void load(); }, [load]);
-
-  // Full-screen takeover — lock the page behind it while this section is open.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
 
   const onSubmissionSaved = useCallback((next: Submission) => {
     setJourney((current) => {
@@ -130,13 +165,91 @@ export function MakeupJourney({ view }: { view: JourneyView }) {
     });
   }, []);
 
+  // Wait until both the viewport class and the journey payload are known — avoids an SSR
+  // hydration mismatch and a layout that flips shape after mount.
+  if (isMobile === null || journey === undefined) {
+    return <p className={styles.bootLoading}>Đang tải chương trình…</p>;
+  }
+
+  const shared: JourneyRenderProps = { view, journey, mode, onSubmissionSaved, onAiAssessed };
+  return isMobile ? <MobileJourney {...shared} /> : <DesktopJourney {...shared} />;
+}
+
+// =========================================================================
+// DESKTOP — stays inside the shared StudentShell (sidebar + topbar), wide layout,
+// month calendar + side drawer.
+// =========================================================================
+function DesktopJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }: JourneyRenderProps) {
+  const meta = VIEW_META[view];
+
+  const head = (
+    <section className="h2o-student-page-head">
+      <div>
+        <span>CHƯƠNG TRÌNH ĐÀO TẠO · {meta.title.toUpperCase()}</span>
+        <h1>Chương trình đào tạo</h1>
+        <p>{meta.sub}</p>
+      </div>
+    </section>
+  );
+
+  const viewNav = (
+    <nav className={styles.viewNav}>
+      {VIEWS.map((v) => (
+        <Link key={v.key} href={v.href} data-active={v.key === view}>{v.label}</Link>
+      ))}
+    </nav>
+  );
+
+  if (mode === "demo") {
+    return <>{head}
+      <div className={styles.notice}><Sparkles size={16} /><div><strong>Chế độ demo</strong><p>Đăng nhập bằng tài khoản học viên thật để xem chương trình đào tạo của bạn.</p></div></div>
+    </>;
+  }
+
+  if (!journey) {
+    return <>{head}
+      <section className={styles.emptyCard}>
+        <GraduationCap size={34} />
+        <h2>Bạn chưa được ghi danh vào lớp nào</h2>
+        <p>Khi giảng viên hoặc Academy thêm bạn vào một lớp Makeup Chuyên nghiệp, toàn bộ chương trình 60 buổi sẽ hiện ở đây theo lịch, kèm chỗ nộp minh chứng cho từng buổi.</p>
+        <Link href="/student/courses" className={styles.linkBtn}>Về trang khóa học</Link>
+      </section>
+    </>;
+  }
+
+  const { class: klass, sessions, evaluations } = journey;
+  const completedCount = sessions.filter((s) => s.status === "completed").length;
+  const totalSessions = klass.totalSessions || 60;
+  const overallPct = totalSessions ? Math.round((completedCount / totalSessions) * 100) : 0;
+  const gradedPercents = evaluations.filter((e) => e.maxScore > 0).map((e) => pct(e.totalScore, e.maxScore));
+  const avgScore = gradedPercents.length ? Math.round(gradedPercents.reduce((a, b) => a + b, 0) / gradedPercents.length) : null;
+
+  return <div className={styles.root}>
+    <HeroCard name={klass.name} code={klass.code} progressPct={overallPct} />
+    <ProgressStrip completed={completedCount} total={totalSessions} graded={evaluations.length} avgScore={avgScore} />
+    <p className={styles.viewSub}>{meta.sub}</p>
+    {viewNav}
+
+    <CurriculumCalendar journey={journey} view={view} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
+  </div>;
+}
+
+// =========================================================================
+// MOBILE — full-screen takeover that escapes the shared shell: compact topbar,
+// own scroll body, 5-icon bottom nav, roadmap list, inline lesson workspace.
+// =========================================================================
+function MobileJourney({ view, journey, mode, onSubmissionSaved, onAiAssessed }: JourneyRenderProps) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
     <div className={styles.appShell}>
       <AppTopbar />
       <div className={styles.appBody}>
-        {journey === undefined ? (
-          <p className={styles.muted}>Đang tải chương trình…</p>
-        ) : mode === "demo" ? (
+        {mode === "demo" ? (
           <div className={styles.notice}><Sparkles size={16} /><div><strong>Chế độ demo</strong><p>Đăng nhập bằng tài khoản học viên thật để xem chương trình đào tạo của bạn.</p></div></div>
         ) : !journey ? (
           <section className={styles.emptyCard}>
@@ -389,6 +502,239 @@ function LaneWorkspace({ journey, view, onSubmissionSaved, onAiAssessed }: {
       <div className={styles.workspaceCard}>
         <SessionDetail {...detailProps(selected.session)} />
       </div>
+    )}
+  </div>;
+}
+
+// =========================================================================
+type CalItem = { session: ClassSession; date: Date | null; synthetic: boolean };
+
+function CurriculumCalendar({ journey, view, onSubmissionSaved, onAiAssessed }: {
+  journey: Journey; view: JourneyView; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
+}) {
+  const evaluationBySession = useMemo(() => new Map(journey.evaluations.map((e) => [e.classSessionId, e])), [journey.evaluations]);
+  const aiBySession = useMemo(() => new Map(journey.aiAssessments.map((a) => [a.classSessionId, a])), [journey.aiAssessments]);
+  const submissionBySession = useMemo(() => new Map(journey.submissions.map((s) => [s.classSessionId, s])), [journey.submissions]);
+  const rubricByCategory = useMemo(() => new Map(journey.rubrics.map((r) => [r.category, r])), [journey.rubrics]);
+
+  const hasRealDates = useMemo(() => journey.sessions.some((s) => s.sessionDate), [journey.sessions]);
+
+  const anchor = useMemo(() => {
+    const d = journey.class.startedAt ? new Date(journey.class.startedAt) : new Date();
+    return Number.isNaN(d.getTime()) ? new Date() : startOfDay(d);
+  }, [journey.class.startedAt]);
+  const synthDate = useCallback((sessionNo: number) => {
+    let d = addDays(anchor, (sessionNo - 1) * 2);
+    if (d.getDay() === 0) d = addDays(d, 1); // avoid Sunday
+    return d;
+  }, [anchor]);
+
+  const types = VIEW_META[view].types;
+  const items: CalItem[] = useMemo(() => {
+    const list = types === null ? journey.sessions : journey.sessions.filter((s) => types.includes(s.sessionType));
+    return list.map((session) => {
+      if (session.sessionDate) return { session, date: parseDateOnly(session.sessionDate), synthetic: false };
+      if (!hasRealDates) return { session, date: synthDate(session.sessionNo), synthetic: true };
+      return { session, date: null, synthetic: false };
+    });
+  }, [journey.sessions, types, hasRealDates, synthDate]);
+
+  const dated = useMemo(() => items.filter((i) => i.date), [items]);
+  const undated = useMemo(() => items.filter((i) => !i.date), [items]);
+
+  // The nearest session to today in this lane — today/upcoming first, else the most recent past
+  // one. Powers the bundle-style "Hôm nay" quick-open card.
+  const featured = useMemo(() => {
+    if (!dated.length) return null;
+    const todayTs = startOfDay(new Date()).getTime();
+    const upcoming = dated.filter((i) => i.date!.getTime() >= todayTs).sort((a, b) => a.date!.getTime() - b.date!.getTime());
+    if (upcoming.length) return upcoming[0];
+    return [...dated].sort((a, b) => b.date!.getTime() - a.date!.getTime())[0];
+  }, [dated]);
+
+  const itemsByDay = useMemo(() => {
+    const map = new Map<string, CalItem[]>();
+    for (const it of dated) {
+      const key = isoKey(it.date!);
+      const list = map.get(key);
+      if (list) list.push(it);
+      else map.set(key, [it]);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.session.sessionNo - b.session.sessionNo);
+    return map;
+  }, [dated]);
+
+  const [month, setMonth] = useState<Date>(() => {
+    if (featured) return startOfMonth(featured.date!);
+    const first = dated.map((i) => i.date!.getTime()).sort((a, b) => a - b)[0];
+    return startOfMonth(first ? new Date(first) : new Date());
+  });
+  const [drawer, setDrawer] = useState<{ label: string; note?: string; sessions: ClassSession[] } | null>(null);
+
+  const gridStart = useMemo(() => {
+    const som = startOfMonth(month);
+    return addDays(som, -((som.getDay() + 6) % 7));
+  }, [month]);
+  const cells = useMemo(() => Array.from({ length: 42 }, (_, i) => addDays(gridStart, i)), [gridStart]);
+  const todayKey = isoKey(new Date());
+
+  const openDay = (day: Date) => {
+    const dayItems = itemsByDay.get(isoKey(day)) ?? [];
+    if (!dayItems.length) return;
+    setDrawer({ label: fmtDate(day), sessions: dayItems.map((i) => i.session), note: dayItems[0].synthetic ? "Ngày dự kiến — giảng viên chưa xếp lịch chính thức." : undefined });
+  };
+
+  const openItem = (it: CalItem) => {
+    setDrawer({
+      label: it.date ? fmtDate(it.date) : `Buổi ${it.session.sessionNo}`,
+      sessions: [it.session],
+      note: it.synthetic ? "Ngày dự kiến — giảng viên chưa xếp lịch chính thức." : undefined,
+    });
+  };
+
+  const todayTs = startOfDay(new Date()).getTime();
+  const featuredKind = featured
+    ? isoKey(featured.date!) === todayKey ? "Hôm nay"
+      : featured.date!.getTime() >= todayTs ? "Buổi tiếp theo"
+      : "Buổi gần nhất"
+    : "";
+  const featuredStatus = featured
+    ? evaluationBySession.get(featured.session.id) ? "Đã chấm điểm"
+      : (submissionBySession.get(featured.session.id)?.assetIds.length ?? 0) > 0 ? "Đã nộp minh chứng · chờ chấm"
+      : "Chưa nộp minh chứng"
+    : "";
+
+  const detailProps = (session: ClassSession) => ({
+    session,
+    organizationId: journey.class.organizationId,
+    rubric: rubricByCategory.get(RUBRIC_FOR_TYPE[session.sessionType] ?? null) ?? null,
+    evaluation: evaluationBySession.get(session.id) ?? null,
+    submission: submissionBySession.get(session.id) ?? null,
+    aiAssessment: aiBySession.get(session.id) ?? null,
+    onSaved: onSubmissionSaved,
+    onAiAssessed
+  });
+
+  return <div className={styles.calWrap}>
+    {featured && (
+      <button type="button" className={styles.todayCard} onClick={() => openItem(featured)}>
+        <div className={styles.todayBox}><b>{featured.session.sessionNo}</b><span>BUỔI</span></div>
+        <div className={styles.todayCopy}>
+          <span>{featuredKind} · {featured.date!.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
+          <strong>{SESSION_TYPE_LABEL[featured.session.sessionType]}{featured.session.title ? ` · ${featured.session.title}` : ""}</strong>
+          <small>{featuredStatus}</small>
+        </div>
+        <div className={styles.todayArrow}>›</div>
+      </button>
+    )}
+
+    {!hasRealDates && dated.length > 0 && (
+      <p className={styles.calHint}>Lịch đang hiển thị <b>theo dự kiến</b> (mỗi 2 ngày từ lúc mở lớp). Khi giảng viên xếp lịch chính thức, ngày sẽ tự cập nhật.</p>
+    )}
+
+    <div className={styles.calCard}>
+      <div className={styles.calHead}>
+        <div className={styles.calNav}>
+          <button type="button" aria-label="Tháng trước" onClick={() => setMonth((m) => addMonths(m, -1))}><ChevronLeft size={16} /></button>
+          <strong>{month.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</strong>
+          <button type="button" aria-label="Tháng sau" onClick={() => setMonth((m) => addMonths(m, 1))}><ChevronRight size={16} /></button>
+        </div>
+        <button type="button" className={styles.todayBtn} onClick={() => setMonth(startOfMonth(new Date()))}>Hôm nay</button>
+      </div>
+
+      <div className={styles.legend}>
+        <span data-cat="training">Training</span>
+        <span data-cat="makeup">Thực hành Makeup</span>
+        <span data-cat="hair">Tóc</span>
+        <span data-cat="extra">Ngoại khóa</span>
+      </div>
+
+      <div className={styles.calGrid}>
+        {DOW.map((d) => <div key={d} className={styles.dow}>{d}</div>)}
+        {cells.map((day) => {
+          const key = isoKey(day);
+          const dayItems = itemsByDay.get(key) ?? [];
+          const inMonth = day.getMonth() === month.getMonth();
+          return (
+            <button
+              key={key}
+              type="button"
+              className={styles.cell}
+              data-outside={!inMonth || undefined}
+              data-today={key === todayKey || undefined}
+              data-has={dayItems.length ? "" : undefined}
+              onClick={() => openDay(day)}
+            >
+              <span className={styles.cellDate}>{day.getDate()}</span>
+              <span className={styles.cellChips}>
+                {dayItems.slice(0, 3).map((it) => {
+                  const ev = evaluationBySession.get(it.session.id);
+                  const sub = submissionBySession.get(it.session.id);
+                  return <span
+                    key={it.session.id}
+                    className={styles.chip}
+                    data-cat={CATEGORY_FOR_TYPE[it.session.sessionType]}
+                    data-graded={ev ? "" : undefined}
+                    data-sub={!ev && (sub?.assetIds.length ?? 0) > 0 ? "" : undefined}
+                  >
+                    B{it.session.sessionNo} · {SESSION_TYPE_SHORT[it.session.sessionType]}
+                    {ev ? ` · ${ev.totalScore}` : ""}
+                  </span>;
+                })}
+                {dayItems.length > 3 && <span className={styles.chipMore}>+{dayItems.length - 3} buổi</span>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    {hasRealDates && undated.length > 0 && (
+      <div className={styles.undated}>
+        <div className={styles.undatedHead}>Chưa xếp lịch · {undated.length} buổi</div>
+        <div className={styles.undatedRow}>
+          {undated.sort((a, b) => a.session.sessionNo - b.session.sessionNo).map((it) => {
+            const ev = evaluationBySession.get(it.session.id);
+            return <button
+              key={it.session.id}
+              type="button"
+              className={styles.chip}
+              data-cat={CATEGORY_FOR_TYPE[it.session.sessionType]}
+              data-graded={ev ? "" : undefined}
+              onClick={() => setDrawer({ label: `Buổi ${it.session.sessionNo} · ${SESSION_TYPE_LABEL[it.session.sessionType]}`, sessions: [it.session] })}
+            >
+              B{it.session.sessionNo} · {SESSION_TYPE_SHORT[it.session.sessionType]}{ev ? ` · ${ev.totalScore}` : ""}
+            </button>;
+          })}
+        </div>
+      </div>
+    )}
+
+    {items.length === 0 && <p className={styles.muted}>Chưa có buổi nào thuộc nhóm này. Giảng viên sẽ bổ sung vào lịch.</p>}
+
+    {drawer && (
+      <>
+        <div className={styles.backdrop} onClick={() => setDrawer(null)} />
+        <aside className={styles.drawer} role="dialog" aria-label={drawer.label}>
+          <div className={styles.drawerHead}>
+            <div>
+              <strong>{drawer.label}</strong>
+              {drawer.note && <small>{drawer.note}</small>}
+            </div>
+            <button type="button" aria-label="Đóng" onClick={() => setDrawer(null)}><X size={16} /></button>
+          </div>
+          <div className={styles.drawerBody}>
+            {drawer.sessions.map((session, idx) =>
+              drawer.sessions.length > 1
+                ? <details key={session.id} className={styles.detailFold} open={idx === 0}>
+                    <summary>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</summary>
+                    <SessionDetail {...detailProps(session)} />
+                  </details>
+                : <SessionDetail key={session.id} {...detailProps(session)} />
+            )}
+          </div>
+        </aside>
+      </>
     )}
   </div>;
 }
