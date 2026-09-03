@@ -407,19 +407,26 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
   async function attachPhotos(files: File[]) {
     if (!session || !ctx || attaching) return;
     const imgs = files.filter((f) => f.type.startsWith("image/")).slice(0, MAX_EVIDENCE);
-    if (!imgs.length) return;
+    if (!imgs.length) { thread.append(say("File em gửi không phải ảnh. Chọn ảnh JPG hoặc PNG rồi bấm “Gửi ảnh” lại nhé.")); return; }
     const previews = imgs.map((f) => { const u = URL.createObjectURL(f); previewUrls.current.push(u); return u; });
     thread.append({ id: crypto.randomUUID(), role: "user", content: imgs.length > 1 ? `Em gửi ${imgs.length} ảnh cho buổi này.` : "Em gửi ảnh cho buổi này.", images: previews });
     setAttaching(true);
     try {
       const uploaded: string[] = [];
+      const uploadErrors: string[] = [];
       for (const f of imgs) {
         try {
           const a = await uploadAsset(f, { organizationId: journey.class.organizationId, category: "student-competency", assetType: "image", compress: true });
           uploaded.push(a.assetId);
-        } catch { /* skip a bad file, keep the rest */ }
+        } catch (error) {
+          uploadErrors.push(error instanceof Error ? error.message : "UPLOAD_FAILED");
+        }
       }
-      if (!uploaded.length) { thread.append(say("Ảnh chưa tải lên được — mở tab “Đánh giá ảnh” để thử lại nhé.")); return; }
+      if (!uploaded.length) {
+        const detail = uploadErrors[0] ? ` Chi tiết: ${uploadErrors[0]}` : "";
+        thread.append(say(`Chưa gửi được ảnh lên máy chủ.${detail} Em bấm “Gửi ảnh” thử lại ngay tại đây — không cần rời khỏi khung chat. Nếu vẫn lỗi, báo giúp mình dòng chi tiết này.`));
+        return;
+      }
       const merged = [...(ctx.submission?.assetIds ?? []), ...uploaded].slice(0, MAX_EVIDENCE);
       const res = await fetch("/api/student/makeup-journey/submission", {
         method: "PUT",
@@ -427,11 +434,22 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
         body: JSON.stringify({ classSessionId: session.id, assetIds: merged, note: ctx.submission?.note ?? "" }),
       });
       const payload = await res.json().catch(() => null) as { submission?: Submission; error?: string } | null;
-      if (!res.ok || !payload?.submission) { thread.append(say("Lưu minh chứng chưa thành công — mở tab “Đánh giá ảnh” để thử lại.")); return; }
+      if (!res.ok || !payload?.submission) {
+        const code = payload?.error;
+        thread.append(say(
+          code === "INVALID_EVIDENCE_ASSET" ? "Ảnh đã tải lên nhưng máy chủ chưa xác nhận được. Em gửi lại sau ít phút nhé."
+            : code === "STUDENT_NOT_IN_CLASS" ? "Em hiện không còn trong lớp này nên chưa nộp được minh chứng."
+            : `Chưa lưu được minh chứng${code ? ` (${code})` : ""}. Em bấm “Gửi ảnh” thử lại tại đây nhé.`,
+        ));
+        return;
+      }
       onSubmissionSaved(payload.submission);
+      if (uploaded.length < imgs.length) thread.append(say(`Có ${imgs.length - uploaded.length} ảnh chưa tải được, mình dùng ${uploaded.length} ảnh còn lại.`));
       thread.append(say("Đã nhận ảnh và lưu minh chứng. Mình chuyển sang tab “Đánh giá ảnh” để chấm sơ bộ theo rubric…"));
       setTab("assess");
       setAutoAssessAt(Date.now());
+    } catch (error) {
+      thread.append(say(`Có lỗi khi xử lý ảnh: ${error instanceof Error ? error.message : "không rõ"}. Em thử lại tại khung chat nhé.`));
     } finally {
       setAttaching(false);
     }

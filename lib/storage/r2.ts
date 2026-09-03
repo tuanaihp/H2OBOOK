@@ -18,11 +18,24 @@ export function storageKey(organizationId: string, category: string, fileName: s
 }
 
 export async function createUploadUrl(input: { key: string; contentType: string; sizeBytes: number }) {
+  // Keep the presigned command aligned with the browser PUT: it only sends Content-Type explicitly.
+  // Extra command headers (x-amz-meta-*, Content-Length) can become signature requirements that a
+  // browser cannot replay verbatim, causing R2 to reject the upload with SignatureDoesNotMatch.
+  // Size is validated in presign-upload and re-checked from the stored object in /complete.
   const command = new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET!, Key: input.key, ContentType: input.contentType,
-    ContentLength: input.sizeBytes, Metadata: { source: "h2obook" }
+    Bucket: process.env.R2_BUCKET!, Key: input.key, ContentType: input.contentType
   });
   return getSignedUrl(client(), command, { expiresIn: 10 * 60 });
+}
+
+export async function uploadStoredObject(input: { key: string; contentType: string; body: Uint8Array }) {
+  await client().send(new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET!,
+    Key: input.key,
+    ContentType: input.contentType,
+    ContentLength: input.body.byteLength,
+    Body: input.body
+  }));
 }
 
 export async function createDownloadUrl(key: string, fileName?: string) {
