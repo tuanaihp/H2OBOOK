@@ -399,8 +399,11 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
     session ? `Buổi ${session.sessionNo}${session.title ? ` · ${session.title}` : ""}` : "buổi học",
   );
   const previewUrls = useRef<string[]>([]);
+  // True only for the assessment kicked off by a chat photo upload — that one bounces back to
+  // Chat Coach with its result; a manual "Phân tích lại" on the Đánh giá ảnh tab stays put.
+  const autoPendingRef = useRef(false);
   useEffect(() => () => { previewUrls.current.forEach(URL.revokeObjectURL); previewUrls.current = []; }, []);
-  useEffect(() => { setTab("chat"); setAutoAssessAt(0); }, [session?.id]);
+  useEffect(() => { setTab("chat"); setAutoAssessAt(0); autoPendingRef.current = false; }, [session?.id]);
 
   const say = (content: string): ChatMsg => ({ id: crypto.randomUUID(), role: "assistant", content });
 
@@ -446,6 +449,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
       onSubmissionSaved(payload.submission);
       if (uploaded.length < imgs.length) thread.append(say(`Có ${imgs.length - uploaded.length} ảnh chưa tải được, mình dùng ${uploaded.length} ảnh còn lại.`));
       thread.append(say("Đã nhận ảnh và lưu minh chứng. Mình chuyển sang tab “Đánh giá ảnh” để chấm sơ bộ theo rubric…"));
+      autoPendingRef.current = true;
       setTab("assess");
       setAutoAssessAt(Date.now());
     } catch (error) {
@@ -467,7 +471,8 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
     } else {
       thread.append(say("Bộ đánh giá tạm thời không khả dụng — ảnh của em vẫn được lưu, thử lại sau nhé."));
     }
-    setTab("chat");
+    // Only jump to Chat Coach when this run was the one auto-started by a chat photo upload.
+    if (autoPendingRef.current) { autoPendingRef.current = false; setTab("chat"); }
   }
 
   return (
@@ -517,6 +522,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
               aiAssessment={ctx.aiAssessment}
               aiInfo={aiInfo}
               autoAssessAt={autoAssessAt}
+              onConsumeAutoRun={() => setAutoAssessAt(0)}
               onSaved={onSubmissionSaved}
               onAiAssessed={handleAssessed}
               onRequestCoach={() => setTab("chat")}
@@ -1009,7 +1015,7 @@ function CurriculumCalendar({ journey, view, selectedId, onSelect }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, autoAssessAt, onSaved, onAiAssessed, onRequestCoach, variant }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
@@ -1018,6 +1024,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   aiAssessment: AiAssessment | null;
   aiInfo?: AiInfo | null;
   autoAssessAt?: number;
+  onConsumeAutoRun?: () => void;
   onSaved: (next: Submission) => void;
   onAiAssessed: (a: AiAssessment) => void;
   onRequestCoach?: () => void;
@@ -1063,6 +1070,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
         canRun={hasEvidence}
         offline={offline}
         autoRunAt={autoAssessAt}
+        onConsumeAutoRun={onConsumeAutoRun}
         onAiAssessed={onAiAssessed}
         onOpenCoach={openCoach}
       />
@@ -1072,12 +1080,13 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   </div>;
 }
 
-function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onAiAssessed, onOpenCoach }: {
+function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onConsumeAutoRun, onAiAssessed, onOpenCoach }: {
   sessionId: string;
   assessment: AiAssessment | null;
   canRun: boolean;
   offline: boolean;
   autoRunAt?: number;
+  onConsumeAutoRun?: () => void;
   onAiAssessed: (a: AiAssessment) => void;
   onOpenCoach: () => void;
 }) {
@@ -1104,9 +1113,11 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onA
     }
   }
 
-  // Kicked from the chat flow: photos were just saved, run the rubric pre-check once.
+  // Kicked from the chat flow: photos were just saved, run the rubric pre-check exactly once.
+  // onConsumeAutoRun() clears the parent trigger so re-opening this tab never re-fires it.
   useEffect(() => {
     if (!autoRunAt || !canRun || running) return;
+    onConsumeAutoRun?.();
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRunAt]);
