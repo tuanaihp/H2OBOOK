@@ -173,13 +173,12 @@ export async function ensureStudentAuthUser(admin: AdminClient, input: { organiz
 // user to the real academy organization as a student. Idempotent (upsert on the same conflict
 // target as the admin-invite path) so a retried call never duplicates or escalates a role.
 export async function joinAcademyAsStudent(admin: AdminClient, input: { organizationId: string; userId: string; name: string; email: string }) {
-  const { error: profileError } = await admin.from("profiles").upsert({
-    id: input.userId,
-    email: input.email.trim().toLowerCase(),
-    full_name: input.name.trim(),
-    status: "active",
-    updated_at: new Date().toISOString()
-  }, { onConflict: "id" });
+  const email = input.email.trim().toLowerCase();
+  const profileRow: Record<string, unknown> = { id: input.userId, full_name: input.name.trim(), status: "active", updated_at: new Date().toISOString() };
+  // Phone + PIN students have no email — never write "" into profiles.email (it is under a partial
+  // unique index where email is not null, so a second empty-string row would collide).
+  if (email) profileRow.email = email;
+  const { error: profileError } = await admin.from("profiles").upsert(profileRow, { onConflict: "id" });
   if (profileError) throw new Error(profileError.message);
   const { error: memberError } = await admin.from("organization_members").upsert({
     organization_id: input.organizationId,
@@ -188,6 +187,83 @@ export async function joinAcademyAsStudent(admin: AdminClient, input: { organiza
     status: "active"
   }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
   if (memberError) throw new Error(memberError.message);
+}
+
+// ---------------------------------------------------------------------------
+// Phone + 6-digit PIN accounts — for students without a usable email. The admin sets the initial
+// PIN; the account is created phone-confirmed (no SMS) so the student can sign in immediately with
+// signInWithPassword({ phone, password }). `must_change_pin` forces a reset on first login
+// (enforced server-side in app/student/layout.tsx). A "forgot PIN" is an admin re-issue, which
+// re-arms the same flag.
+// ---------------------------------------------------------------------------
+const PIN_RE = /^\d{6}$/;
+
+async function findAuthUserByPhone(admin: AdminClient, supabasePhone: string): Promise<User | null> {
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 100 });
+    if (error) throw error;
+    const found = data.users.find((user) => (user.phone ?? "").replace(/^\+/, "") === supabasePhone);
+    if (found) return found;
+    if (data.users.length < 100) return null;
+  }
+  throw new Error("AUTH_USER_LOOKUP_LIMIT_REACHED");
+}
+
+// `supabasePhone` is digits only, no "+" (e.g. "84912345678") — see lib/auth/phone.ts.
+export async function ensureStudentPhoneAccount(admin: AdminClient, input: { organizationId: string; name: string; supabasePhone: string; pin: string }) {
+  if (!PIN_RE.test(input.pin)) throw new Error("PIN_MUST_BE_6_DIGITS");
+  const name = input.name.trim();
+  if (!name) throw new Error("NAME_REQUIRED");
+
+  let user = await findAuthUserByPhone(admin, input.supabasePhone);
+  let created = false;
+  if (!user) {
+    const { data, error } = await admin.auth.admin.createUser({
+      phone: input.supabasePhone,
+      password: input.pin,
+      phone_confirm: true,
+      user_metadata: { full_name: name, role: "student", must_change_pin: true, login_method: "phone" }
+    });
+    if (error || !data.user) throw new Error(error?.message ?? "PHONE_ACCOUNT_CREATE_FAILED");
+    user = data.user;
+    created = true;
+  } else {
+    const { error } = await admin.auth.admin.updateUserById(user.id, {
+      password: input.pin,
+      user_metadata: { ...(user.user_metadata ?? {}), full_name: name, role: "student", must_change_pin: true, login_method: "phone" }
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  const { error: profileError } = await admin.from("profiles").upsert({
+    id: user.id,
+    full_name: name,
+    phone: `+${input.supabasePhone}`,
+    status: "active",
+    updated_at: new Date().toISOString()
+  }, { onConflict: "id" });
+  if (profileError) throw new Error(profileError.message);
+
+  const { error: memberError } = await admin.from("organization_members").upsert({
+    organization_id: input.organizationId,
+    user_id: user.id,
+    role: "student",
+    status: "active"
+  }, { onConflict: "organization_id,user_id", ignoreDuplicates: true });
+  if (memberError) throw new Error(memberError.message);
+
+  return { user, created };
+}
+
+export async function resetStudentPin(admin: AdminClient, userId: string, pin: string) {
+  if (!PIN_RE.test(pin)) throw new Error("PIN_MUST_BE_6_DIGITS");
+  const { data: got, error: getError } = await admin.auth.admin.getUserById(userId);
+  if (getError || !got?.user) throw new Error(getError?.message ?? "STUDENT_NOT_FOUND");
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    password: pin,
+    user_metadata: { ...(got.user.user_metadata ?? {}), must_change_pin: true }
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function grantAcademyAccess(admin: AdminClient, input: {

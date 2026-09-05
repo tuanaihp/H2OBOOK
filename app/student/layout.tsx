@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { StudentShell } from "@/components/student/student-shell";
+import { ForcePinChange } from "@/components/student/force-pin-change";
 import { requireCurrentUser } from "@/lib/auth/current-user";
 export const dynamic="force-dynamic";
 export const metadata={title:{default:"Học viên | H2OBOOK",template:"%s | H2OBOOK Student"}};
-export default async function StudentLayout({children}:{children:React.ReactNode}){if(process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_V2 === "false")redirect("/learn");const user=await requireCurrentUser();return <StudentShell currentUser={{name:user.name,email:user.email,role:user.role,demo:user.demo}}>{children}</StudentShell>}
+export default async function StudentLayout({children}:{children:React.ReactNode}){if(process.env.NEXT_PUBLIC_STUDENT_EXPERIENCE_V2 === "false")redirect("/learn");const user=await requireCurrentUser();if(user.mustChangePin&&!user.demo)return <ForcePinChange name={user.name} />;return <StudentShell currentUser={{name:user.name,email:user.email,role:user.role,demo:user.demo}}>{children}</StudentShell>}

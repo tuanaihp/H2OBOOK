@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Award, BookOpen, Camera, CheckCircle2, Clock3, GraduationCap, Star } from "lucide-react";
 import { useStudentData, useStudentName } from "@/components/student/student-data";
+import { ChangePinCard } from "@/components/student/change-pin-card";
 import { studentAchievements } from "@/lib/student/experience";
 
 // Rewritten for the data-truth pass. Every figure here used to be a constant: 68% progress, 42
@@ -150,5 +151,7 @@ export default function StudentProfilePage() {
     {live && <section className="h2o-student-card" style={{ marginTop: 18 }}><header className="h2o-student-card-head"><div><span>STUDENT MANAGEMENT &amp; COMPETENCY</span><h2>Hồ sơ năng lực tại lớp</h2><p>Điểm và nhận xét do giảng viên lưu; học viên chỉ có quyền xem.</p></div></header>
       {competencyClasses === null ? <EmptyNote>Đang tải hồ sơ năng lực…</EmptyNote> : competencyClasses.length === 0 ? <EmptyNote>Bạn chưa được ghi danh vào lớp đào tạo trực tiếp nào.</EmptyNote> : competencyClasses.map((item) => { const strengths = (item.competency ?? []).filter((skill) => (skill.latestScore ?? 0) >= 85).slice(0, 3); const weaknesses = (item.competency ?? []).filter((skill) => skill.latestScore != null && skill.latestScore < 60).slice(0, 3); return <article key={item.class.id} style={{ borderTop: "1px solid #e8edf2", padding: "16px 0" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><strong>{item.class.name}</strong><p style={{ margin: "4px 0", fontSize: 12, color: "#718092" }}>{item.class.code} · {item.completedSessions}/{item.totalSessions || 60} buổi · {item.evaluationCount} lần đánh giá</p></div><span style={{ fontWeight: 700 }}>{item.avgScore}/100 · {item.graduation?.graduationStatus === "graduated" ? "Đủ điều kiện tốt nghiệp" : "Đang hoàn thiện"}</span></div><p style={{ fontSize: 12 }}><b>Điểm mạnh:</b> {strengths.length ? strengths.map((skill) => skill.label).join(", ") : "Chưa đủ dữ liệu"} · <b>Cần cải thiện:</b> {weaknesses.length ? weaknesses.map((skill) => skill.label).join(", ") : "Chưa phát hiện"}</p><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 8 }}>{(item.competency ?? []).filter((skill) => skill.latestScore != null).map((skill) => <div key={skill.key} style={{ border: "1px solid #e8edf2", borderRadius: 10, padding: 10 }}><small>{skill.label}</small><strong style={{ display: "block", fontSize: 20 }}>{skill.latestScore}</strong><small>30/60/90: {skill.trend30 ?? "—"}/{skill.trend60 ?? "—"}/{skill.trend90 ?? "—"}</small></div>)}</div></article>; })}
     </section>}
+
+    <ChangePinCard />
   </>;
 }

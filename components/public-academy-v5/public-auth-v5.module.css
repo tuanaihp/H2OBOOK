@@ -5,3 +5,7 @@
 @media(max-width:900px){.authPage{grid-template-columns:1fr}.loginPanel{order:1;padding:1.5rem 1.5rem 1rem}.brandPanel{order:2;min-height:auto;padding:1.75rem 1.5rem 2.5rem}.brandInner h1{font-size:1.8rem;line-height:1.15;margin:0 0 .75rem}.brandInner>p{font-size:.95rem}.neuralBadge{margin:1rem 0 1rem}.loginCard{position:relative;z-index:2}.trustCard{display:none}}
 @media(max-width:540px){.brandInner h1{font-size:2.85rem}.brandInner>p{font-size:1rem}.loginCard{padding:1.5rem;border-radius:1.4rem}.loginRow{align-items:flex-start;flex-direction:column}.neuralBadge{margin-top:2rem}}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}}
+.methodTabs{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:1.2rem;background:#f2edf1;border-radius:.85rem;padding:.28rem}
+.methodTabs button{border:0;background:transparent;border-radius:.65rem;padding:.6rem .5rem;font:inherit;font-size:.86rem;font-weight:800;color:#7e6974;cursor:pointer}
+.methodTabs button[data-active]{background:#fff;color:#20151d;box-shadow:0 4px 12px rgba(40,18,38,.1)}
+.hint{margin:-.4rem 0 1.2rem;font-size:.8rem;line-height:1.6;color:#8b7782}

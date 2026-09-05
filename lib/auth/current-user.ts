@@ -9,6 +9,8 @@ export type CurrentUser = {
   name: string;
   role: "owner" | "admin" | "designer" | "partner" | "teacher" | "student";
   demo: boolean;
+  /** Phone + PIN accounts: admin issued/re-issued the PIN, student must set their own before use. */
+  mustChangePin: boolean;
 };
 
 const demoUser: CurrentUser = {
@@ -16,7 +18,8 @@ const demoUser: CurrentUser = {
   email: "owner@h2obook.local",
   name: "Thuỷ H2O",
   role: "owner",
-  demo: true
+  demo: true,
+  mustChangePin: false
 };
 
 // React cache() deduplicates this per request. A student page render calls it at least twice —
@@ -31,7 +34,7 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Cur
   if (!user) return null;
 
   const [{ data: profile }, { data: membership }] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name,phone").eq("id", user.id).maybeSingle(),
     supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle()
   ]);
   const metadata = user.user_metadata ?? {};
@@ -42,9 +45,11 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Cur
   return {
     id: user.id,
     email: user.email ?? "",
-    name: String(profile?.full_name || metadata.full_name || metadata.name || user.email?.split("@")[0] || "H2OBOOK User"),
+    // Phone + PIN students have no email — fall back to the admin-set profile name, then the phone.
+    name: String(profile?.full_name || metadata.full_name || metadata.name || user.email?.split("@")[0] || profile?.phone || user.phone || "Học viên"),
     role,
-    demo: false
+    demo: false,
+    mustChangePin: metadata.must_change_pin === true
   };
 });
 

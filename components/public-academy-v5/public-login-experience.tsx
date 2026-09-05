@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { BookOpen, BrainCircuit, Eye, EyeOff, LoaderCircle, ShieldCheck } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { toE164 } from "@/lib/auth/phone";
 import type { PublicAcademyConfig } from "@/lib/public-academy-v5/types";
 import { GoogleGlyph } from "@/components/marketing/google-glyph";
 import styles from "./public-auth-v5.module.css";
@@ -22,8 +23,11 @@ function roleHome(role?: string): string {
 }
 
 export function PublicLoginExperience({ config }: { config: PublicAcademyConfig["auth"] }) {
+  const [method, setMethod] = useState<"email" | "phone">("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pin, setPin] = useState("");
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -56,6 +60,19 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
         }
         throw new Error("Hệ thống đăng nhập chưa được cấu hình.");
       }
+      if (method === "phone") {
+        const phoneE164 = toE164(phone);
+        if (!phoneE164) throw new Error("Số điện thoại không hợp lệ. Dùng số di động Việt Nam, ví dụ 0912345678.");
+        if (!/^\d{6}$/.test(pin)) throw new Error("Mã PIN gồm đúng 6 chữ số.");
+        const { error: phoneError } = await supabase.auth.signInWithPassword({ phone: phoneE164, password: pin });
+        if (phoneError) throw new Error(/invalid login credentials/i.test(phoneError.message) ? "Số điện thoại hoặc mã PIN chưa đúng." : phoneError.message);
+        window.localStorage.removeItem("h2obook-login-email");
+        await fetch("/api/auth/claim-access", { method: "POST" }).catch(() => null);
+        const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+        window.location.href = next ?? "/student";
+        return;
+      }
+
       const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (authError) throw new Error(authError.message);
 
@@ -113,17 +130,28 @@ export function PublicLoginExperience({ config }: { config: PublicAcademyConfig[
 
         {error && <div className={styles.error} role="alert">{error}</div>}
 
-        <button type="button" className={styles.googleButton} onClick={submitWithGoogle} disabled={googleLoading}>{googleLoading ? <LoaderCircle className={styles.spin} aria-hidden="true" /> : <GoogleGlyph />}Đăng nhập bằng Google</button>
-        <div className={styles.divider}><i />hoặc dùng email<i /></div>
-
-        <label className={styles.field}><span>Email</span><input type="email" name="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
-        <label className={styles.field}><span>Mật khẩu</span><div className={styles.passwordField}><input type={show ? "text" : "password"} name="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" /><button type="button" aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onClick={() => setShow((value) => !value)}>{show ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></div></label>
-
-        <div className={styles.loginRow}>
-          <label><input type="checkbox" name="remember" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Ghi nhớ đăng nhập</label>
-          <Link href="/forgot-password">Quên mật khẩu?</Link>
-          <Link href="/signup">Chưa có tài khoản?</Link>
+        <div className={styles.methodTabs} role="tablist" aria-label="Cách đăng nhập">
+          <button type="button" role="tab" aria-selected={method === "email"} data-active={method === "email" || undefined} onClick={() => { setMethod("email"); setError(""); }}>Email / Google</button>
+          <button type="button" role="tab" aria-selected={method === "phone"} data-active={method === "phone" || undefined} onClick={() => { setMethod("phone"); setError(""); }}>Số điện thoại</button>
         </div>
+
+        {method === "email" ? <>
+          <button type="button" className={styles.googleButton} onClick={submitWithGoogle} disabled={googleLoading}>{googleLoading ? <LoaderCircle className={styles.spin} aria-hidden="true" /> : <GoogleGlyph />}Đăng nhập bằng Google</button>
+          <div className={styles.divider}><i />hoặc dùng email<i /></div>
+
+          <label className={styles.field}><span>Email</span><input type="email" name="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
+          <label className={styles.field}><span>Mật khẩu</span><div className={styles.passwordField}><input type={show ? "text" : "password"} name="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" /><button type="button" aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"} onClick={() => setShow((value) => !value)}>{show ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></div></label>
+
+          <div className={styles.loginRow}>
+            <label><input type="checkbox" name="remember" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Ghi nhớ đăng nhập</label>
+            <Link href="/forgot-password">Quên mật khẩu?</Link>
+            <Link href="/signup">Chưa có tài khoản?</Link>
+          </div>
+        </> : <>
+          <label className={styles.field}><span>Số điện thoại</span><input type="tel" name="phone" required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0912 345 678" autoComplete="tel" inputMode="tel" /></label>
+          <label className={styles.field}><span>Mã PIN (6 số)</span><div className={styles.passwordField}><input type={show ? "text" : "password"} name="pin" required value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="••••••" autoComplete="current-password" inputMode="numeric" maxLength={6} /><button type="button" aria-label={show ? "Ẩn mã PIN" : "Hiện mã PIN"} onClick={() => setShow((value) => !value)}>{show ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></div></label>
+          <p className={styles.hint}>Số điện thoại và mã PIN do trung tâm cấp. Quên mã PIN? Liên hệ trung tâm để được cấp lại.</p>
+        </>}
 
         <button className={styles.submitButton} disabled={loading}>{loading ? <LoaderCircle className={styles.spin} aria-hidden="true" /> : null}Đăng nhập</button>
 
