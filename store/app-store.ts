@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createDeferredLocalStorage } from "@/lib/storage/deferred-local-storage";
 import { cloneBookForBrand } from "@/lib/brand-resolver";
 import {
   seedActivities, seedAnalytics, seedAssignments, seedBooks, seedBrands, seedClasses,
@@ -418,6 +419,7 @@ export const useAppStore = create<AppState>()(
     {
       name: "h2obook-platform-v2",
       version: 5,
+      storage: createDeferredLocalStorage<AppState>(),
       migrate: (persistedState: unknown, persistedVersion: number) => {
         const previous = (persistedState ?? {}) as Partial<AppState>;
         // v5: the two sibling sample books used to be shallow copies of the makeup course and so

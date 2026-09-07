@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createDeferredLocalStorage } from "@/lib/storage/deferred-local-storage";
 import { defaultBrand, demoBook } from "@/lib/mock-data";
 import { applyBrandToBook } from "@/lib/brand-resolver";
 import { uid } from "@/lib/utils";
@@ -413,6 +414,6 @@ export const useEditorStore = create<EditorState>()(
         return { book, committedBook: structuredClone(book), activePageId: entry.pageId, selectedIds: [...entry.selectedIds], historyIndex: nextIndex, dirty: true };
       })
     }),
-    { name: "h2obook-editor-v2", version: 3, migrate: (persistedState) => persistedState as { book: H2OBook; committedBook: H2OBook; brand: BrandProfile; activePageId: string; zoom: number; savedAt: string; showGrid: boolean; snapToGrid: boolean }, partialize: (state) => ({ book: state.book, committedBook: state.book, brand: state.brand, activePageId: state.activePageId, zoom: state.zoom, savedAt: state.savedAt, showGrid: state.showGrid, snapToGrid: state.snapToGrid }) }
+    { name: "h2obook-editor-v2", version: 3, storage: createDeferredLocalStorage(), migrate: (persistedState) => persistedState as { book: H2OBook; committedBook: H2OBook; brand: BrandProfile; activePageId: string; zoom: number; savedAt: string; showGrid: boolean; snapToGrid: boolean }, partialize: (state) => ({ book: state.book, committedBook: state.book, brand: state.brand, activePageId: state.activePageId, zoom: state.zoom, savedAt: state.savedAt, showGrid: state.showGrid, snapToGrid: state.snapToGrid }) }
   )
 );

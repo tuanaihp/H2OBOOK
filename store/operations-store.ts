@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createDeferredLocalStorage } from "@/lib/storage/deferred-local-storage";
 import {
   seedAdmissionLeads, seedApplications, seedApprovals, seedAssessmentTasks, seedAutomationRecipes,
   seedImportJobs, seedInstructorClasses, seedNotificationTemplates, seedOrganizations, seedSupportTickets
@@ -74,6 +75,6 @@ export const useOperationsStore = create<OperationsState>()(
       toggleAutomation: (automationId) => set((state) => ({ automations: state.automations.map((automation) => automation.id === automationId ? { ...automation, status: automation.status === "active" ? "paused" : "active" } : automation) })),
       resetOperationsDemo: () => set(initialState())
     }),
-    { name: "h2obook-operations-foundation-v1", version: 1 }
+    { name: "h2obook-operations-foundation-v1", version: 1, storage: createDeferredLocalStorage<OperationsState>() }
   )
 );

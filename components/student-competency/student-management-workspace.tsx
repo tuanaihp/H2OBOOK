@@ -2,17 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowLeft, BookOpenCheck, ClipboardCheck, GraduationCap, LayoutDashboard, Scissors, Settings2, Sparkles, Users } from "lucide-react";
-import { OverviewTab } from "./overview-tab";
-import { RosterTab } from "./roster-tab";
-import { TrainingGradingTab } from "./training-grading-tab";
-import { MakeupGradingTab } from "./makeup-grading-tab";
-import { HairGradingTab } from "./hair-grading-tab";
-import { GraduationTab } from "./graduation-tab";
-import { CompetencyTab } from "./competency-tab";
-import { CoursePlanTab } from "./course-plan-tab";
-import { SettingsTab } from "./settings-tab";
 import styles from "./student-management-workspace.module.css";
+
+const loadingTab = () => <section className={styles.emptyModule}><p>Đang tải chức năng…</p></section>;
+const OverviewTab = dynamic(() => import("./overview-tab").then((module) => module.OverviewTab), { loading: loadingTab });
+const RosterTab = dynamic(() => import("./roster-tab").then((module) => module.RosterTab), { loading: loadingTab });
+const TrainingGradingTab = dynamic(() => import("./training-grading-tab").then((module) => module.TrainingGradingTab), { loading: loadingTab });
+const MakeupGradingTab = dynamic(() => import("./makeup-grading-tab").then((module) => module.MakeupGradingTab), { loading: loadingTab });
+const HairGradingTab = dynamic(() => import("./hair-grading-tab").then((module) => module.HairGradingTab), { loading: loadingTab });
+const GraduationTab = dynamic(() => import("./graduation-tab").then((module) => module.GraduationTab), { loading: loadingTab });
+const CompetencyTab = dynamic(() => import("./competency-tab").then((module) => module.CompetencyTab), { loading: loadingTab });
+const CoursePlanTab = dynamic(() => import("./course-plan-tab").then((module) => module.CoursePlanTab), { loading: loadingTab });
+const SettingsTab = dynamic(() => import("./settings-tab").then((module) => module.SettingsTab), { loading: loadingTab });
 
 type TabKey = "overview" | "students" | "course" | "training" | "makeup" | "hair" | "graduation" | "competency" | "settings";
 type RosterMember = { studentId: string; name: string; avatarUrl: string | null; joinedAt: string | null; status: string };

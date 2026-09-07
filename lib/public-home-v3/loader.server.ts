@@ -1,5 +1,7 @@
 import "server-only";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildFallbackPublicHomeViewModel } from "./fallback";
 import type { PublicHomeConfig, PublicHomeSectionKey, PublicHomeViewModel } from "./types";
 
@@ -55,12 +57,15 @@ function mergeConfig(base: PublicHomeConfig, payload: unknown): PublicHomeConfig
   };
 }
 
-export async function loadPublicHomeV3(): Promise<PublicHomeViewModel> {
-  const fallback = buildFallbackPublicHomeViewModel();
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return fallback;
+const loadPublishedConfig = unstable_cache(
+  async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) return null;
 
-  try {
+    const supabase = createSupabaseAdminClient() ?? createClient(url, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
     const { data, error } = await supabase
       .from("public_home_configs")
       .select("payload,updated_at")
@@ -68,7 +73,18 @@ export async function loadPublicHomeV3(): Promise<PublicHomeViewModel> {
       .eq("status", "published")
       .maybeSingle();
 
-    if (error || !data?.payload) return fallback;
+    return error || !data?.payload ? null : data;
+  },
+  ["public-home-v3-published-config"],
+  { revalidate: 300, tags: ["public-home-v3"] },
+);
+
+export async function loadPublicHomeV3(): Promise<PublicHomeViewModel> {
+  const fallback = buildFallbackPublicHomeViewModel();
+
+  try {
+    const data = await loadPublishedConfig();
+    if (!data?.payload) return fallback;
     return {
       ...fallback,
       config: mergeConfig(fallback.config, {

@@ -736,15 +736,15 @@ export async function getClassOverview(access: TeachingAccessSnapshot, classId: 
 
   const [{ data: classRow }, { data: sessionRows }, { data: memberRows }] = await Promise.all([
     admin.from("classes").select("total_sessions").eq("id", classId).maybeSingle(),
-    admin.from("class_sessions").select("id,session_type,status").eq("class_id", classId).eq("organization_id", access.organizationId),
+    admin.from("class_sessions").select("id,session_no,session_type,status").eq("class_id", classId).eq("organization_id", access.organizationId),
     admin.from("class_members").select("user_id").eq("class_id", classId).eq("role", "student").in("status", ["active", "completed"])
   ]);
-  const sessions = (sessionRows ?? []) as { id: string; session_type: string; status: string }[];
+  const sessions = (sessionRows ?? []) as { id: string; session_no: number; session_type: string; status: string }[];
   const sessionIds = sessions.map((s) => String(s.id));
   const { data: evalRows } = sessionIds.length
-    ? await admin.from("class_evaluations").select("student_id,total_score,max_score,asset_ids,notes").in("class_session_id", sessionIds)
-    : { data: [] as { student_id: string; total_score: number; max_score: number; asset_ids: string[]; notes: string }[] };
-  const evals = (evalRows ?? []) as { student_id: string; total_score: number; max_score: number; asset_ids: string[]; notes: string }[];
+    ? await admin.from("class_evaluations").select("student_id,class_session_id,rubric_id,total_score,max_score,criterion_scores,asset_ids,notes").in("class_session_id", sessionIds)
+    : { data: [] as OverviewEvaluationRow[] };
+  const evals = (evalRows ?? []) as OverviewEvaluationRow[];
 
   const percentScores = evals.filter((e) => Number(e.max_score) > 0).map((e) => (Number(e.total_score) / Number(e.max_score)) * 100);
   const avgScore = percentScores.length ? Math.round(percentScores.reduce((a, b) => a + b, 0) / percentScores.length) : 0;
@@ -769,8 +769,42 @@ export async function getClassOverview(access: TeachingAccessSnapshot, classId: 
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     if (avg < 70) attentionCount++;
   }
-  const graduationRows = await Promise.all((memberRows ?? []).map((member) => getGraduationForStudent(access, classId, String(member.user_id))));
-  const graduationReadyCount = graduationRows.filter((result) => result?.graduationStatus === "graduated").length;
+  // Compute every student's graduation state from the class-wide datasets above. The previous
+  // implementation called getGraduationForStudent once per student (4 database reads each), which
+  // made the overview progressively slower as a class grew.
+  const rubricIds = [...new Set(evals.map((evaluation) => String(evaluation.rubric_id)))];
+  const { data: requiredRows } = rubricIds.length
+    ? await admin.from("rubric_criteria").select("id,rubric_id,required").in("rubric_id", rubricIds).eq("required", true)
+    : { data: [] as { id: string; rubric_id: string; required: boolean }[] };
+  const requiredByRubric = new Map<string, string[]>();
+  for (const row of requiredRows ?? []) {
+    const key = String(row.rubric_id);
+    requiredByRubric.set(key, [...(requiredByRubric.get(key) ?? []), String(row.id)]);
+  }
+  const expectedSessionCount = Number(classRow?.total_sessions ?? 60);
+  const courseCompleted = sessions.length >= expectedSessionCount && sessions.every((session) => session.status === "completed");
+  const finalSession = sessions
+    .filter((session) => session.session_type === "practice_makeup_hair" || session.session_type === "practice_hair")
+    .sort((a, b) => Number(b.session_no) - Number(a.session_no))[0];
+  let graduationReadyCount = 0;
+  for (const member of memberRows ?? []) {
+    const studentEvaluations = evals.filter((evaluation) => String(evaluation.student_id) === String(member.user_id));
+    let requiredCriteriaMet = studentEvaluations.length > 0;
+    let evidenceComplete = studentEvaluations.length > 0;
+    for (const evaluation of studentEvaluations) {
+      const requiredIds = requiredByRubric.get(String(evaluation.rubric_id)) ?? [];
+      const scores = evaluation.criterion_scores ?? {};
+      if (requiredIds.some((id) => !(id in scores) || !Number.isFinite(Number(scores[id])) || Number(scores[id]) <= 0)) requiredCriteriaMet = false;
+      if (!((evaluation.asset_ids?.length ?? 0) > 0 && evaluation.notes?.trim())) evidenceComplete = false;
+    }
+    const finalEvaluation = finalSession ? studentEvaluations.find((evaluation) => String(evaluation.class_session_id) === String(finalSession.id)) : undefined;
+    const finalAssessmentPassed = Boolean(finalEvaluation && Number(finalEvaluation.max_score) > 0 && (Number(finalEvaluation.total_score) / Number(finalEvaluation.max_score)) * 100 >= 90);
+    const result = calculateGraduationStatus({
+      evaluations: studentEvaluations.map((evaluation) => ({ totalScore: Number(evaluation.total_score), maxScore: Number(evaluation.max_score) })),
+      requiredCriteriaMet, courseCompleted, evidenceComplete, finalAssessmentPassed
+    });
+    if (result.graduationStatus === "graduated") graduationReadyCount++;
+  }
 
   return {
     studentCount: (memberRows ?? []).length,
@@ -784,3 +818,14 @@ export async function getClassOverview(access: TeachingAccessSnapshot, classId: 
     graduationReadyCount
   };
 }
+
+type OverviewEvaluationRow = {
+  student_id: string;
+  class_session_id: string;
+  rubric_id: string;
+  total_score: number;
+  max_score: number;
+  criterion_scores: Record<string, number> | null;
+  asset_ids: string[] | null;
+  notes: string | null;
+};

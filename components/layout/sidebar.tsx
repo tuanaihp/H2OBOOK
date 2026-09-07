@@ -12,6 +12,17 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import { operationsFeatures } from "@/lib/operations/feature";
 
+const legacyTeachingNavigation = process.env.NEXT_PUBLIC_LEGACY_TEACHING_NAV === "true";
+const teachingLinks = legacyTeachingNavigation ? [
+  { href: "/students", label: "Học viên", icon: Users },
+  { href: "/class-view", label: "Class View", icon: Grid3X3 },
+  { href: "/reviews", label: "Duyệt xuất bản", icon: FileCheck2 },
+] : [
+  { href: "/instructor/students", label: "Học viên", icon: Users },
+  { href: "/instructor/classes", label: "Lớp & lịch học", icon: Grid3X3 },
+  { href: "/instructor/assessments", label: "Đánh giá", icon: ClipboardCheck },
+];
+
 const domains = [
   { id: "home", label: "Home", icon: LayoutDashboard, href: "/dashboard", links: [] },
   // Learning Control Center (v5/32-H2OBOOK_LEARN_OUTCOME_OS_V4 §9): this group used to be the
@@ -45,10 +56,8 @@ const domains = [
     { href: "/content-health", label: "Preflight", icon: HeartPulse },
     { href: "/publish", label: "Publish Center", icon: Send }
   ]},
-  { id: "teach", label: "Teach", icon: Users, href: "/students", links: [
-    { href: "/students", label: "Học viên", icon: Users },
-    { href: "/class-view", label: "Class View", icon: Grid3X3 },
-    { href: "/reviews", label: "Duyệt xuất bản", icon: FileCheck2 },
+  { id: "teach", label: "Teach", icon: Users, href: legacyTeachingNavigation ? "/students" : "/instructor", links: [
+    ...teachingLinks,
     { href: "/collaboration", label: "Cộng tác", icon: MessageSquareMore },
     { href: "/automations", label: "Automation", icon: Workflow },
     { href: "/processing", label: "Document Queue", icon: ListChecks }

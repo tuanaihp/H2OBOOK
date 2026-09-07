@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Bot, CheckCircle2, ChevronRight, CirclePlay, Compass, GraduationCap, Layers3, LineChart, ShieldCheck, Sparkles, Star, Target, Trophy, UsersRound } from "lucide-react";
+import { ArrowRight, BookOpen, Bot, CheckCircle2, ChevronRight, CirclePlay, Compass, GraduationCap, Layers3, LineChart, ShieldCheck, Star, Target, Trophy, UsersRound } from "lucide-react";
 import { BrandBookStack, FutureOrb, IntelligenceBadge, PublicShell, SectionHeading } from "@/components/marketing/public-shell";
 import { formatVnd, learningPaths, membershipPlans, publicBooks, publicCourses, publicStrategies, successStories } from "@/lib/public-site/content";
 import { KnowledgeUniverseHero } from "@/components/knowledge-universe";
@@ -8,6 +8,8 @@ import { isKnowledgeUniverseHeroEnabled } from "@/lib/knowledge-universe/feature
 import { PublicHomeV3 } from "@/components/public-home-v3";
 import { isPublicHomeV3Enabled } from "@/lib/public-home-v3/feature";
 import { loadPublicHomeV3 } from "@/lib/public-home-v3/loader.server";
+
+export const revalidate = 300;
 
 /** Pre-4.16 public hero. Kept intact so NEXT_PUBLIC_KNOWLEDGE_UNIVERSE_HERO_V1=false restores it verbatim. */
 function LegacyPublicHero() {

@@ -16,9 +16,9 @@ export const fontBody = Be_Vietnam_Pro({
   display: "swap",
   subsets: ["latin", "vietnamese"],
   // Be Vietnam Pro is not a variable font, so each weight is a separate file and only the ones the
-  // design actually uses are listed. The stylesheets lean on 700/800/900 heavily and also ask for
-  // 650/750/850/950, which the browser resolves to the nearest cut loaded here.
-  weight: ["400", "500", "600", "700", "800", "900"],
+  // design actually uses are listed. Browser synthesis covers intermediate weights while keeping
+  // the first page load to three body-font files instead of six.
+  weight: ["400", "600", "800"],
   fallback: ["Inter", "system-ui", "Arial", "sans-serif"]
 });
 

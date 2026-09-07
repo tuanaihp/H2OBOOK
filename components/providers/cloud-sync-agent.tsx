@@ -4,6 +4,11 @@ import { useEffect } from "react";
 import { useAppStore } from "@/store/app-store";
 
 const VERSION_KEY = "h2obook-cloud-client-version";
+const fingerprint = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);
+  return `${value.length}:${hash >>> 0}`;
+};
 
 export function CloudSyncAgent() {
   useEffect(() => {
@@ -33,23 +38,32 @@ export function CloudSyncAgent() {
       }
     };
 
+    let lastPayloadSignature = "";
     const push = () => {
       if (applyingRemote || stopped) return;
       window.clearTimeout(timeout);
       timeout = window.setTimeout(async () => {
+        if (document.visibilityState === "hidden" || !navigator.onLine) return;
         try {
           const state = useAppStore.getState();
           const clientVersion = Date.now();
+          const payload = state.exportData();
+          const payloadJson = JSON.stringify(payload);
+          // exportedAt changes on every call even when the actual workspace has not changed.
+          // Excluding it makes the duplicate guard reflect user data instead of wall-clock time.
+          const signature = fingerprint(JSON.stringify({ ...payload, exportedAt: "" }));
+          if (signature === lastPayloadSignature) return;
           const response = await fetch("/api/sync/push", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ organizationId: state.workspace.id, payload: state.exportData(), clientVersion })
+            body: `{"organizationId":${JSON.stringify(state.workspace.id)},"payload":${payloadJson},"clientVersion":${clientVersion}}`,
+            signal: AbortSignal.timeout(20_000)
           });
-          if (response.ok) localStorage.setItem(VERSION_KEY, String(clientVersion));
+          if (response.ok) { lastPayloadSignature = signature; localStorage.setItem(VERSION_KEY, String(clientVersion)); }
         } catch (error) {
           console.error("[H2OBOOK cloud push]", error);
         }
-      }, 5000);
+      }, 15_000);
     };
 
     const bootstrap = async () => {
