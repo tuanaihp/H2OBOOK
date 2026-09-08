@@ -1,104 +1,47 @@
 "use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { ArrowRight, BookOpenCheck, Brain, Compass, FileQuestion, GraduationCap, LibraryBig, RefreshCw, School, UsersRound, Workflow } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { ArrowRight, BookOpenCheck, Brain, Compass, FileQuestion, GraduationCap, LibraryBig, School, UsersRound, Workflow } from "lucide-react";
+import { useLocale } from "@/components/providers/locale-provider";
+import { useSummaryResource } from "@/hooks/use-summary-resource";
+import type { LearningControlSummary } from "@/lib/learning-control/summary";
+import { normalizeNavigationText } from "@/components/layout/navigation-dialog";
+import styles from "@/components/ui/experience.module.css";
 
-type Summary = {
-  stages: { total: number; published: number };
-  documents: number; missions: number; activeStudents: number; studentsWithProgress: number;
-  flashcards: number; knowledgeSpaces: number; classes: number; assignments: number; quizzes: number;
-};
-
-/**
- * Learning Control Center (v5/32-H2OBOOK_LEARN_OUTCOME_OS_V4 §9).
- *
- * This page used to render the workspace Owner as if they were a learner — a Zustand demo store's
- * fake "55% Mastery", fake study minutes, fake personal goals and fake due-flashcard counts. §9 is
- * explicit that Admin must NOT mirror Student LEARN. It now answers the admin question ("how is
- * training going across this organization") from real counts, and routes each of the 7 modules to
- * wherever it genuinely lives — including the two that do not exist yet, marked as such rather than
- * pointed at something unrelated.
- */
 export default function LearningControlCenterPage() {
-  const [data, setData] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [denied, setDenied] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/learning-control/summary");
-      if (res.status === 403) { setDenied(true); setLoading(false); return; }
-      const json = await res.json().catch(() => null);
-      setData(json?.summary ?? null);
-      setLoading(false);
-    })();
-  }, []);
-
-  const value = (n: number | undefined) => (loading ? "…" : String(n ?? 0));
-
-  const modules: { icon: typeof Compass; title: string; purpose: string; href: string | null; stat: string }[] = [
-    { icon: Compass, title: "Giai đoạn & Nội dung đào tạo", purpose: "Cấu hình Stage, Program, Module và tài liệu học viên thấy.", href: "/academy-admin/stages", stat: loading ? "…" : `${data?.stages.published ?? 0}/${data?.stages.total ?? 0} giai đoạn đang publish` },
-    { icon: Workflow, title: "Journey & Outcomes", purpose: "Outcome, Mission, unlock, Evidence và Result.", href: "/academy-admin/journey", stat: loading ? "…" : `${data?.missions ?? 0} Mission` },
-    { icon: LibraryBig, title: "Knowledge & Library", purpose: "Kho tài liệu canonical và gắn tài liệu vào lộ trình.", href: "/academy-admin/content", stat: loading ? "…" : `${data?.documents ?? 0} tài liệu` },
-    { icon: Brain, title: "Smart Review", purpose: "Flashcard, spaced repetition và review rules.", href: null, stat: loading ? "…" : `${data?.flashcards ?? 0} flashcard` },
-    { icon: School, title: "Classes & Cohorts", purpose: "Lớp học, cohort, lịch học và giảng viên.", href: "/instructor/classes", stat: loading ? "…" : `${data?.classes ?? 0} lớp trong bảng classes` },
-    { icon: BookOpenCheck, title: "Assignment & Review", purpose: "Bài tập, submission, teacher review và rubric.", href: "/instructor/assessments", stat: "Hàng đợi chấm bài thật" },
-    { icon: FileQuestion, title: "Quiz & Assessment", purpose: "Question bank, quiz, test và assessment.", href: null, stat: loading ? "…" : `${data?.quizzes ?? 0} quiz` }
+  const { locale } = useLocale();
+  const l = (vi: string, en: string) => locale === "vi" ? vi : en;
+  const { data: response, loading, error, refresh } = useSummaryResource<{ summary: LearningControlSummary | null }>("/api/learning-control/summary");
+  const data = response?.summary;
+  const [query, setQuery] = useState("");
+  const count = (n: number | undefined) => n === undefined ? "—" : String(n);
+  const modules = [
+    { icon: Compass, title: l("Giai đoạn & nội dung đào tạo", "Stages & curriculum"), purpose: l("Cấu hình chương trình, học phần và tài liệu theo từng giai đoạn.", "Configure programs, modules and resources for each stage."), href: "/academy-admin/stages", stat: count(data?.stages.published) + l(" giai đoạn đã công bố", " published stages") },
+    { icon: Workflow, title: l("Hành trình & kết quả", "Journeys & outcomes"), purpose: l("Xây mục tiêu đầu ra, nhiệm vụ, điều kiện mở và minh chứng hoàn thành.", "Build outcomes, missions, unlock rules and completion evidence."), href: "/academy-admin/journey", stat: count(data?.missions) + l(" nhiệm vụ", " missions") },
+    { icon: LibraryBig, title: l("Kho tri thức & thư viện", "Knowledge & library"), purpose: l("Quản lý học liệu và gắn tài liệu vào lộ trình.", "Manage learning materials and link them to journeys."), href: "/academy-admin/content", stat: count(data?.documents) + l(" tài liệu", " documents") },
+    { icon: School, title: l("Lớp học & nhóm", "Classes & cohorts"), purpose: l("Quản lý lớp, lịch học, học viên và giảng viên.", "Manage classes, schedules, students and instructors."), href: "/instructor/classes", stat: count(data?.classes) + l(" lớp", " classes") },
+    { icon: BookOpenCheck, title: l("Bài tập & chấm bài", "Assignments & review"), purpose: l("Xem bài nộp và đánh giá theo tiêu chí chấm điểm.", "Review submissions and grade against rubric criteria."), href: "/instructor/assessments", stat: l("Mở danh sách cần chấm", "Open assessment queue") },
+    { icon: Brain, title: l("Ôn tập thông minh", "Smart review"), purpose: l("Thẻ ghi nhớ, lặp lại ngắt quãng và quy tắc ôn tập.", "Flashcards, spaced repetition and review rules."), href: null, stat: count(data?.flashcards) + l(" thẻ ghi nhớ", " flashcards") },
+    { icon: FileQuestion, title: l("Trắc nghiệm & đánh giá", "Quizzes & assessment"), purpose: l("Ngân hàng câu hỏi, bài trắc nghiệm và kiểm tra.", "Question banks, quizzes and tests."), href: null, stat: count(data?.quizzes) + l(" bài trắc nghiệm", " quizzes") }
   ];
-
-  return <AppShell>
-    <section className="quantum-hero learning-hero">
-      <div>
-        <span className="eyebrow">LEARNING CONTROL CENTER</span>
-        <h1>Quản trị trải nghiệm học tập của tổ chức.</h1>
-        <p>Cùng domain với LEARN của học viên nhưng khác vai trò: cấu hình, vận hành, review, phân tích và publish — không phải màn hình học cá nhân.</p>
-        <div className="hero-actions">
-          <Link className="btn btn-primary" href="/academy-admin"><GraduationCap size={17}/>Academy Control Center</Link>
-          <Link className="btn btn-secondary" href="/academy-admin/journey"><Workflow size={17}/>Bản đồ kết quả học viên</Link>
-        </div>
-      </div>
-    </section>
-
-    {denied
-      ? <section className="section-card"><div className="section-body" style={{ padding: 18 }}><p style={{ margin: 0, fontSize: 13 }}>Khu vực này dành cho Owner/Admin/Giảng viên của tổ chức.</p></div></section>
-      : <>
-          <section className="smart-metric-grid">
-            <article><span><Compass/></span><div><strong>{loading ? "…" : `${data?.stages.published ?? 0}/${data?.stages.total ?? 0}`}</strong><small>Giai đoạn đang publish</small></div></article>
-            <article><span><LibraryBig/></span><div><strong>{value(data?.documents)}</strong><small>Tài liệu trong kho</small></div></article>
-            <article><span><Workflow/></span><div><strong>{value(data?.missions)}</strong><small>Mission đã cấu hình</small></div></article>
-            <article><span><UsersRound/></span><div><strong>{loading ? "…" : `${data?.studentsWithProgress ?? 0}/${data?.activeStudents ?? 0}`}</strong><small>Học viên đã có tiến độ</small></div></article>
-          </section>
-
-          <section className="section-card">
-            <div className="section-head"><div><h2>7 module đào tạo</h2><p>Mỗi module trỏ tới nơi nó thực sự được quản trị. Số liệu là đếm thật từ cơ sở dữ liệu.</p></div></div>
-            <div className="section-body" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", padding: 18 }}>
-              {modules.map((module) => {
-                const Icon = module.icon;
-                const inner = <>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ width: 34, height: 34, borderRadius: 11, background: "#eefaff", color: "#19869e", display: "grid", placeItems: "center", flex: "none" }}><Icon size={17}/></span>
-                    <div style={{ minWidth: 0 }}>
-                      <strong style={{ fontSize: 13, display: "block" }}>{module.title}</strong>
-                      <small style={{ display: "block", marginTop: 3, color: "#83858e", lineHeight: 1.5 }}>{module.purpose}</small>
-                      <small style={{ display: "block", marginTop: 6, fontWeight: 700, color: module.href ? "#19869e" : "#b7791f" }}>{module.stat}</small>
-                    </div>
-                    {module.href && <ArrowRight size={15} style={{ marginLeft: "auto", flex: "none", color: "#9aa3ad" }}/>}
-                  </div>
-                  {!module.href && <small style={{ display: "block", marginTop: 8, color: "#b7791f" }}>Chưa có trang quản trị — cần quyết định phạm vi riêng</small>}
-                </>;
-                return <div key={module.title} style={{ border: "1px solid #e4e8ec", borderRadius: 14, padding: 14, background: module.href ? "#fff" : "#fcfaf6", opacity: module.href ? 1 : 0.85 }}>
-                  {module.href ? <Link href={module.href} style={{ textDecoration: "none", color: "inherit" }}>{inner}</Link> : inner}
-                </div>;
-              })}
-            </div>
-          </section>
-
-          <section className="learning-path-strip">
-            <div><GraduationCap/><span><strong>Học viên học ở đâu?</strong><small>Trải nghiệm học thật của học viên nằm ở khu /student — khu này chỉ để quản trị.</small></span></div>
-            <Link href="/academy-admin">Mở Academy Control Center <ArrowRight size={14}/></Link>
-          </section>
-        </>}
-  </AppShell>;
+  const filtered = modules.filter(item=>normalizeNavigationText(item.title+" "+item.purpose).includes(normalizeNavigationText(query)));
+  const metrics = [
+    { icon: Compass, value: data ? data.stages.published + "/" + data.stages.total : "—", label: l("Giai đoạn đã công bố", "Published stages") },
+    { icon: LibraryBig, value: count(data?.documents), label: l("Tài liệu trong kho", "Library documents") },
+    { icon: Workflow, value: count(data?.missions), label: l("Nhiệm vụ đã cấu hình", "Configured missions") },
+    { icon: UsersRound, value: data ? data.studentsWithProgress + "/" + data.activeStudents : "—", label: l("Học viên có tiến độ / đang hoạt động", "With progress / active students") }
+  ];
+  const unavailable = error !== null || (!loading && !data);
+  return <AppShell><div className={styles.surface}>
+    <section className={styles.hero}><span className={styles.eyebrow}>{l("TRUNG TÂM QUẢN TRỊ ĐÀO TẠO", "LEARNING CONTROL CENTER")}</span><h1>{l("Nắm tiến độ. Điều hành việc học.", "Understand progress. Manage learning.")}</h1><p>{l("Quản lý chương trình, học liệu, lớp học và kết quả học viên trong một không gian.", "Manage curriculum, learning materials, classes and learner outcomes in one workspace.")}</p><div className={styles.actions}><Link className={styles.primary} href="/academy-admin"><GraduationCap size={18}/>{l("Điều hành học viện", "Academy control")}</Link><Link href="/instructor/assessments"><BookOpenCheck size={18}/>{l("Chấm bài & phản hồi", "Grade & give feedback")}</Link><button disabled={loading} onClick={refresh}><RefreshCw size={17}/>{l("Cập nhật", "Refresh")}</button></div></section>
+    {unavailable && <div className={styles.notice} role="alert"><p>{error === 403 ? l("Bạn chưa có quyền xem tổng quan đào tạo của tổ chức.", "You do not have access to this organization's training overview.") : l("Chưa tải được số liệu. Hãy thử lại để xem tiến độ mới nhất.", "Metrics are unavailable. Retry to see the latest progress.")}</p><div className={styles.actions}><button disabled={loading} onClick={refresh}>{l("Thử lại", "Retry")}</button></div></div>}
+    <section className={styles.metrics} aria-busy={loading}>{metrics.map(({icon:Icon,value,label})=><article className={styles.metric} key={label}><Icon size={23}/><div><strong>{value}</strong><small>{label}</small></div></article>)}</section>
+    {data && <section className={styles.panel}><header><h2>{l("Việc nên kiểm tra", "Suggested checks")}</h2><span>{l("Dựa trên số liệu hiện tại", "Based on current metrics")}</span></header><div className={styles.list}>
+      {data.stages.total > data.stages.published && <Link href="/academy-admin/stages" className={styles.item}><Compass/><div><strong>{data.stages.total - data.stages.published} {l("giai đoạn chưa công bố", "unpublished stages")}</strong><p>{l("Kiểm tra học liệu và điều kiện trước khi mở cho học viên.", "Review resources and access rules before opening to students.")}</p></div><ArrowRight/></Link>}
+      {data.classes === 0 && <Link href="/instructor/classes" className={styles.item}><School/><div><strong>{l("Tạo lớp và ghi danh học viên", "Create a class and enroll students")}</strong></div><ArrowRight/></Link>}
+      <Link href="/academy-admin/data-link" className={styles.item}><Workflow/><div><strong>{l("Kiểm tra liên kết học liệu & lộ trình", "Check resource & journey links")}</strong><p>{l("Xác nhận tài liệu và nhiệm vụ đã được gắn đúng giai đoạn.", "Confirm resources and missions are linked to the correct stage.")}</p></div><ArrowRight/></Link>
+    </div></section>}
+    <section className={styles.panel}><header className={styles.toolbar}><h2>{l("Chức năng đào tạo", "Training modules")}</h2><input value={query} onChange={e=>setQuery(e.target.value)} aria-label={l("Tìm chức năng đào tạo", "Search training modules")} placeholder={l("Tìm lớp, học liệu, chấm bài…", "Find classes, materials, reviews…")}/></header><div className={styles.modules}>{filtered.map(module=>{const Icon=module.icon;const body=<><Icon size={24}/><h3>{module.title}</h3><p>{module.purpose}</p><b>{module.stat}</b>{!module.href && <small>{l("Chưa có trang quản trị riêng", "Dedicated administration is not available yet")}</small>}</>;return module.href ? <Link key={module.title} className={styles.module} href={module.href}>{body}<ArrowRight size={17}/></Link> : <article key={module.title} className={styles.module}>{body}</article>;})}</div>{!filtered.length && <p role="status">{l("Không tìm thấy chức năng phù hợp.", "No matching modules.")}</p>}</section>
+  </div></AppShell>;
 }

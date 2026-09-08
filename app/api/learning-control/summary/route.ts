@@ -11,5 +11,6 @@ export async function GET(request: Request) {
   if (!access) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
   const summary = await getLearningControlSummary(access.organizationId);
-  return NextResponse.json({ summary });
+  if (!summary) return NextResponse.json({ error: "SUMMARY_UNAVAILABLE" }, { status: 503 });
+  return NextResponse.json({ summary }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -1,48 +1,46 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ArrowRight, BookOpen, Bot, CheckCircle2, ChevronRight, CirclePlay, Clock3, Compass, Flame, GraduationCap, Sparkles, Target, Trophy } from "lucide-react";
-import { useAppStore } from "@/store/app-store";
-import { useStudentName, useStudentProgress } from "@/components/student/student-data";
-import { studentAchievements, studentMissions, studentSkills } from "@/lib/student/experience";
-import { SmartHomeRoadmapWidget } from "@/components/student/smart-home-roadmap-widget";
-import { H2OBrainCore } from "@/components/brand/h2o-brain-core";
+import { ArrowRight, BookOpen, CalendarDays, GraduationCap, RefreshCw, Target, Trophy } from "lucide-react";
+import { useStudentData, useStudentName } from "@/components/student/student-data";
+import { useLocale } from "@/components/providers/locale-provider";
+import styles from "@/components/ui/experience.module.css";
 
-type LiveTask={id:string;title:string;description:string;href:string;estimatedMinutes:number};
-type LiveSkill={key:string;label:string;masteryPercent:number;nextAction?:string};
-type LiveStage={slug:string;title:string;description:string};
-type LiveSummary={user:{name:string;email:string};courseProgress:number;mastery:number;activeCourses:number;completedLessons:number;totalLessons:number;nextCourse:{slug:string;title:string}|null;skillMastery:LiveSkill[];todayTasks:LiveTask[];unlockedStageIds?:string[];stages?:LiveStage[];mode:"demo"|"production"};
-export default function StudentDashboard(){const store=useAppStore();const [live,setLive]=useState<LiveSummary|null>(null);useEffect(()=>{fetch("/api/student/summary",{cache:"no-store"}).then(response=>response.ok?response.json():null).then(payload=>payload&&setLive(payload)).catch(()=>null)},[]);const activeMission=studentMissions[0];const liveTask=live?.mode==="production"?live.todayTasks?.[0]:undefined;const liveSkills=live?.mode==="production"&&live.skillMastery?.length?live.skillMastery:undefined;const skillMapStatus=(percent:number):"completed"|"active"|"locked"=>percent>=100?"completed":percent>0?"active":"locked";const skillMapItems=liveSkills?liveSkills.map(s=>({id:s.key,title:s.label,group:"Skill Mastery",progress:s.masteryPercent,status:skillMapStatus(s.masteryPercent),evidence:s.nextAction??""})):studentSkills.slice(0,7);const displayName=useStudentName("bạn");const progressPercent=useStudentProgress();const mastery=progressPercent??0;// Was `live?.mastery ?? student?.progress ?? 68` — the demo seed showed 78% to a real student with no
-  // progress at all, then snapped to the true number once the fetch landed.
-  return <>
-  <section className="h2o-student-hero"><div><span className="h2o-student-eyebrow"><Sparkles/>AI LEARNING COMMAND CENTER</span><h1>Chào buổi sáng, {displayName.split(" ").slice(-1)[0]} 👋</h1><p>{live&&live.mode==="production"?`Bạn đã hoàn thành ${live.completedLessons}/${live.totalLessons} bài trong ${live.activeCourses} khóa đang mở.`:"Hôm nay bạn đang ở ngày thứ 18 trong hành trình trở thành Makeup Artist chuyên nghiệp."}</p><div><Link href={live?.nextCourse?`/student/courses/${live.nextCourse.slug}`:"/student/courses"} className="h2o-student-primary"><CirclePlay/>Tiếp tục bài đang học</Link><Link href="/student/roadmap" className="h2o-student-secondary"><Compass/>Xem lộ trình của tôi</Link></div></div><aside><H2OBrainCore size={104}/><div><small>MASTERY SCORE</small><strong>{mastery}%</strong><span><i style={{width:`${mastery}%`}}/></span><p>Skill Map cập nhật theo bài học đã hoàn thành</p></div></aside></section>
-
-  <section className="h2o-student-metrics">{(()=>{const p=live?.mode==="production"?live:null;const v=(value:string|number)=>p?String(value):"—";return <>
-    <article><span><BookOpen/></span><div><strong>{p?`${p.completedLessons}/${p.totalLessons}`:"—"}</strong><small>Bài đã hoàn thành</small></div></article>
-    <article><span><GraduationCap/></span><div><strong>{v(p?.activeCourses??0)}</strong><small>Khóa đang học</small></div></article>
-    <article><span><Target/></span><div><strong>{p?`${p.skillMastery.filter(s=>s.masteryPercent>0).length}/${p.skillMastery.length}`:"—"}</strong><small>Kỹ năng đang mở</small></div></article>
-    <article><span><Trophy/></span><div><strong>{v(p?.todayTasks.length??0)}</strong><small>Việc cần làm</small></div></article>
-  </>})()}</section>
-
-  <div className="h2o-student-dashboard-grid">
-    {liveTask?<section className="h2o-student-card h2o-today-mission"><header><div><span>NHIỆM VỤ HÔM NAY</span><h2>{liveTask.title}</h2><p>{liveTask.description}</p></div><small><Clock3/>{liveTask.estimatedMinutes} phút</small></header><footer><Link href={liveTask.href}>Bắt đầu <ArrowRight/></Link></footer></section>:
-    <section className="h2o-student-card h2o-today-mission"><header><div><span>NHIỆM VỤ HÔM NAY</span><h2>{activeMission.title}</h2><p>{activeMission.detail}</p></div><small><Clock3/>{activeMission.duration}</small></header><div className="h2o-mission-progress"><span><i style={{width:`${activeMission.progress}%`}}/></span><b>{activeMission.progress}%</b></div><div className="h2o-mission-steps">{activeMission.steps.map((step,index)=><div key={step} className={index<2?"done":""}><span>{index<2?<CheckCircle2/>:index+1}</span><strong>{step}</strong></div>)}</div><footer><Link href="/reader/book_skin">Tiếp tục nhiệm vụ <ArrowRight/></Link><span>Hoàn thành trước 21:00</span></footer></section>}
-
-    <section className="h2o-student-card h2o-mentor-card"><div className="h2o-mentor-card-aura"/><header><Bot/><span><small>H2O MENTOR</small><strong>Trợ lý học tập của bạn</strong></span><i>LOCAL</i></header><blockquote>“Bạn đang tiến bộ tốt ở kỹ thuật nền. Hôm nay nên tập trung vào độ mỏng vùng má và thời gian chờ giữa các lớp.”</blockquote><div className="h2o-mentor-suggestions"><Link href="/student/mentor">Tôi nên học bài nào tiếp?</Link><Link href="/student/mentor">Bài tập của tôi còn thiếu gì?</Link></div><Link href="/student/mentor" className="h2o-mentor-open">Mở H2O Mentor <ArrowRight/></Link></section>
-  </div>
-
-  <div className="h2o-student-dashboard-grid second">
-    <section className="h2o-student-card"><header className="h2o-student-card-head"><div><span>CONTINUE LEARNING</span><h2>Tiếp tục học</h2></div><Link href="/student/courses">Tất cả <ArrowRight/></Link></header><div className="h2o-student-continue-list">{store.books.slice(0,3).map((book,index)=><Link key={book.id} href={`/reader/${book.id}`}><div style={{background:book.cover}}><small>0{index+1}</small><BookOpen/></div><span><small>{index===0?"BÀI ĐANG HỌC":"SÁCH GỢI Ý"}</small><strong>{book.title}</strong><p>{index===0?"Bài 3.2 · Kỹ thuật nền cô dâu":book.subtitle}</p><em><i style={{width:`${62-index*14}%`}}/></em></span><ChevronRight/></Link>)}</div></section>
-    <SmartHomeRoadmapWidget mastery={mastery} unlockedStageIds={live?.mode==="production"?live.unlockedStageIds:undefined} stages={live?.mode==="production"?live.stages:undefined}/>
-  </div>
-
-  <section className="h2o-student-card h2o-skill-map-preview"><header className="h2o-student-card-head"><div><span>SKILL MAP</span><h2>Bản đồ kỹ năng của bạn</h2><p>Mỗi kỹ năng được mở bằng bài học, thực hành và bằng chứng năng lực.</p></div><Link href="/student/roadmap">Xem toàn bộ <ArrowRight/></Link></header><div className="h2o-skill-map-row">{skillMapItems.map((skill,index)=><article key={skill.id} className={skill.status}><div><span>{skill.progress}%</span><i style={{"--skill-progress":`${skill.progress*3.6}deg`} as React.CSSProperties}/></div><small>{skill.group}</small><strong>{skill.title}</strong><p>{skill.evidence}</p>{index<6&&<ArrowRight className="connector"/>}</article>)}</div></section>
-
-  <div className="h2o-student-dashboard-grid third"><section className="h2o-student-card"><header className="h2o-student-card-head"><div><span>UPCOMING ASSIGNMENTS</span><h2>Bài tập cần hoàn thành</h2></div><Link href="/student/assignments">Xem tất cả <ArrowRight/></Link></header><div className="h2o-student-assignment-list">{live?.mode==="production"
-    ? (live.todayTasks.length===0
-        ? <p style={{color:"#718092",fontSize:13,lineHeight:1.6,margin:0}}>Hiện chưa có bài tập nào cần hoàn thành. Khi giảng viên giao bài, nó sẽ xuất hiện ở đây.</p>
-        : live.todayTasks.slice(0,3).map(task=><article key={task.href}><span>{task.estimatedMinutes} phút</span><div><strong>{task.title}</strong><p>{task.description}</p></div><Link href={task.href}><ArrowRight/></Link></article>))
-    : store.assignments.slice(0,3).map((assignment)=><article key={assignment.id}><span>Dữ liệu mẫu</span><div><strong>{assignment.title}</strong><p>{assignment.instructions}</p><small>{assignment.maxScore} điểm</small></div><Link href="/student/assignments"><ArrowRight/></Link></article>)}</div></section><section className="h2o-student-card"><header className="h2o-student-card-head"><div><span>ACHIEVEMENTS</span><h2>Thành tựu mới nhất</h2></div><Link href="/student/profile">Hồ sơ <ArrowRight/></Link></header><div className="h2o-achievement-grid">{live?.mode==="production"
-    ? <p style={{color:"#718092",fontSize:13,lineHeight:1.6,margin:0}}>Bạn chưa có thành tựu nào. Thành tựu được trao khi hoàn thành bài học và bài thực hành được duyệt.</p>
-    : studentAchievements.map(item=><article key={item.title}><span>{item.icon}</span><strong>{item.title}</strong><small>{item.description}</small></article>)}</div></section></div>
-</>}
+export default function StudentDashboard() {
+  const { summary, loading, error, refresh, live } = useStudentData();
+  const name = useStudentName();
+  const { locale } = useLocale();
+  const l = (vi: string, en: string) => locale === "vi" ? vi : en;
+  const data = summary && (!live || summary.mode === "production") ? summary : null;
+  const next = data?.todayTasks[0];
+  const courseHref = data?.nextCourse ? "/student/courses/" + encodeURIComponent(data.nextCourse.slug) : "/student/courses";
+  const metrics = [
+    { icon: BookOpen, value: data ? data.completedLessons + "/" + data.totalLessons : "—", label: l("Bài đã hoàn thành", "Lessons completed") },
+    { icon: GraduationCap, value: data?.activeCourses ?? "—", label: l("Khóa đang học", "Active courses") },
+    { icon: Target, value: data ? data.mastery + "%" : "—", label: l("Mức độ thành thạo", "Mastery") },
+    { icon: Trophy, value: data?.todayTasks.length ?? "—", label: l("Việc cần làm", "Next tasks") }
+  ];
+  return <div className={styles.surface}>
+    <section className={styles.hero}>
+      <span className={styles.eyebrow}>{l("KHÔNG GIAN HỌC TẬP", "LEARNING WORKSPACE")}</span>
+      <h1>{l("Chào", "Hello")}, {name} 👋</h1>
+      <p>{next ? l("Bước tiếp theo: ", "Next step: ") + next.title : l("Theo dõi tiến độ, mở lịch học và tiếp tục hành trình của bạn.", "Track your progress, open your schedule and continue your journey.")}</p>
+      <div className={styles.actions}>
+        <Link className={styles.primary} href={next?.href ?? courseHref}><ArrowRight size={17}/>{next ? l("Bắt đầu nhiệm vụ", "Start task") : l("Mở khóa học của tôi", "My courses")}</Link>
+        <Link href="/student/makeup-journey"><CalendarDays size={17}/>{l("Lịch học", "Schedule")}</Link>
+        <Link href="/student/library"><BookOpen size={17}/>{l("Thư viện", "Library")}</Link>
+      </div>
+    </section>
+    {error !== null || (!loading && !data) ? <div className={styles.notice} role="alert"><p>{l("Chưa tải được tiến độ học tập. Bạn vẫn có thể mở khóa học và thư viện.", "Learning progress is unavailable. You can still open your courses and library.")}</p><div className={styles.actions}><button onClick={refresh} disabled={loading}><RefreshCw size={16}/>{l("Thử lại", "Retry")}</button></div></div> : null}
+    {data?.mode === "demo" && <div className={styles.notice}>{l("Bạn đang xem dữ liệu minh họa.", "You are viewing sample data.")}</div>}
+    <section className={styles.metrics} aria-busy={loading} aria-label={l("Tiến độ học tập", "Learning progress")}>{metrics.map(({ icon: Icon, value, label }) => <article className={styles.metric} key={label}><Icon size={24}/><div><strong>{value}</strong><small>{label}</small></div></article>)}</section>
+    <div className={styles.toolbar}><span role="status">{loading ? l("Đang cập nhật tiến độ…", "Updating progress…") : l("Kế hoạch học tập của bạn", "Your learning plan")}</span><div className={styles.actions}><button disabled={loading} onClick={refresh}><RefreshCw size={16}/>{l("Cập nhật", "Refresh")}</button></div></div>
+    <div className={styles.columns}>
+      <section className={styles.panel}><header><h2>{l("Ưu tiên hôm nay", "Today's priorities")}</h2><Link href="/student/assignments">{l("Xem bài tập", "Assignments")}</Link></header>
+        <div className={styles.list}>{data?.todayTasks.length ? data.todayTasks.slice(0,5).map((task, index) => <Link className={styles.item} key={task.href + index} href={task.href}><Target size={22}/><div><strong>{task.title}</strong><p>{task.description}</p><small>{task.estimatedMinutes} {l("phút", "minutes")}</small></div><ArrowRight size={17}/></Link>) : <div className={styles.empty}>{loading ? l("Đang tải nhiệm vụ…", "Loading tasks…") : data ? l("Chưa có nhiệm vụ cần làm. Kiểm tra lịch học hoặc mở thư viện để tự ôn tập.", "No tasks due. Check your schedule or review your library.") : l("Nhiệm vụ sẽ xuất hiện khi tải được dữ liệu.", "Tasks will appear when data is available.")}</div>}</div>
+      </section>
+      <section className={styles.panel}><h2>{l("Tiếp tục học", "Continue learning")}</h2><p>{data?.nextCourse?.title ?? l("Chọn khóa học được cấp quyền để bắt đầu hoặc tiếp tục học.", "Choose an available course to start or continue learning.")}</p><div className={styles.actions}><Link className={styles.primary} href={courseHref}><BookOpen size={16}/>{l("Mở khóa học", "Open courses")}</Link></div><hr/><h2>{l("Cần hỗ trợ?", "Need help?")}</h2><p>{l("Mở trợ lý để hỏi về bài học và hướng dẫn thực hành.", "Ask your assistant about lessons and practice guidance.")}</p><div className={styles.actions}><Link href="/student/mentor">{l("Hỏi trợ lý học tập", "Ask your learning assistant")}</Link><Link href="/student/profile">{l("Hồ sơ & thành tựu", "Profile & achievements")}</Link></div></section>
+    </div>
+    <section className={styles.panel}><header><h2>{l("Kỹ năng của bạn", "Your skills")}</h2><Link href="/student/roadmap">{l("Xem lộ trình", "View roadmap")}</Link></header><div className={styles.modules}>{data?.skillMastery.length ? data.skillMastery.map(skill => <article className={styles.module} key={skill.key}><Target size={20}/><h3>{skill.label}</h3><b>{skill.masteryPercent}%</b><progress className={styles.progress} max={100} value={Math.max(0, Math.min(100, skill.masteryPercent))} aria-label={skill.label}/>{skill.nextAction && <p>{skill.nextAction}</p>}</article>) : <p className={styles.empty}>{l("Kỹ năng được cập nhật từ bài học và kết quả thực hành của bạn.", "Skills are updated from your lessons and practice results.")}</p>}</div></section>
+    <section className={styles.panel}><header><h2>{l("Lộ trình nghề nghiệp", "Career journey")}</h2><Link href="/student/roadmap">{l("Chi tiết", "Details")}</Link></header><div className={styles.list}>{data?.stages?.length ? data.stages.map((stage,index) => <Link className={styles.item} key={stage.slug} href="/student/roadmap"><span>{String(index+1).padStart(2,"0")}</span><div><strong>{stage.title}</strong><p>{stage.description}</p><small>{data.unlockedStageIds?.includes(stage.slug) ? l("Đã mở", "Available") : l("Xem điều kiện mở", "View access requirements")}</small></div><ArrowRight size={17}/></Link>) : <Link className={styles.item} href="/student/roadmap">{l("Mở lộ trình và điều kiện của từng giai đoạn", "Open your roadmap and stage requirements")}<ArrowRight size={17}/></Link>}</div></section>
+  </div>;
+}

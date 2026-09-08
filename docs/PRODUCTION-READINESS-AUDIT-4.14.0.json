@@ -1,6 +1,6 @@
 {
   "version": "4.14.0",
-  "generatedAt": "2026-08-29T07:39:48.782Z",
+  "generatedAt": "2026-09-07T12:59:13.534Z",
   "releaseReady": false,
   "checks": [
     {
@@ -26,7 +26,7 @@
     {
       "name": "load-test",
       "status": "pass",
-      "detail": "{\"ok\":true,\"nodes\":20001,\"durationMs\":28,\"heapDeltaMb\":15}"
+      "detail": "{\"ok\":true,\"nodes\":20001,\"durationMs\":50,\"heapDeltaMb\":15}"
     },
     {
       "name": "processor-hardening",

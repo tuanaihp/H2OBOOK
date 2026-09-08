@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ArrowLeft, BookOpenCheck, ClipboardCheck, GraduationCap, LayoutDashboard, Scissors, Settings2, Sparkles, Users } from "lucide-react";
 import styles from "./student-management-workspace.module.css";
@@ -35,7 +36,23 @@ const TABS: { key: TabKey; label: string; description: string; icon: typeof Layo
 ];
 
 export function StudentManagementWorkspace({ classId: requestedClassId }: { classId?: string }) {
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const activeTab: TabKey = TABS.find(tab => tab.key === requestedTab)?.key ?? "overview";
+  const tabNavigationCount = useRef(0);
+  const setActiveTab = (tab: TabKey) => {
+    if (tab === activeTab) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.pushState(null, "", url.pathname + url.search + url.hash);
+    tabNavigationCount.current += 1;
+  };
+  useEffect(() => {
+    const onBack = () => { tabNavigationCount.current = Math.max(0, tabNavigationCount.current - 1); };
+    window.addEventListener("popstate", onBack);
+    return () => window.removeEventListener("popstate", onBack);
+  }, []);
   const [classes, setClasses] = useState<TeachingClass[]>([]);
   const [klass, setKlass] = useState<TeachingClass | null>(null);
   const [classId, setClassId] = useState<string | null>(requestedClassId ?? null);
@@ -89,7 +106,7 @@ export function StudentManagementWorkspace({ classId: requestedClassId }: { clas
       <div className={styles.sidebarFooter}><b>{klass?.name ?? "Khóa Makeup Chuyên nghiệp"}</b><span>{klass?.code ?? "Chưa có lớp"} · 3 tháng · 60 buổi</span><span>Theo dõi năng lực sau từng buổi</span></div>
     </aside>
     <main className={styles.main}>
-      <header className={styles.topbar}><div><Link className={styles.back} href="/instructor/classes"><ArrowLeft size={14} />Danh sách lớp</Link><h1>{active.label}</h1><p>{active.description}</p></div><div className={styles.context}>
+      <header className={styles.topbar}><div><div className={styles.backActions}><button type="button" className={styles.backButton} onClick={() => tabNavigationCount.current > 0 ? router.back() : router.push("/instructor/classes")}><ArrowLeft size={14} />Quay lại</button><Link className={styles.back} href="/instructor/classes">Danh sách lớp</Link><Link className={styles.back} href="/learn">Tổng quan đào tạo</Link></div><h1>{active.label}</h1><p>{active.description}</p></div><div className={styles.context}>
         {classes.length > 1 ? <select aria-label="Chọn lớp" value={classId ?? ""} onChange={(event) => { const selected = classes.find((item) => item.id === event.target.value) ?? null; setKlass(selected); setClassId(selected?.id ?? null); setSelectedStudentId(""); }}><option value="">Chọn lớp</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select> : <span>{klass?.code ?? "Lớp học"}</span>}<b>{roster.length} học viên</b>
       </div></header>
       {loadError && <div className={styles.errorBanner}>{loadError}<button type="button" onClick={() => void loadClasses(classId ?? undefined)}>Thử lại</button></div>}

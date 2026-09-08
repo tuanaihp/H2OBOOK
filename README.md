@@ -1,5 +1,7 @@
 # H2OBOOK Unified Input Engine 4.13.7
 
+> Hồ sơ tổng ứng dụng để AI và đội phát triển tra cứu: [docs/H2OBOOK-APP-MASTER-INFO.md](docs/H2OBOOK-APP-MASTER-INFO.md).
+
 > Academy V4.16 đã nối vòng doanh thu, Supabase Auth invite, lesson player, progress/Skill Map, checkout và email giao dịch. Xem [Academy Production Runbook](docs/ACADEMY-PRODUCTION-RUNBOOK.md).
 
 **Professional Authoring & Publishing Engine — Offline-first, AI optional.**

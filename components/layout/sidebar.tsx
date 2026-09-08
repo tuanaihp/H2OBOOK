@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import { operationsFeatures } from "@/lib/operations/feature";
+import { useLocale } from "@/components/providers/locale-provider";
 
 const legacyTeachingNavigation = process.env.NEXT_PUBLIC_LEGACY_TEACHING_NAV === "true";
 const teachingLinks = legacyTeachingNavigation ? [
@@ -94,6 +95,7 @@ const domains = [
 ];
 
 export function Sidebar() {
+  const { t } = useLocale();
   const pathname = usePathname();
   const workspace = useAppStore((state) => state.workspace);
   const smart = useAppStore((state) => state.smartSettings);
@@ -102,14 +104,24 @@ export function Sidebar() {
   return <aside className="sidebar quantum-sidebar">
     <div className="quantum-rail">
       <Link href="/dashboard" className="quantum-logo" aria-label="H2OBOOK"><span>H₂</span></Link>
-      <nav>{domains.map(({ id, label, icon: Icon, href }) => <Link key={id} href={href} className={cn("quantum-rail-link", activeDomain.id === id && "active")} title={label}><Icon/><span>{label}</span></Link>)}</nav>
-      <Link href="/ai-studio" className={cn("quantum-assist-link", pathname.startsWith("/ai-studio") && "active")} title="Smart Tools – AI tùy chọn"><Sparkles/><span>Smart</span><i>{smart.aiEnabled ? "AI" : "LOCAL"}</i></Link>
+      <nav>{domains.map(({ id, label, icon: Icon, href }) => <Link key={id} href={href} className={cn("quantum-rail-link", activeDomain.id === id && "active")} title={t(label)}><Icon/><span>{t(label)}</span></Link>)}</nav>
+      <Link href="/ai-studio" className={cn("quantum-assist-link", pathname.startsWith("/ai-studio") && "active")} title={t("Smart Tools – AI tùy chọn")}><Sparkles/><span>Smart</span><i>{smart.aiEnabled ? "AI" : "LOCAL"}</i></Link>
     </div>
     <div className="quantum-context-nav">
       <Link href="/dashboard" className="brand-logo"><div className="brand-mark">H2</div><div className="brand-word"><strong>H2OBOOK</strong><span>Editor 4.14</span></div></Link>
-      <div className="context-domain-head"><span>{activeDomain.label}</span><small>{smart.aiEnabled ? "AI hỗ trợ đang bật" : "Core độc lập AI"}</small></div>
-      <div className="sidebar-scroll">{activeDomain.links.length ? activeDomain.links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn("nav-link", pathname === href || pathname.startsWith(`${href}/`) ? "active" : "")}><Icon/>{label}</Link>) : <div className="context-home-card"><strong>Smart Home</strong><p>Ưu tiên hôm nay, tiến độ học và các dự án đang hoạt động.</p></div>}</div>
-      <div className="sidebar-bottom"><div className="plan-card"><div className="plan-title"><strong>{workspace.plan === "academy" ? "Academy Pro" : workspace.plan}</strong><span>{usage}%</span></div><p>{(workspace.storageUsedMb / 1024).toFixed(1)} GB / {(workspace.storageLimitMb / 1024).toFixed(0)} GB dung lượng</p><div className="plan-progress"><span style={{ width: `${usage}%` }}/></div><Link href="/membership">Quản lý gói</Link></div></div>
+      <div className="context-domain-head"><span>{t(activeDomain.label)}</span><small>{smart.aiEnabled ? t("AI hỗ trợ đang bật") : t("Lõi độc lập AI")}</small></div>
+      <div className="sidebar-scroll">{activeDomain.links.length ? activeDomain.links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn("nav-link", pathname === href || pathname.startsWith(`${href}/`) ? "active" : "")}><Icon/>{t(label)}</Link>) : <div className="context-home-card"><strong>{t("Smart Home")}</strong><p>{t("Ưu tiên hôm nay, tiến độ học và các dự án đang hoạt động.")}</p></div>}</div>
+      <div className="sidebar-bottom"><div className="plan-card"><div className="plan-title"><strong>{workspace.plan === "academy" ? "Academy Pro" : workspace.plan}</strong><span>{usage}%</span></div><p>{(workspace.storageUsedMb / 1024).toFixed(1)} GB / {(workspace.storageLimitMb / 1024).toFixed(0)} GB {t("dung lượng")}</p><div className="plan-progress"><span style={{ width: `${usage}%` }}/></div><Link href="/membership">{t("Quản lý gói")}</Link></div></div>
     </div>
   </aside>;
+}
+
+/** Desktop, mobile and command search share the same feature-gated destinations. */
+export function workspaceNavigationEntries(t: (key: string) => string) {
+  const seen = new Set<string>();
+  return domains.flatMap(domain => [{ href: domain.href, label: domain.label }, ...domain.links].map(item => ({ href: item.href, label: t(item.label), group: t(domain.label) }))).filter(item => {
+    if (seen.has(item.href)) return false;
+    seen.add(item.href);
+    return true;
+  });
 }

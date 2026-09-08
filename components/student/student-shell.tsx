@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BookOpen, Bot, Brain, Briefcase, CalendarDays, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Menu, Scissors, Search, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
+import { BookOpen, Bot, Brain, Briefcase, CalendarDays, ChevronDown, ChevronRight, CircleUserRound, ClipboardCheck, Compass, FolderKanban, GraduationCap, Home, LibraryBig, LogOut, Scissors, ShoppingBag, Sparkles, TrendingUp, Trophy, UsersRound, Wand2 } from "lucide-react";
 import { NeuralHeaderSignal } from "@/components/global-neural";
 import { buildCompactNavigation, resolveActiveItem, toAccountRole } from "@/lib/student/compact-navigation";
 import { StudentDataProvider, useStudentName, useStudentProgress } from "./student-data";
 import { NotificationBell } from "./notification-bell";
+import { NavigationDialog } from "@/components/layout/navigation-dialog";
+import { LanguageSwitcher } from "@/components/providers/language-switcher";
+import { useLocale } from "@/components/providers/locale-provider";
 
 // Compact Navigation Upgrade V2: HOME / LEARN / CREATE (if unlocked) / BUSINESS instead of the
 // previous flat 8-item list. Group membership and unlock rules live in
@@ -31,12 +34,17 @@ export function StudentShell({ children, currentUser }: { children: React.ReactN
 }
 
 function StudentShellBody({ children, currentUser }: { children: React.ReactNode; currentUser?: { name: string; email: string; role: string; demo: boolean } }) {
+  const { t, locale } = useLocale();
+  const l = (vi: string, en: string) => locale === "vi" ? vi : en;
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const studentName = useStudentName("H2O Student");
   const progressPercent = useStudentProgress();
-  const groups = buildCompactNavigation({ role: toAccountRole(currentUser?.role ?? "student"), subscription: "basic" });
+  const accountRole = toAccountRole(currentUser?.role ?? "student");
+  // Staff visiting the learner surface need learner navigation too; access stays server-enforced.
+  const groups = buildCompactNavigation({ role: accountRole === "owner" || accountRole === "admin" ? "student" : accountRole, subscription: "basic" });
   const flatItems = groups.flatMap((group) => group.items);
+  const entries = groups.flatMap(group => group.items.map(item => ({ href: item.href, label: t(item.label), group: t(group.label) })));
   const { itemId: activeItemId, groupId: activeGroupId } = resolveActiveItem(groups, pathname, { source: searchParams.get("from") });
 
   // Undefined means "not decided by the user yet" and falls back to: open when this is the group
@@ -70,8 +78,8 @@ function StudentShellBody({ children, currentUser }: { children: React.ReactNode
 
   return <div className="h2o-student-shell">
     <aside className="h2o-student-sidebar">
-      <Link href="/student" className="h2o-student-brand"><span>H₂</span><div><strong>H2OBOOK</strong><small>Learning Universe</small></div></Link>
-      <div className="h2o-student-profile-mini"><div>{studentName.split(" ").slice(-1)[0]?.slice(0,1) ?? "H"}</div><span><small>Học viên</small><strong>{studentName}</strong><em>{progressPercent === null ? "Đang tải tiến độ…" : `${progressPercent}% hành trình`}</em></span></div>
+      <Link href="/student" className="h2o-student-brand"><span>H₂</span><div><strong>H2OBOOK</strong><small>{t("Learning Universe")}</small></div></Link>
+      <div className="h2o-student-profile-mini"><div>{studentName.split(" ").slice(-1)[0]?.slice(0,1) ?? "H"}</div><span><small>{l("Học viên", "Student")}</small><strong>{studentName}</strong><em>{progressPercent === null ? l("Đang tải tiến độ…", "Loading progress…") : `${progressPercent}% ${l("hành trình", "of journey")}`}</em></span></div>
       {groups.map((group) => {
         // A one-item group (HOME) has nothing to reveal, so it stays a plain label rather than
         // becoming a control that visibly does nothing.
@@ -83,30 +91,30 @@ function StudentShellBody({ children, currentUser }: { children: React.ReactNode
           {collapsible
             ? <button type="button" className="h2oc-nav-group-toggle" aria-expanded={open} aria-controls={panelId} onClick={() => setOpenGroups((current) => ({ ...current, [group.id]: !open }))}>
                 <GroupIcon aria-hidden="true"/>
-                <span>{group.label}</span>
+                <span>{t(group.label)}</span>
                 <em aria-hidden="true">{group.items.length}</em>
                 <ChevronDown aria-hidden="true" className="h2oc-nav-group-chevron"/>
               </button>
-            : <span className="h2oc-nav-group-label">{group.label}</span>}
+            : <span className="h2oc-nav-group-label">{t(group.label)}</span>}
           {/* inert keeps a collapsed group's links out of tab order and off screen readers — the
               height animation alone would leave them reachable but invisible. */}
           <div id={panelId} className="h2oc-nav-group-panel" inert={!open}>
             <div className="h2oc-nav-group-items">
               {group.items.map((item) => <Link key={item.id} href={item.href} className={cn(item.id === activeItemId ? "active" : "")} aria-current={item.id === activeItemId ? "page" : undefined}>
                 {(() => { const Icon = ITEM_ICONS[item.id] ?? GROUP_ICONS[group.id] ?? Compass; return <Icon/>; })()}
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
               </Link>)}
             </div>
           </div>
         </nav>;
       })}
-      <div className="h2o-student-plan"><Sparkles/><div><strong>Academy Pro</strong><span>18 ngày trong hành trình</span><div><i style={{width:"68%"}}/></div></div></div>
-      <div className="h2o-student-sidebar-bottom"><Link href="/academy/courses"><BookOpen/>Khám phá thêm khóa học</Link><form action="/api/auth/logout" method="post"><button type="submit"><LogOut/>Đăng xuất</button></form></div>
+      <div className="h2o-student-plan"><Sparkles/><div><strong>{l("Tiến độ của bạn", "Your progress")}</strong><span>{progressPercent === null ? l("Chưa có dữ liệu", "Not available") : `${progressPercent}%`}</span><div><i style={{width:`${progressPercent ?? 0}%`}}/></div></div></div>
+      <div className="h2o-student-sidebar-bottom"><Link href="/academy/courses"><BookOpen/>{l("Khám phá thêm khóa học", "Explore more courses")}</Link><form action="/api/auth/logout" method="post"><button type="submit"><LogOut/>{l("Đăng xuất", "Sign out")}</button></form></div>
     </aside>
     <main className="h2o-student-main">
-      <header className="h2o-student-topbar"><button className="h2o-student-mobile-menu" aria-label="Mở menu"><Menu/></button><div className="h2o-student-search"><Search/><input placeholder="Tìm bài học, sách hoặc kỹ năng..."/><kbd>⌘ K</kbd></div><NeuralHeaderSignal compact/><Link href="/student/mentor" className="h2o-student-mentor-quick"><Sparkles/>Hỏi H2O Mentor</Link><NotificationBell/><Link href="/student/profile" className="h2o-student-user"><CircleUserRound/><span><strong>{studentName}</strong><small>Academy Student</small></span><ChevronRight/></Link></header>
+      <header className="h2o-student-topbar"><NavigationDialog entries={entries} kind="menu"/><NavigationDialog entries={entries}/><NeuralHeaderSignal compact/><Link href="/student/mentor" className="h2o-student-mentor-quick"><Sparkles/>{l("Hỏi H2O Mentor", "Ask H2O Mentor")}</Link><LanguageSwitcher/><NotificationBell/><Link href="/student/profile" className="h2o-student-user"><CircleUserRound/><span><strong>{studentName}</strong><small>{t("Academy Student")}</small></span><ChevronRight/></Link></header>
       <div className="h2o-student-content">{children}</div>
     </main>
-    <nav className="h2o-student-mobile-nav">{flatItems.slice(0, 5).map((item) => { const Icon = ITEM_ICONS[item.id] ?? Compass; return <Link key={item.id} href={item.href} className={cn(item.id === activeItemId ? "active" : "")} aria-current={item.id === activeItemId ? "page" : undefined}><Icon/><span>{item.label.replace(" của tôi", "").replace(" & đánh giá", "")}</span></Link>; })}</nav>
+    <nav className="h2o-student-mobile-nav">{flatItems.slice(0, 5).map((item) => { const Icon = ITEM_ICONS[item.id] ?? Compass; return <Link key={item.id} href={item.href} className={cn(item.id === activeItemId ? "active" : "")} aria-current={item.id === activeItemId ? "page" : undefined}><Icon/><span>{t(item.label)}</span></Link>; })}</nav>
   </div>;
 }

@@ -44,6 +44,8 @@ export async function getLearningControlSummary(organizationId: string): Promise
     admin.from("student_mission_states").select("student_id").eq("organization_id", organizationId)
   ]);
 
+  // A failed count must never masquerade as a genuine zero in the admin dashboard.
+  if ([stagesTotal, stagesPublished, documents, missions, activeStudents, flashcards, knowledgeSpaces, classes, assignments, quizzes, states].some(result => result.error)) return null;
   const studentsWithProgress = new Set(((states.data ?? []) as { student_id: string }[]).map((r) => r.student_id)).size;
 
   return {

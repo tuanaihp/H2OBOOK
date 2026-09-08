@@ -1,5 +1,6 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useMemo } from "react";
+import { useSummaryResource } from "@/hooks/use-summary-resource";
 
 // One source of truth for who the student is and how far along they are.
 //
@@ -31,6 +32,7 @@ export interface StudentSummary {
   skillMastery: { key: string; label: string; masteryPercent: number; nextAction?: string }[];
   todayTasks: { title: string; description: string; href: string; estimatedMinutes: number }[];
   unlockedStageIds?: string[];
+  stages?: { slug: string; title: string; description: string }[];
   mode: "demo" | "production";
 }
 
@@ -41,26 +43,18 @@ interface StudentDataValue {
   loaded: boolean;
   /** True when a real session is driving the screen; demo seed must stay out in that case. */
   live: boolean;
+  loading: boolean;
+  error: number | null;
+  refresh: () => void;
 }
 
-const StudentDataContext = createContext<StudentDataValue>({ identity: null, summary: null, loaded: false, live: false });
+const StudentDataContext = createContext<StudentDataValue>({ identity: null, summary: null, loaded: false, live: false, loading: true, error: null, refresh: () => {} });
 
 export function StudentDataProvider({ identity, children }: { identity?: StudentIdentity; children: React.ReactNode }) {
-  const [summary, setSummary] = useState<StudentSummary | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/student/summary", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: StudentSummary | null) => { if (!cancelled) setSummary(payload); })
-      .catch(() => null)
-      .finally(() => { if (!cancelled) setLoaded(true); });
-    return () => { cancelled = true; };
-  }, []);
-
+  const { data: summary, loading, error, refresh } = useSummaryResource<StudentSummary>("/api/student/summary");
   const live = Boolean(identity && !identity.demo);
-  return <StudentDataContext.Provider value={{ identity: identity ?? null, summary, loaded, live }}>{children}</StudentDataContext.Provider>;
+  const value = useMemo(() => ({ identity: identity ?? null, summary, loaded: !loading, live, loading, error, refresh }), [identity, summary, loading, live, error, refresh]);
+  return <StudentDataContext.Provider value={value}>{children}</StudentDataContext.Provider>;
 }
 
 export function useStudentData(): StudentDataValue {
@@ -85,8 +79,8 @@ export function useStudentName(fallback = "Học viên"): string {
  * exists to remove.
  */
 export function useStudentProgress(): number | null {
-  const { summary, loaded, live } = useStudentData();
+  const { summary, live } = useStudentData();
   if (summary?.mode === "production") return summary.mastery;
-  if (live) return loaded ? 0 : null;
+  if (live) return null;
   return summary?.mastery ?? null;
 }
