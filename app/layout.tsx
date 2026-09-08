@@ -5,6 +5,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "@/styles/global-neural-system.css";
 import { LocaleProvider } from "@/components/providers/locale-provider";
+import { DomTranslator } from "@/components/providers/dom-translator";
 
 export const metadata: Metadata = {
   title: { default: "H2OBOOK 4.14 · AI Learning Universe", template: "%s | H2OBOOK" },
@@ -18,5 +19,5 @@ export const viewport: Viewport = { themeColor: "#0b1523", colorScheme: "light d
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Only the root layout declares the font variables; nested layouts consume them via CSS.
-  return <html lang="vi" className={`${fontBody.variable} ${fontHeading.variable}`}><body><LocaleProvider><AnalyticsProvider/><NeuralRouteTheme/>{children}</LocaleProvider></body></html>;
+  return <html lang="vi" className={`${fontBody.variable} ${fontHeading.variable}`}><body><LocaleProvider><DomTranslator/><AnalyticsProvider/><NeuralRouteTheme/>{children}</LocaleProvider></body></html>;
 }
