@@ -4,7 +4,7 @@ import { PublicShell } from "@/components/marketing/public-shell";
 export default function KnowledgeUniversePreviewPage() {
   return (
     <PublicShell>
-      <KnowledgeUniverseHero />
+      <KnowledgeUniverseHero surface="map" />
     </PublicShell>
   );
 }

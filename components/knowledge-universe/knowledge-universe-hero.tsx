@@ -17,6 +17,7 @@ import {
   Pause,
   Play,
   Send,
+  Search,
   Sparkles,
   Wand2,
 } from "lucide-react";
@@ -49,13 +50,16 @@ const accessLabel: Record<KnowledgeUniverseNode["access"], string> = {
 export interface KnowledgeUniverseHeroProps {
   className?: string;
   autoPlay?: boolean;
+  /** Home keeps the map as an illustration; the dedicated route exposes the full map. */
+  surface?: "home" | "map";
 }
 
-export function KnowledgeUniverseHero({ className = "", autoPlay = true }: KnowledgeUniverseHeroProps) {
+export function KnowledgeUniverseHero({ className = "", autoPlay = true, surface = "home" }: KnowledgeUniverseHeroProps) {
   const [activeNodeId, setActiveNodeId] = useState(knowledgeUniverseNodes[0].id);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
   const [motionEnabled, setMotionEnabled] = useState(autoPlay);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [canAnimate, setCanAnimate] = useState(false);
 
   const activeNode = useMemo(
     () => knowledgeUniverseNodes.find((node) => node.id === activeNodeId) ?? knowledgeUniverseNodes[0],
@@ -64,15 +68,27 @@ export function KnowledgeUniverseHero({ className = "", autoPlay = true }: Knowl
   const activeStage = knowledgeUniverseStages[activeStageIndex];
 
   useEffect(() => {
-    if (!motionEnabled || isInteracting) return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setCanAnimate(!media.matches && !document.hidden);
+    sync();
+    media.addEventListener("change", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (surface !== "map" || !canAnimate || !motionEnabled || isInteracting) return;
     const timer = window.setInterval(() => {
       setActiveStageIndex((value) => (value + 1) % knowledgeUniverseStages.length);
     }, 4600);
     return () => window.clearInterval(timer);
-  }, [isInteracting, motionEnabled]);
+  }, [canAnimate, isInteracting, motionEnabled, surface]);
 
   useEffect(() => {
-    if (!motionEnabled || isInteracting) return;
+    if (surface !== "map" || !canAnimate || !motionEnabled || isInteracting) return;
     const timer = window.setInterval(() => {
       setActiveNodeId((currentId) => {
         const index = knowledgeUniverseNodes.findIndex((node) => node.id === currentId);
@@ -80,7 +96,9 @@ export function KnowledgeUniverseHero({ className = "", autoPlay = true }: Knowl
       });
     }, 6200);
     return () => window.clearInterval(timer);
-  }, [isInteracting, motionEnabled]);
+  }, [canAnimate, isInteracting, motionEnabled, surface]);
+
+  if (surface === "home") return <LandingKnowledgeHero className={className} />;
 
   return (
     <section
@@ -291,6 +309,78 @@ export function KnowledgeUniverseHero({ className = "", autoPlay = true }: Knowl
       </div>
     </section>
   );
+}
+
+const learningPrompts = [
+  {
+    label: "Tôi mới bắt đầu học Makeup",
+    title: "Xây nền tảng đúng thứ tự",
+    explanation: "Chọn điểm bắt đầu, hiểu kỹ năng cần có và đi theo một lộ trình vừa sức.",
+    source: "Lộ trình nền tảng · kỹ thuật, vệ sinh và dụng cụ",
+    action: "Mở lộ trình nền tảng",
+    href: "/academy/learning-paths",
+  },
+  {
+    label: "Tôi muốn xử lý lớp nền bị mốc",
+    title: "Tìm nguyên nhân, rồi luyện đúng thao tác",
+    explanation: "Đọc phần chuẩn bị da, đối chiếu kỹ thuật nền và mở checklist thực hành trên mẫu.",
+    source: "Giáo trình Nền trong trẻo · checklist thực hành",
+    action: "Khám phá thư viện",
+    href: "/academy/books",
+  },
+  {
+    label: "Tôi muốn xây lộ trình nghề nghiệp",
+    title: "Biến mục tiêu nghề thành bước học cụ thể",
+    explanation: "Xác định kỹ năng, bằng chứng thực hành và mốc cần đạt trước khi nhận khách.",
+    source: "Skill Map · lộ trình nghề Makeup Artist",
+    action: "Tìm lộ trình phù hợp",
+    href: "/academy/learning-paths",
+  },
+];
+
+function LandingKnowledgeHero({ className }: { className: string }) {
+  const [activePrompt, setActivePrompt] = useState(learningPrompts[0]);
+  const [query, setQuery] = useState("");
+  function choosePrompt(value: string) {
+    const normalized = value.toLowerCase();
+    const match = normalized.includes("mốc") || normalized.includes("nền") || normalized.includes("da")
+      ? learningPrompts[1]
+      : normalized.includes("nghề") || normalized.includes("khách") || normalized.includes("lộ trình")
+        ? learningPrompts[2]
+        : learningPrompts[0];
+    setActivePrompt(match);
+  }
+  return <section className={`${styles.landingHero} ${className}`} aria-labelledby="h2o-knowledge-universe-title">
+    <div className={styles.landingGrid}>
+      <div className={styles.landingCopy}>
+        <div className={styles.liveBadge}><BrainCircuit size={15}/><span>H2O KNOWLEDGE & PRACTICE</span><i aria-hidden="true"/></div>
+        <h1 id="h2o-knowledge-universe-title">Từ kiến thức Makeup đến <em>năng lực làm nghề.</em></h1>
+        <p>Tìm câu trả lời có nguồn, học theo mục tiêu và luyện kỹ năng cùng H2O. Trợ lý AI là lớp hỗ trợ tùy chọn; việc đọc, học và thực hành luôn hoạt động độc lập.</p>
+        <div className={styles.questionPanel}>
+          <span>BẠN MUỐN HỌC HOẶC GIẢI QUYẾT ĐIỀU GÌ HÔM NAY?</span>
+          <form className={styles.knowledgeSearch} onSubmit={(event) => { event.preventDefault(); choosePrompt(query); }}><Search size={17}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ví dụ: Vì sao lớp nền bị mốc?" aria-label="Nhập điều bạn muốn học hoặc giải quyết"/><button type="submit">Xem gợi ý</button></form>
+          <div>{learningPrompts.map((prompt) => <button key={prompt.label} type="button" aria-pressed={activePrompt.label === prompt.label} onClick={() => setActivePrompt(prompt)}>{prompt.label}</button>)}</div>
+        </div>
+        <div className={styles.actions}>
+          <Link href="/academy/learning-paths" className={styles.primaryAction}>Tìm lộ trình phù hợp <ArrowRight size={17}/></Link>
+          <Link href="/academy/books" className={styles.secondaryAction}><BookOpen size={17}/>Khám phá thư viện</Link>
+        </div>
+        <div className={styles.landingTrust}><span><BookOpen/>Kiến thức có nguồn</span><span><Compass/>Lộ trình theo mục tiêu</span><span><Sparkles/>AI hỗ trợ tùy chọn</span></div>
+      </div>
+      <aside className={styles.learningPreview} aria-live="polite">
+        <header><span><Sparkles size={15}/>MINH HỌA HÀNH TRÌNH HỌC</span><small>Dữ liệu minh họa</small></header>
+        <div className={styles.previewCore}><span>H₂</span><i/><i/></div>
+        <div className={styles.previewProblem}><small>BẠN ĐANG MUỐN</small><h2>{activePrompt.title}</h2><p>{activePrompt.explanation}</p></div>
+        <ol className={styles.previewSteps}>
+          <li><b>01</b><span><strong>Hiểu vấn đề</strong><small>Giải thích rõ và nêu phần cần bổ sung</small></span></li>
+          <li><b>02</b><span><strong>Đối chiếu nguồn</strong><small>{activePrompt.source}</small></span></li>
+          <li><b>03</b><span><strong>Thực hành và phản hồi</strong><small>Lưu bằng chứng để cập nhật kỹ năng</small></span></li>
+        </ol>
+        <Link href={activePrompt.href} className={styles.previewAction}>{activePrompt.action}<ArrowRight size={15}/></Link>
+        <Link href="/academy/knowledge-universe" className={styles.mapLink}>Mở bản đồ tri thức tương tác <Compass size={14}/></Link>
+      </aside>
+    </div>
+  </section>;
 }
 
 function NodeIcon({ node }: { node: KnowledgeUniverseNode }) {
