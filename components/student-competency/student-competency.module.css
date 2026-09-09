@@ -15,9 +15,14 @@
 .criterionRow { display: grid; grid-template-columns: 1fr 90px 40px; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid #edf0f2; border-radius: 12px; }
 .criterionRow strong { font-size: 12px; }
 .criterionRow small { display: block; color: #8a8d96; font-size: 10px; margin-top: 3px; line-height: 1.5; }
+.criterionGuide { margin-top: 4px; }
+.criterionGuide summary { cursor: pointer; color: #8d315b; font-size: 10px; font-weight: 700; }
+.criterionGuide[open] summary { margin-bottom: 3px; }
 .criterionRow input[type="number"] { padding: 8px; border-radius: 8px; border: 1px solid #dfe3e8; text-align: right; font-size: 13px; }
 .maxScore { font-size: 11px; color: #9298a1; }
 .requiredTag { margin-left: 6px; font-style: normal; font-size: 9px; color: #b2296d; background: #fdeef4; padding: 2px 6px; border-radius: 999px; }
+.useSelfScore { border: 1px solid #d8bfd0; border-radius: 8px; background: #fff; color: #8d315b; padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.useSelfScore:hover { background: #fff4f8; }
 
 .totalRow { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; }
 

@@ -10,12 +10,17 @@ export async function PUT(request: Request) {
   if (auth.response) return auth.response;
   if (auth.user!.demo) return NextResponse.json({ error: "DEMO_MODE_READ_ONLY" }, { status: 403 });
 
-  const body = await request.json().catch(() => null) as { classSessionId?: string; assetIds?: unknown; note?: unknown } | null;
+  const body = await request.json().catch(() => null) as { classSessionId?: string; assetIds?: unknown; note?: unknown; rubricId?: unknown; criterionScores?: unknown; durationMinutes?: unknown } | null;
   if (!body?.classSessionId) return NextResponse.json({ error: "CLASS_SESSION_ID_REQUIRED" }, { status: 400 });
   const assetIds = Array.isArray(body.assetIds) ? body.assetIds.filter((id): id is string => typeof id === "string") : [];
   const note = typeof body.note === "string" ? body.note : "";
+  const rubricId = typeof body.rubricId === "string" ? body.rubricId : undefined;
+  const criterionScores = body.criterionScores && typeof body.criterionScores === "object" && !Array.isArray(body.criterionScores)
+    ? Object.fromEntries(Object.entries(body.criterionScores).filter(([, score]) => typeof score === "number" && Number.isFinite(score))) as Record<string, number>
+    : undefined;
+  const durationMinutes = typeof body.durationMinutes === "number" && Number.isFinite(body.durationMinutes) ? body.durationMinutes : undefined;
 
-  const result = await upsertOwnSessionSubmission(auth.user!.id, { classSessionId: body.classSessionId, assetIds, note });
+  const result = await upsertOwnSessionSubmission(auth.user!.id, { classSessionId: body.classSessionId, assetIds, note, rubricId, criterionScores, durationMinutes });
   if (!result.ok) {
     const status = result.error === "STUDENT_NOT_IN_CLASS" ? 403 : result.error === "SESSION_NOT_FOUND" ? 404 : 400;
     return NextResponse.json({ error: result.error }, { status });

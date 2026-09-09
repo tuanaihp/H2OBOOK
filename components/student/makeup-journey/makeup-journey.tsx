@@ -12,10 +12,21 @@ import styles from "./makeup-journey.module.css";
 // ---------------------------------------------------------------------------
 type SessionStatus = "scheduled" | "completed" | "cancelled";
 interface ClassSession { id: string; sessionNo: number; sessionType: SessionType; title: string; sessionDate: string | null; status: SessionStatus }
-interface RubricCriterion { id: string; title: string; description: string; maxScore: number; required: boolean }
+interface RubricCriterion { id: string; title: string; description: string; maxScore: number; required: boolean; skillKey?: string }
 interface Rubric { id: string; title: string; category: "training" | "makeup" | "hair" | null; criteria: RubricCriterion[] }
 interface Evaluation { classSessionId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
-interface Submission { classSessionId: string; assetIds: string[]; note: string; updatedAt: string }
+interface Submission {
+  classSessionId: string;
+  assetIds: string[];
+  note: string;
+  rubricId: string | null;
+  rubricVersionLabel: string;
+  criterionScores: Record<string, number>;
+  totalScore: number | null;
+  maxScore: number | null;
+  durationMinutes: number | null;
+  updatedAt: string;
+}
 interface AiCriterion { score: number; maxScore: number; strength: string; issue: string; recommendation: string }
 interface AiAssessment {
   id: string;
@@ -177,11 +188,14 @@ function useCoachThread(sessionId: string, sessionTitle: string) {
 
 // One session's rubric + latest evidence/grade/AI draft, resolved from the journey payload.
 function sessionContext(journey: Journey, session: ClassSession) {
-  const rubric = journey.rubrics.find((r) => r.category === (RUBRIC_FOR_TYPE[session.sessionType] ?? null)) ?? null;
+  const submission = journey.submissions.find((s) => s.classSessionId === session.id) ?? null;
+  const rubric = (submission?.rubricId ? journey.rubrics.find((r) => r.id === submission.rubricId) : undefined)
+    ?? journey.rubrics.find((r) => r.category === (RUBRIC_FOR_TYPE[session.sessionType] ?? null))
+    ?? null;
   return {
     rubric,
     evaluation: journey.evaluations.find((e) => e.classSessionId === session.id) ?? null,
-    submission: journey.submissions.find((s) => s.classSessionId === session.id) ?? null,
+    submission,
     aiAssessment: journey.aiAssessments.find((a) => a.classSessionId === session.id) ?? null,
   };
 }
@@ -1045,10 +1059,10 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
     )}
     {variant !== "panel" && session.title && <p className={styles.detailTitle}>{session.title}</p>}
 
-    <SessionEvidence sessionId={session.id} organizationId={organizationId} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} />
+    <SessionEvidence sessionId={session.id} organizationId={organizationId} rubric={rubric} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} />
 
     {evaluation
-      ? <GradePanel evaluation={evaluation} rubric={rubric} />
+      ? <GradePanel evaluation={evaluation} rubric={rubric} submission={submission} />
       : <div className={styles.pendingPanel}>
           <span className={styles.pendingTag}>Chưa chấm</span>
           {rubric && rubric.criteria.length > 0
@@ -1236,9 +1250,10 @@ function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string;
   </>;
 }
 
-function SessionEvidence({ sessionId, organizationId, submission, locked, onSaved, variant }: {
+function SessionEvidence({ sessionId, organizationId, rubric, submission, locked, onSaved, variant }: {
   sessionId: string;
   organizationId: string;
+  rubric: Rubric | null;
   submission: Submission | null;
   locked: boolean;
   onSaved: (next: Submission) => void;
@@ -1246,6 +1261,7 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
 }) {
   const [assetIds, setAssetIds] = useState<string[]>(submission?.assetIds ?? []);
   const [note, setNote] = useState(submission?.note ?? "");
+  const [scores, setScores] = useState<Record<string, number>>(submission?.criterionScores ?? {});
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -1253,11 +1269,15 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
   useEffect(() => {
     setAssetIds(submission?.assetIds ?? []);
     setNote(submission?.note ?? "");
+    setScores(submission?.criterionScores ?? {});
   }, [submission]);
 
   const dirty = note !== (submission?.note ?? "") ||
     assetIds.length !== (submission?.assetIds.length ?? 0) ||
-    assetIds.some((id, i) => id !== submission?.assetIds[i]);
+    assetIds.some((id, i) => id !== submission?.assetIds[i]) ||
+    Boolean(rubric && rubric.criteria.some((criterion) => Number(scores[criterion.id] ?? 0) !== Number(submission?.criterionScores?.[criterion.id] ?? 0)));
+  const selfTotal = rubric?.criteria.reduce((sum, criterion) => sum + Math.min(criterion.maxScore, Math.max(0, Number(scores[criterion.id] ?? 0))), 0) ?? 0;
+  const selfMax = rubric?.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0) ?? 0;
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -1284,7 +1304,7 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
       const response = await fetch("/api/student/makeup-journey/submission", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ classSessionId: sessionId, assetIds, note })
+        body: JSON.stringify({ classSessionId: sessionId, assetIds, note, rubricId: rubric?.id, criterionScores: scores })
       });
       const payload = await response.json().catch(() => null) as { error?: string; submission?: Submission } | null;
       if (!response.ok || !payload?.submission) {
@@ -1310,6 +1330,24 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
     <div className={styles.evidenceHead}>
       <span>Minh chứng của bạn {locked && <em>· đã khoá vì buổi đã được chấm</em>}</span>
     </div>
+    {rubric && rubric.criteria.length > 0 && (
+      <section className={styles.selfAssessment} aria-label="Tự đánh giá theo rubric">
+        <div className={styles.selfAssessmentHead}>
+          <div><strong>Tự chấm trước khi giáo viên duyệt</strong><small>Điểm này là bản tự đánh giá; giáo viên sẽ đối chiếu và quyết định điểm chính thức.</small></div>
+          <b>{selfTotal}<i>/{selfMax}</i></b>
+        </div>
+        <div className={styles.selfCriteria}>
+          {rubric.criteria.map((criterion) => {
+            const score = Math.min(criterion.maxScore, Math.max(0, Number(scores[criterion.id] ?? 0)));
+            return <label key={criterion.id} className={styles.selfCriterion}>
+              <span>{criterion.title}{criterion.required ? <em> bắt buộc</em> : null}</span>
+              <input type="range" min={0} max={criterion.maxScore} step={1} disabled={locked} value={score} onChange={(event) => setScores((current) => ({ ...current, [criterion.id]: Number(event.target.value) }))} />
+              <output>{score}/{criterion.maxScore}</output>
+            </label>;
+          })}
+        </div>
+      </section>
+    )}
     <div className={styles.thumbRow}>
       {assetIds.map((id) => (
         <span key={id} className={styles.thumb}>
@@ -1333,12 +1371,12 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
       onChange={(e) => setNote(e.target.value)}
       rows={2}
       maxLength={500}
-      placeholder="Ghi chú: makeup gì, cho ai, dùng kỹ thuật nào…"
+      placeholder="Tự ghi chú: phần làm tốt, lỗi cần sửa, điều muốn hỏi giáo viên…"
     />}
     {locked && note && <p className={styles.lockedNote}>{note}</p>}
     {!locked && <div className={styles.evidenceActions}>
       <button type="button" className={styles.primaryBtn} disabled={saving || uploading || !dirty} onClick={save}>
-        {saving ? "Đang lưu…" : "Lưu minh chứng"}
+        {saving ? "Đang lưu…" : "Lưu tự chấm & ghi chú"}
       </button>
       {message && <span className={styles.message}>{message}</span>}
     </div>}
@@ -1346,7 +1384,7 @@ function SessionEvidence({ sessionId, organizationId, submission, locked, onSave
   </div>;
 }
 
-function GradePanel({ evaluation, rubric }: { evaluation: Evaluation; rubric: Rubric | null }) {
+function GradePanel({ evaluation, rubric, submission }: { evaluation: Evaluation; rubric: Rubric | null; submission: Submission | null }) {
   const percent = pct(evaluation.totalScore, evaluation.maxScore);
   return <div className={styles.gradePanel}>
     <div className={styles.gradeTop}>
@@ -1356,6 +1394,10 @@ function GradePanel({ evaluation, rubric }: { evaluation: Evaluation; rubric: Ru
       </div>
       <span className={styles.pill} data-tone={percent >= 90 ? "done" : percent >= 70 ? "info" : "warn"}>{percent}%</span>
     </div>
+    {submission?.totalScore != null && <div className={styles.selfVsTeacher}>
+      <span>Bạn tự chấm <b>{submission.totalScore}/{submission.maxScore ?? evaluation.maxScore}</b></span>
+      <span>Chênh lệch <b data-positive={evaluation.totalScore >= submission.totalScore ? "" : undefined}>{evaluation.totalScore >= submission.totalScore ? "+" : ""}{(evaluation.totalScore - submission.totalScore).toFixed(0)} điểm</b></span>
+    </div>}
 
     {rubric && rubric.criteria.length > 0 && (
       <ul className={styles.criteriaList}>
@@ -1363,7 +1405,7 @@ function GradePanel({ evaluation, rubric }: { evaluation: Evaluation; rubric: Ru
           const s = evaluation.criterionScores[c.id] ?? 0;
           return <li key={c.id}>
             <span>{c.title}</span>
-            <b data-low={s < c.maxScore * 0.6 ? "" : undefined}>{s} / {c.maxScore}</b>
+            <b data-low={s < c.maxScore * 0.6 ? "" : undefined}>{submission?.criterionScores[c.id] != null ? `Tự ${submission.criterionScores[c.id]} · ` : ""}{s} / {c.maxScore}</b>
           </li>;
         })}
       </ul>

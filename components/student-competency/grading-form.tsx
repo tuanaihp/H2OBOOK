@@ -11,6 +11,7 @@ interface RubricView { id: string; title: string; quickIssues: string[]; updated
 interface ClassSession { id: string; sessionNo: number; sessionType: SessionType; title: string; status: string }
 interface ClassEvaluation { id: string; classSessionId: string; rubricId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
 interface EvaluationAuditEntry { id: string; action: "created" | "updated"; previousTotalScore: number | null; currentTotalScore: number; previousNotes: string | null; currentNotes: string; createdAt: string }
+interface StudentSubmission { classSessionId: string; assetIds: string[]; note: string; criterionScores: Record<string, number>; totalScore: number | null; maxScore: number | null; rubricVersionLabel: string }
 
 const MAX_EVIDENCE = 4;
 const QUICK_ISSUES = {
@@ -51,7 +52,7 @@ export function GradingForm({ classId, organizationId, roster, category, session
   const [message, setMessage] = useState<string | null>(null);
   // Evidence the STUDENT uploaded ahead of grading (migration 0063). Read-only here; shown so the
   // score is anchored to what the student actually submitted, and pre-filled into assetIds.
-  const [studentSubmissions, setStudentSubmissions] = useState<{ classSessionId: string; assetIds: string[]; note: string }[]>([]);
+  const [studentSubmissions, setStudentSubmissions] = useState<StudentSubmission[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -81,7 +82,7 @@ export function GradingForm({ classId, organizationId, roster, category, session
     (async () => {
       const res = await fetch(`/api/teaching/classes/${classId}/submissions?studentId=${studentId}`);
       const json = await res.json().catch(() => null);
-      setStudentSubmissions((json?.submissions ?? []) as { classSessionId: string; assetIds: string[]; note: string }[]);
+      setStudentSubmissions((json?.submissions ?? []) as StudentSubmission[]);
     })();
   }, [classId, studentId]);
 
@@ -123,6 +124,15 @@ export function GradingForm({ classId, organizationId, roster, category, session
     if (!speedCriterion) return;
     const minutes = Number(durationMinutes); const timeScore = !minutes || minutes > 80 ? 0 : minutes <= 60 ? 5 : minutes <= 65 ? 4 : minutes <= 70 ? 3 : minutes <= 75 ? 2 : 1;
     setScores((current) => ({ ...current, [speedCriterion.id]: Math.min(speedCriterion.maxScore, timeScore + progressControlScore) }));
+  };
+
+  const useStudentSelfScores = () => {
+    if (!rubric || !currentSubmission?.criterionScores) return;
+    setScores(Object.fromEntries(rubric.criteria.map((criterion) => [
+      criterion.id,
+      Math.min(criterion.maxScore, Math.max(0, Number(currentSubmission.criterionScores[criterion.id] ?? 0))),
+    ])));
+    setMessage("Đã nạp điểm tự chấm để đối chiếu. Hãy kiểm tra và sửa trước khi lưu điểm chính thức.");
   };
 
   // The prescribed duration band updates as soon as the instructor records the actual time.
@@ -191,12 +201,12 @@ export function GradingForm({ classId, organizationId, roster, category, session
         </div>
 
         {studentId && sessionId && rubric.criteria.length > 0 && <>
-          <StudentSubmissionBlock submission={currentSubmission} />
+          <StudentSubmissionBlock submission={currentSubmission} onUseSelfScores={useStudentSelfScores} />
           <div className={formStyles.criteriaList}>
             {rubric.criteria.map((c) => <div key={c.id} className={formStyles.criterionRow}>
               <div>
                 <strong>{c.title}{c.required && <em className={formStyles.requiredTag}>bắt buộc</em>}</strong>
-                {c.description && <small>{c.description}</small>}
+                {c.description && <details className={formStyles.criterionGuide}><summary>Chuẩn chấm chi tiết</summary><small>{c.description}</small></details>}
               </div>
               <input type="number" min={0} max={c.maxScore} step={0.5} value={scores[c.id] ?? 0}
                 onChange={(e) => setScores((prev) => ({ ...prev, [c.id]: Math.min(c.maxScore, Math.max(0, Number(e.target.value))) }))} />
@@ -266,15 +276,19 @@ function EvidenceLink({ assetId, onRemove }: { assetId: string; onRemove: () => 
 
 // The evidence the student uploaded ahead of grading (migration 0063). Read-only — it is the basis
 // the instructor grades from, so it is shown above the criteria and copied into assetIds.
-function StudentSubmissionBlock({ submission }: { submission?: { assetIds: string[]; note: string } }) {
-  const hasEvidence = Boolean(submission && (submission.assetIds.length > 0 || submission.note.trim()));
+function StudentSubmissionBlock({ submission, onUseSelfScores }: { submission?: StudentSubmission; onUseSelfScores: () => void }) {
+  const hasEvidence = Boolean(submission && (submission.assetIds.length > 0 || submission.note.trim() || submission.totalScore != null));
   return <div style={{ border: "1px solid #dfe3e8", borderRadius: 12, padding: "10px 12px", margin: "4px 0 12px", background: "#f8fafc" }}>
-    <strong style={{ fontSize: 12, letterSpacing: ".04em", color: "#5d6a78" }}>MINH CHỨNG HỌC VIÊN NỘP</strong>
+    <strong style={{ fontSize: 12, letterSpacing: ".04em", color: "#5d6a78" }}>TỰ CHẤM & MINH CHỨNG HỌC VIÊN</strong>
     {!hasEvidence
       ? <p style={{ margin: "6px 0 0", fontSize: 12, color: "#8d6073" }}>Học viên chưa nộp minh chứng cho buổi này.</p>
       : <>
           {submission!.assetIds.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "8px 0 0" }}>
             {submission!.assetIds.map((id) => <StudentEvidenceThumb key={id} assetId={id} />)}
+          </div>}
+          {submission!.totalScore != null && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 9, padding: "8px 10px", borderRadius: 8, background: "#fff" }}>
+            <span style={{ fontSize: 12, color: "#5d6a78" }}>Học viên tự chấm <b style={{ color: "#8d315b" }}>{submission!.totalScore}/{submission!.maxScore ?? 100}</b></span>
+            <button type="button" className={formStyles.useSelfScore} onClick={onUseSelfScores}>Dùng làm bản nháp</button>
           </div>}
           {submission!.note.trim() && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#3b4453", lineHeight: 1.6 }}>{submission!.note}</p>}
         </>}

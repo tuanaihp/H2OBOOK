@@ -81,6 +81,12 @@ export interface ClassSessionSubmission {
   studentId: string;
   assetIds: string[];
   note: string;
+  rubricId: string | null;
+  rubricVersionLabel: string;
+  criterionScores: Record<string, number>;
+  totalScore: number | null;
+  maxScore: number | null;
+  durationMinutes: number | null;
   submittedAt: string;
   updatedAt: string;
 }

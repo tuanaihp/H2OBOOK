@@ -77,6 +77,12 @@ function mapSubmission(row: Record<string, unknown>): ClassSessionSubmission {
     studentId: String(row.student_id),
     assetIds: (row.asset_ids ?? []) as string[],
     note: String(row.note ?? ""),
+    rubricId: row.rubric_id ? String(row.rubric_id) : null,
+    rubricVersionLabel: String(row.rubric_version_label ?? ""),
+    criterionScores: (row.criterion_scores ?? {}) as Record<string, number>,
+    totalScore: row.self_total_score == null ? null : Number(row.self_total_score),
+    maxScore: row.self_max_score == null ? null : Number(row.self_max_score),
+    durationMinutes: row.self_duration_minutes == null ? null : Number(row.self_duration_minutes),
     submittedAt: String(row.submitted_at ?? row.updated_at ?? ""),
     updatedAt: String(row.updated_at ?? "")
   };
@@ -463,12 +469,19 @@ export async function listSessionSubmissions(access: TeachingAccessSnapshot, cla
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
   const { data } = await admin.from("class_session_submissions")
-    .select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at")
+    .select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,submitted_at,updated_at")
     .eq("organization_id", access.organizationId).eq("class_id", classId).eq("student_id", studentId);
   return (data ?? []).map((row) => mapSubmission(row as Record<string, unknown>));
 }
 
-export interface OwnSubmissionInput { classSessionId: string; assetIds: string[]; note?: string }
+export interface OwnSubmissionInput {
+  classSessionId: string;
+  assetIds: string[];
+  note?: string;
+  rubricId?: string;
+  criterionScores?: Record<string, number>;
+  durationMinutes?: number;
+}
 
 /**
  * Student upserts their own evidence for one session. The session is resolved to its class first
@@ -479,7 +492,7 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
   const admin = createSupabaseAdminClient();
   if (!admin) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
 
-  const { data: session } = await admin.from("class_sessions").select("id,class_id,organization_id").eq("id", input.classSessionId).maybeSingle();
+  const { data: session } = await admin.from("class_sessions").select("id,class_id,organization_id,session_type").eq("id", input.classSessionId).maybeSingle();
   if (!session) return { ok: false, error: "SESSION_NOT_FOUND" };
   const classId = String(session.class_id);
   const organizationId = String(session.organization_id);
@@ -488,12 +501,40 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
     .eq("class_id", classId).eq("user_id", studentId).eq("role", "student").in("status", ["active", "completed"]).maybeSingle();
   if (!membership) return { ok: false, error: "STUDENT_NOT_IN_CLASS" };
 
+  let rubricId: string | null = null;
+  let rubricVersionLabel = "";
+  let criterionScores: Record<string, number> = {};
+  let selfTotalScore: number | null = null;
+  let selfMaxScore: number | null = null;
+  if (input.rubricId) {
+    const { data: rubric } = await admin.from("rubrics").select("id,title,category")
+      .eq("id", input.rubricId).eq("organization_id", organizationId).maybeSingle();
+    const expectedCategory = AI_CATEGORY_BY_SESSION_TYPE[String(session.session_type)] ?? null;
+    if (!rubric || !expectedCategory || String(rubric.category) !== expectedCategory) return { ok: false, error: "RUBRIC_SESSION_TYPE_MISMATCH" };
+    const { data: criteriaRows } = await admin.from("rubric_criteria").select("id,max_score").eq("rubric_id", input.rubricId);
+    const criteria = (criteriaRows ?? []) as { id: string; max_score: number }[];
+    if (!criteria.length) return { ok: false, error: "RUBRIC_HAS_NO_CRITERIA" };
+    for (const criterion of criteria) {
+      const raw = Number(input.criterionScores?.[String(criterion.id)] ?? 0);
+      const score = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), Number(criterion.max_score)) : 0;
+      criterionScores[String(criterion.id)] = score;
+    }
+    rubricId = String(rubric.id);
+    rubricVersionLabel = String(rubric.title);
+    selfTotalScore = Object.values(criterionScores).reduce((sum, score) => sum + score, 0);
+    selfMaxScore = criteria.reduce((sum, criterion) => sum + Number(criterion.max_score), 0);
+  } else if (input.criterionScores && Object.keys(input.criterionScores).length) {
+    return { ok: false, error: "RUBRIC_ID_REQUIRED_FOR_SELF_ASSESSMENT" };
+  }
+
+  const durationMinutes = input.durationMinutes == null ? null : Math.round(Number(input.durationMinutes));
+  if (durationMinutes != null && (!Number.isFinite(durationMinutes) || durationMinutes < 1 || durationMinutes > 600)) return { ok: false, error: "INVALID_DURATION" };
   const assetIds = [...new Set((input.assetIds ?? []).filter(Boolean))].slice(0, 6);
   if (assetIds.length) {
     const { data: assets } = await admin.from("assets").select("id").eq("organization_id", organizationId).neq("quarantine_status", "blocked").in("id", assetIds);
     if ((assets ?? []).length !== assetIds.length) return { ok: false, error: "INVALID_EVIDENCE_ASSET" };
   }
-  const note = (input.note ?? "").trim().slice(0, 500);
+  const note = (input.note ?? "").trim().slice(0, 1000);
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
@@ -504,8 +545,14 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
     student_id: studentId,
     asset_ids: assetIds,
     note,
+    rubric_id: rubricId,
+    rubric_version_label: rubricVersionLabel,
+    criterion_scores: criterionScores,
+    self_total_score: selfTotalScore,
+    self_max_score: selfMaxScore,
+    self_duration_minutes: durationMinutes,
     updated_at: new Date().toISOString()
-  }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at").single();
+  }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,submitted_at,updated_at").single();
   if (error || !saved) return { ok: false, error: error?.message ?? "SUBMISSION_SAVE_FAILED" };
   return { ok: true, submission: mapSubmission(saved as Record<string, unknown>) };
 }
