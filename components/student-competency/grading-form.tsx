@@ -11,7 +11,8 @@ interface RubricView { id: string; title: string; quickIssues: string[]; updated
 interface ClassSession { id: string; sessionNo: number; sessionType: SessionType; title: string; status: string }
 interface ClassEvaluation { id: string; classSessionId: string; rubricId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
 interface EvaluationAuditEntry { id: string; action: "created" | "updated"; previousTotalScore: number | null; currentTotalScore: number; previousNotes: string | null; currentNotes: string; createdAt: string }
-interface StudentSubmission { classSessionId: string; assetIds: string[]; note: string; criterionScores: Record<string, number>; totalScore: number | null; maxScore: number | null; rubricVersionLabel: string }
+type StudentRepairPlanItem = { criterionId: string; action: "practice_again" | "review_demo" | "ask_teacher"; issue: string; nextStep: string; completed: boolean };
+interface StudentSubmission { classSessionId: string; assetIds: string[]; note: string; criterionScores: Record<string, number>; totalScore: number | null; maxScore: number | null; durationMinutes: number | null; rubricVersionLabel: string; repairPlan: StudentRepairPlanItem[] }
 
 const MAX_EVIDENCE = 4;
 const QUICK_ISSUES = {
@@ -19,6 +20,11 @@ const QUICK_ISSUES = {
   makeup: ["Nền chưa sạch", "Mắt chưa cân", "Khối đậm", "Sai layout", "Quá thời gian"],
   hair: ["Chia tóc chưa chuẩn", "Form chưa cân", "Mối ghim lộ", "Bề mặt chưa sạch", "Quá thời gian"]
 } as const;
+const STUDENT_REPAIR_ACTION_LABEL: Record<StudentRepairPlanItem["action"], string> = {
+  practice_again: "Luyện lại theo quy trình",
+  review_demo: "Xem lại Demo và ghi chép",
+  ask_teacher: "Nhờ giáo viên kiểm tra",
+};
 
 /**
  * Shared grading form + history behind the Training/Makeup/Hair tabs (spec §4: chọn học viên +
@@ -201,7 +207,7 @@ export function GradingForm({ classId, organizationId, roster, category, session
         </div>
 
         {studentId && sessionId && rubric.criteria.length > 0 && <>
-          <StudentSubmissionBlock submission={currentSubmission} onUseSelfScores={useStudentSelfScores} />
+          <StudentSubmissionBlock submission={currentSubmission} rubric={rubric} onUseSelfScores={useStudentSelfScores} />
           <div className={formStyles.criteriaList}>
             {rubric.criteria.map((c) => <div key={c.id} className={formStyles.criterionRow}>
               <div>
@@ -276,8 +282,8 @@ function EvidenceLink({ assetId, onRemove }: { assetId: string; onRemove: () => 
 
 // The evidence the student uploaded ahead of grading (migration 0063). Read-only — it is the basis
 // the instructor grades from, so it is shown above the criteria and copied into assetIds.
-function StudentSubmissionBlock({ submission, onUseSelfScores }: { submission?: StudentSubmission; onUseSelfScores: () => void }) {
-  const hasEvidence = Boolean(submission && (submission.assetIds.length > 0 || submission.note.trim() || submission.totalScore != null));
+function StudentSubmissionBlock({ submission, rubric, onUseSelfScores }: { submission?: StudentSubmission; rubric: RubricView; onUseSelfScores: () => void }) {
+  const hasEvidence = Boolean(submission && (submission.assetIds.length > 0 || submission.note.trim() || submission.totalScore != null || submission.repairPlan.length > 0));
   return <div style={{ border: "1px solid #dfe3e8", borderRadius: 12, padding: "10px 12px", margin: "4px 0 12px", background: "#f8fafc" }}>
     <strong style={{ fontSize: 12, letterSpacing: ".04em", color: "#5d6a78" }}>TỰ CHẤM & MINH CHỨNG HỌC VIÊN</strong>
     {!hasEvidence
@@ -287,8 +293,19 @@ function StudentSubmissionBlock({ submission, onUseSelfScores }: { submission?: 
             {submission!.assetIds.map((id) => <StudentEvidenceThumb key={id} assetId={id} />)}
           </div>}
           {submission!.totalScore != null && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 9, padding: "8px 10px", borderRadius: 8, background: "#fff" }}>
-            <span style={{ fontSize: 12, color: "#5d6a78" }}>Học viên tự chấm <b style={{ color: "#8d315b" }}>{submission!.totalScore}/{submission!.maxScore ?? 100}</b></span>
+            <span style={{ display: "grid", gap: 2, fontSize: 12, color: "#5d6a78" }}>Học viên tự chấm <b style={{ color: "#8d315b" }}>{submission!.totalScore}/{submission!.maxScore ?? 100}</b>{submission!.durationMinutes != null && <small>Thời gian tự ghi: {submission!.durationMinutes} phút</small>}</span>
             <button type="button" className={formStyles.useSelfScore} onClick={onUseSelfScores}>Dùng làm bản nháp</button>
+          </div>}
+          {submission!.repairPlan.length > 0 && <div style={{ marginTop: 9, padding: "9px 10px", borderRadius: 8, border: "1px solid #cfe5de", background: "#f7fffb" }}>
+            <strong style={{ display: "block", fontSize: 11, color: "#176a51" }}>KẾ HOẠCH TỰ CHỮA BÀI · {submission!.repairPlan.filter((item) => item.completed).length}/{submission!.repairPlan.length} ĐÃ TỰ XỬ LÝ</strong>
+            <ul style={{ display: "grid", gap: 7, margin: "8px 0 0", padding: 0, listStyle: "none" }}>
+              {submission!.repairPlan.map((item) => <li key={item.criterionId} style={{ paddingTop: 7, borderTop: "1px solid #dfeee7", fontSize: 12, lineHeight: 1.5, color: "#3b5a4f" }}>
+                <b>{item.completed ? "✓ Đã luyện" : "• Đang cần sửa"}</b>{" · "}{rubric.criteria.find((criterion) => criterion.id === item.criterionId)?.title ?? "Tiêu chí trong rubric"}
+                <span style={{ display: "block", color: "#5d6a78" }}>{STUDENT_REPAIR_ACTION_LABEL[item.action]}</span>
+                {item.issue && <span style={{ display: "block" }}><em style={{ fontStyle: "normal", color: "#5d6a78" }}>Lỗi tự nhận ra:</em> {item.issue}</span>}
+                {item.nextStep && <span style={{ display: "block" }}><em style={{ fontStyle: "normal", color: "#5d6a78" }}>Bước tiếp theo:</em> {item.nextStep}</span>}
+              </li>)}
+            </ul>
           </div>}
           {submission!.note.trim() && <p style={{ margin: "8px 0 0", fontSize: 13, color: "#3b4453", lineHeight: 1.6 }}>{submission!.note}</p>}
         </>}

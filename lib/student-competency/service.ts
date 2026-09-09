@@ -6,7 +6,7 @@ import type { TeachingAccessSnapshot } from "@/lib/teaching/types";
 import { calculateGraduationStatus } from "./graduation";
 import { aggregateCompetencyProfile } from "./competency";
 import { CURRICULUM_DEFAULTS } from "./types";
-import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, ClassAiAssessment, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint } from "./types";
+import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, ClassAiAssessment, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint, SelfRepairAction, SelfRepairPlanItem } from "./types";
 import type { AiAssessment } from "@/lib/h2obook/ai/types";
 
 // Service layer for the Student Management & Competency module (spec: v6-tich-hop-them). Reads go
@@ -78,10 +78,36 @@ interface SelfAssessmentMetadata {
   totalScore: number | null;
   maxScore: number | null;
   durationMinutes: number | null;
+  repairPlan?: SelfRepairPlanItem[];
 }
 
 const SELF_ASSESSMENT_PREFIX = "\n<!--h2o-self-assessment:";
 const SELF_ASSESSMENT_SUFFIX = "-->";
+const SELF_REPAIR_ACTIONS = new Set<SelfRepairAction>(["practice_again", "review_demo", "ask_teacher"]);
+
+function normalizeSelfRepairPlan(value: unknown): SelfRepairPlanItem[] {
+  if (!Array.isArray(value)) return [];
+  const usedCriterionIds = new Set<string>();
+  const plan: SelfRepairPlanItem[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object" || plan.length >= 3) continue;
+    const row = raw as Record<string, unknown>;
+    const criterionId = typeof row.criterionId === "string" ? row.criterionId.trim() : "";
+    if (!criterionId || usedCriterionIds.has(criterionId)) continue;
+    const action = typeof row.action === "string" && SELF_REPAIR_ACTIONS.has(row.action as SelfRepairAction)
+      ? row.action as SelfRepairAction
+      : "practice_again";
+    plan.push({
+      criterionId,
+      action,
+      issue: typeof row.issue === "string" ? row.issue.trim().slice(0, 320) : "",
+      nextStep: typeof row.nextStep === "string" ? row.nextStep.trim().slice(0, 320) : "",
+      completed: row.completed === true,
+    });
+    usedCriterionIds.add(criterionId);
+  }
+  return plan;
+}
 
 function readSelfAssessmentMetadata(note: string): { note: string; metadata: SelfAssessmentMetadata | null } {
   const start = note.lastIndexOf(SELF_ASSESSMENT_PREFIX);
@@ -115,6 +141,7 @@ function mapSubmission(row: Record<string, unknown>): ClassSessionSubmission {
     totalScore: row.self_total_score == null ? metadata?.totalScore ?? null : Number(row.self_total_score),
     maxScore: row.self_max_score == null ? metadata?.maxScore ?? null : Number(row.self_max_score),
     durationMinutes: row.self_duration_minutes == null ? metadata?.durationMinutes ?? null : Number(row.self_duration_minutes),
+    repairPlan: normalizeSelfRepairPlan(row.self_repair_plan ?? metadata?.repairPlan),
     submittedAt: String(row.submitted_at ?? row.updated_at ?? ""),
     updatedAt: String(row.updated_at ?? "")
   };
@@ -501,7 +528,7 @@ export async function listSessionSubmissions(access: TeachingAccessSnapshot, cla
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
   const expanded = await admin.from("class_session_submissions")
-    .select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,submitted_at,updated_at")
+    .select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,self_repair_plan,submitted_at,updated_at")
     .eq("organization_id", access.organizationId).eq("class_id", classId).eq("student_id", studentId);
   const { data } = expanded.error
     ? await admin.from("class_session_submissions").select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at")
@@ -517,6 +544,7 @@ export interface OwnSubmissionInput {
   rubricId?: string;
   criterionScores?: Record<string, number>;
   durationMinutes?: number;
+  repairPlan?: unknown;
 }
 
 /**
@@ -540,6 +568,7 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
   let rubricId: string | null = null;
   let rubricVersionLabel = "";
   const criterionScores: Record<string, number> = {};
+  let criteria: { id: string; max_score: number; skill_key: string | null }[] = [];
   let selfTotalScore: number | null = null;
   let selfMaxScore: number | null = null;
   if (input.rubricId) {
@@ -547,8 +576,8 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
       .eq("id", input.rubricId).eq("organization_id", organizationId).maybeSingle();
     const expectedCategory = AI_CATEGORY_BY_SESSION_TYPE[String(session.session_type)] ?? null;
     if (!rubric || !expectedCategory || String(rubric.category) !== expectedCategory) return { ok: false, error: "RUBRIC_SESSION_TYPE_MISMATCH" };
-    const { data: criteriaRows } = await admin.from("rubric_criteria").select("id,max_score").eq("rubric_id", input.rubricId);
-    const criteria = (criteriaRows ?? []) as { id: string; max_score: number }[];
+    const { data: criteriaRows } = await admin.from("rubric_criteria").select("id,max_score,skill_key").eq("rubric_id", input.rubricId);
+    criteria = (criteriaRows ?? []) as { id: string; max_score: number; skill_key: string | null }[];
     if (!criteria.length) return { ok: false, error: "RUBRIC_HAS_NO_CRITERIA" };
     for (const criterion of criteria) {
       const raw = Number(input.criterionScores?.[String(criterion.id)] ?? 0);
@@ -565,6 +594,24 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
 
   const durationMinutes = input.durationMinutes == null ? null : Math.round(Number(input.durationMinutes));
   if (durationMinutes != null && (!Number.isFinite(durationMinutes) || durationMinutes < 1 || durationMinutes > 600)) return { ok: false, error: "INVALID_DURATION" };
+  // The 10-point Makeup timing criterion consists of time (0–5) and pace control (0–5).
+  // A learner cannot give themselves full points for pace when their recorded time has already
+  // used up the time allowance. The teacher may still make the official assessment independently.
+  if (durationMinutes != null && rubricId) {
+    const speedCriterion = criteria.find((criterion) => criterion.skill_key === "speed");
+    if (speedCriterion) {
+      const timePart = durationMinutes <= 60 ? 5 : durationMinutes <= 65 ? 4 : durationMinutes <= 70 ? 3 : durationMinutes <= 75 ? 2 : durationMinutes <= 80 ? 1 : 0;
+      const maxSelfScore = Math.min(Number(speedCriterion.max_score), timePart + 5);
+      const id = String(speedCriterion.id);
+      criterionScores[id] = Math.min(criterionScores[id] ?? 0, maxSelfScore);
+      selfTotalScore = Object.values(criterionScores).reduce((sum, score) => sum + score, 0);
+    }
+  }
+  const repairPlan = normalizeSelfRepairPlan(input.repairPlan);
+  if (repairPlan.length && !rubricId) return { ok: false, error: "RUBRIC_ID_REQUIRED_FOR_SELF_REPAIR_PLAN" };
+  if (repairPlan.some((item) => !criteria.some((criterion) => String(criterion.id) === item.criterionId))) {
+    return { ok: false, error: "INVALID_SELF_REPAIR_CRITERION" };
+  }
   const assetIds = [...new Set((input.assetIds ?? []).filter(Boolean))].slice(0, 6);
   if (assetIds.length) {
     const { data: assets } = await admin.from("assets").select("id").eq("organization_id", organizationId).neq("quarantine_status", "blocked").in("id", assetIds);
@@ -576,7 +623,7 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
   const selfAssessment: SelfAssessmentMetadata = {
     rubricId, rubricVersionLabel, criterionScores,
-    totalScore: selfTotalScore, maxScore: selfMaxScore, durationMinutes,
+    totalScore: selfTotalScore, maxScore: selfMaxScore, durationMinutes, repairPlan,
   };
   const expanded = await supabase.from("class_session_submissions").upsert({
     organization_id: organizationId,
@@ -591,8 +638,9 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
     self_total_score: selfTotalScore,
     self_max_score: selfMaxScore,
     self_duration_minutes: durationMinutes,
+    self_repair_plan: repairPlan,
     updated_at: new Date().toISOString()
-  }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,submitted_at,updated_at").single();
+  }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,self_repair_plan,submitted_at,updated_at").single();
   if (!expanded.error && expanded.data) return { ok: true, submission: mapSubmission(expanded.data as Record<string, unknown>) };
 
   // Existing production databases can safely accept self-assessment before migration 0070 is run.

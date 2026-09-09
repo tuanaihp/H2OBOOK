@@ -25,7 +25,16 @@ interface Submission {
   totalScore: number | null;
   maxScore: number | null;
   durationMinutes: number | null;
+  repairPlan: RepairPlanItem[];
   updatedAt: string;
+}
+type RepairAction = "practice_again" | "review_demo" | "ask_teacher";
+interface RepairPlanItem {
+  criterionId: string;
+  action: RepairAction;
+  issue: string;
+  nextStep: string;
+  completed: boolean;
 }
 interface AiCriterion { score: number; maxScore: number; strength: string; issue: string; recommendation: string }
 interface AiAssessment {
@@ -53,6 +62,11 @@ interface Journey {
 interface AiInfo { provider: string; model: string | null; live: boolean }
 
 const MAX_EVIDENCE = 6;
+const REPAIR_ACTION_LABEL: Record<RepairAction, string> = {
+  practice_again: "Luyện lại theo quy trình",
+  review_demo: "Xem lại Demo và ghi chép",
+  ask_teacher: "Nhờ giáo viên kiểm tra",
+};
 
 export type JourneyView = "schedule" | "training" | "practice" | "hair";
 
@@ -131,6 +145,26 @@ const isTodayD = (d: Date) => startOfDay(d).getTime() === startOfDay(new Date())
 
 function pct(score: number, max: number) {
   return max > 0 ? Math.round((score / max) * 100) : 0;
+}
+
+function makeupTimeBand(minutes: number | null): number | null {
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return null;
+  if (minutes <= 60) return 5;
+  if (minutes <= 65) return 4;
+  if (minutes <= 70) return 3;
+  if (minutes <= 75) return 2;
+  if (minutes <= 80) return 1;
+  return 0;
+}
+
+function repairPlanSignature(plan: RepairPlanItem[]) {
+  return JSON.stringify(plan.map((item) => ({
+    criterionId: item.criterionId,
+    action: item.action,
+    issue: item.issue,
+    nextStep: item.nextStep,
+    completed: item.completed,
+  })));
 }
 
 // Coaching bot V1 is a local, rubric-only pre-check (provider "mock", or a "local-http"/"ollama"
@@ -1262,6 +1296,8 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   const [assetIds, setAssetIds] = useState<string[]>(submission?.assetIds ?? []);
   const [note, setNote] = useState(submission?.note ?? "");
   const [scores, setScores] = useState<Record<string, number>>(submission?.criterionScores ?? {});
+  const [durationMinutes, setDurationMinutes] = useState(submission?.durationMinutes == null ? "" : String(submission.durationMinutes));
+  const [repairPlan, setRepairPlan] = useState<RepairPlanItem[]>(submission?.repairPlan ?? []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -1270,14 +1306,56 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
     setAssetIds(submission?.assetIds ?? []);
     setNote(submission?.note ?? "");
     setScores(submission?.criterionScores ?? {});
+    setDurationMinutes(submission?.durationMinutes == null ? "" : String(submission.durationMinutes));
+    setRepairPlan(submission?.repairPlan ?? []);
   }, [submission]);
+
+  const duration = durationMinutes.trim() === "" ? null : Number(durationMinutes);
+  const timeBand = makeupTimeBand(duration);
+  const speedCriterion = rubric?.criteria.find((criterion) => criterion.skillKey === "speed");
+  const speedCriterionId = speedCriterion?.id;
+  const speedCriterionMax = speedCriterion?.maxScore;
+  const scoreCap = (criterion: RubricCriterion) => criterion.id === speedCriterionId && timeBand != null
+    ? Math.min(criterion.maxScore, timeBand + 5)
+    : criterion.maxScore;
+  const criterionScore = (criterion: RubricCriterion) => Math.min(scoreCap(criterion), Math.max(0, Number(scores[criterion.id] ?? 0)));
+
+  useEffect(() => {
+    if (!speedCriterionId || speedCriterionMax == null || timeBand == null) return;
+    const cap = Math.min(speedCriterionMax, timeBand + 5);
+    setScores((current) => {
+      const currentScore = Number(current[speedCriterionId] ?? 0);
+      return currentScore > cap ? { ...current, [speedCriterionId]: cap } : current;
+    });
+  }, [speedCriterionId, speedCriterionMax, timeBand]);
 
   const dirty = note !== (submission?.note ?? "") ||
     assetIds.length !== (submission?.assetIds.length ?? 0) ||
     assetIds.some((id, i) => id !== submission?.assetIds[i]) ||
-    Boolean(rubric && rubric.criteria.some((criterion) => Number(scores[criterion.id] ?? 0) !== Number(submission?.criterionScores?.[criterion.id] ?? 0)));
-  const selfTotal = rubric?.criteria.reduce((sum, criterion) => sum + Math.min(criterion.maxScore, Math.max(0, Number(scores[criterion.id] ?? 0))), 0) ?? 0;
+    durationMinutes !== (submission?.durationMinutes == null ? "" : String(submission.durationMinutes)) ||
+    repairPlanSignature(repairPlan) !== repairPlanSignature(submission?.repairPlan ?? []) ||
+    Boolean(rubric && rubric.criteria.some((criterion) => criterionScore(criterion) !== Number(submission?.criterionScores?.[criterion.id] ?? 0)));
+  const selfTotal = rubric?.criteria.reduce((sum, criterion) => sum + criterionScore(criterion), 0) ?? 0;
   const selfMax = rubric?.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0) ?? 0;
+  const completedRepairCount = repairPlan.filter((item) => item.completed).length;
+
+  const updateRepairPlan = (index: number, patch: Partial<RepairPlanItem>) => {
+    setRepairPlan((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
+  };
+
+  const addRepairItem = () => {
+    if (!rubric || repairPlan.length >= 3) return;
+    const used = new Set(repairPlan.map((item) => item.criterionId));
+    const first = rubric.criteria.find((criterion) => !used.has(criterion.id));
+    if (!first) return;
+    setRepairPlan((current) => [...current, {
+      criterionId: first.id,
+      action: "practice_again",
+      issue: "",
+      nextStep: "",
+      completed: false,
+    }]);
+  };
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -1304,7 +1382,15 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
       const response = await fetch("/api/student/makeup-journey/submission", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ classSessionId: sessionId, assetIds, note, rubricId: rubric?.id, criterionScores: scores })
+        body: JSON.stringify({
+          classSessionId: sessionId,
+          assetIds,
+          note,
+          rubricId: rubric?.id,
+          criterionScores: scores,
+          durationMinutes: duration,
+          repairPlan,
+        })
       });
       const payload = await response.json().catch(() => null) as { error?: string; submission?: Submission } | null;
       if (!response.ok || !payload?.submission) {
@@ -1318,7 +1404,7 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
         return;
       }
       onSaved(payload.submission);
-      setMessage("Đã lưu minh chứng.");
+      setMessage("Đã lưu tự chấm và kế hoạch tự chữa.");
     } finally {
       setSaving(false);
     }
@@ -1337,15 +1423,100 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
           <b>{selfTotal}<i>/{selfMax}</i></b>
         </div>
         <div className={styles.selfCriteria}>
+          {speedCriterion && (
+            <label className={styles.selfTiming}>
+              <span>Thời gian hoàn thành <small>(chỉ cho phần thực hành Makeup)</small></span>
+              <div>
+                <input
+                  type="number"
+                  min={1}
+                  max={600}
+                  inputMode="numeric"
+                  disabled={locked}
+                  value={durationMinutes}
+                  onChange={(event) => setDurationMinutes(event.target.value)}
+                  placeholder="phút"
+                  aria-label="Thời gian hoàn thành, tính bằng phút"
+                />
+                <b>phút</b>
+              </div>
+              <small>{timeBand == null
+                ? "Nhập thời gian để kiểm tra phần thời lượng (tối đa 5 điểm); 5 điểm còn lại là kiểm soát tiến độ."
+                : `Thời lượng hiện tại: ${timeBand}/5 điểm. Bạn có thể tự chấm thêm tối đa 5 điểm cho kiểm soát tiến độ.`}</small>
+            </label>
+          )}
           {rubric.criteria.map((criterion) => {
-            const score = Math.min(criterion.maxScore, Math.max(0, Number(scores[criterion.id] ?? 0)));
+            const score = criterionScore(criterion);
+            const cap = scoreCap(criterion);
             return <label key={criterion.id} className={styles.selfCriterion}>
               <span>{criterion.title}{criterion.required ? <em> bắt buộc</em> : null}</span>
-              <input type="range" min={0} max={criterion.maxScore} step={1} disabled={locked} value={score} onChange={(event) => setScores((current) => ({ ...current, [criterion.id]: Number(event.target.value) }))} />
+              <input type="range" min={0} max={cap} step={1} disabled={locked} value={score} onChange={(event) => setScores((current) => ({ ...current, [criterion.id]: Number(event.target.value) }))} />
               <output>{score}/{criterion.maxScore}</output>
             </label>;
           })}
         </div>
+      </section>
+    )}
+    {rubric && rubric.criteria.length > 0 && (
+      <section className={styles.repairPlanner} aria-label="Kế hoạch tự chữa bài">
+        <div className={styles.repairHead}>
+          <div>
+            <strong>Tự chữa bài theo tiêu chí</strong>
+            <small>Chọn tối đa 3 điểm cần cải thiện trong buổi này. Giáo viên sẽ xem kế hoạch cùng ảnh và phần tự chấm của bạn.</small>
+          </div>
+          <b>{completedRepairCount}<i>/{repairPlan.length || 0}</i></b>
+        </div>
+
+        {!repairPlan.length && (
+          <p className={styles.repairEmpty}>Chưa chọn mục tự chữa. Chọn một tiêu chí bạn chưa tự tin, viết lỗi nhận ra và bước sẽ làm ngay.</p>
+        )}
+
+        <div className={styles.repairItems}>
+          {repairPlan.map((item, index) => {
+            const selectedCriterion = rubric.criteria.find((criterion) => criterion.id === item.criterionId);
+            const usedCriterionIds = new Set(repairPlan.filter((_, itemIndex) => itemIndex !== index).map((entry) => entry.criterionId));
+            return <article key={`${item.criterionId}-${index}`} className={styles.repairItem} data-completed={item.completed || undefined}>
+              <div className={styles.repairItemTop}>
+                <label>
+                  <span>Tiêu chí cần chữa</span>
+                  <select disabled={locked} value={item.criterionId} onChange={(event) => updateRepairPlan(index, { criterionId: event.target.value, completed: false })}>
+                    {rubric.criteria.map((criterion) => <option key={criterion.id} value={criterion.id} disabled={usedCriterionIds.has(criterion.id)}>
+                      {criterion.title} · {criterionScore(criterion)}/{criterion.maxScore}
+                    </option>)}
+                  </select>
+                </label>
+                {!locked && <button type="button" className={styles.repairRemove} onClick={() => setRepairPlan((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label="Bỏ mục tự chữa">×</button>}
+              </div>
+              {selectedCriterion?.description && <details className={styles.repairGuide}>
+                <summary>Chuẩn cần đạt</summary>
+                <small>{selectedCriterion.description}</small>
+              </details>}
+              <label className={styles.repairField}>
+                <span>Lỗi em nhận ra</span>
+                <textarea disabled={locked} rows={2} maxLength={320} value={item.issue} onChange={(event) => updateRepairPlan(index, { issue: event.target.value })} placeholder="Ví dụ: Nền bị mốc ở vùng mũi, chuyển màu má chưa đều…" />
+              </label>
+              <div className={styles.repairActionRow}>
+                <label className={styles.repairField}>
+                  <span>Cách em xử lý</span>
+                  <select disabled={locked} value={item.action} onChange={(event) => updateRepairPlan(index, { action: event.target.value as RepairAction })}>
+                    {Object.entries(REPAIR_ACTION_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className={styles.repairField}>
+                  <span>Bước làm ngay</span>
+                  <input disabled={locked} maxLength={320} value={item.nextStep} onChange={(event) => updateRepairPlan(index, { nextStep: event.target.value })} placeholder="Ví dụ: Luyện lại 1 nửa mặt, chụp ảnh gửi cô" />
+                </label>
+              </div>
+              <label className={styles.repairDone}>
+                <input type="checkbox" disabled={locked} checked={item.completed} onChange={(event) => updateRepairPlan(index, { completed: event.target.checked })} />
+                <span>Em đã luyện/xử lý mục này và muốn giáo viên kiểm tra</span>
+              </label>
+            </article>;
+          })}
+        </div>
+        {!locked && <button type="button" className={styles.repairAdd} disabled={repairPlan.length >= 3 || repairPlan.length >= rubric.criteria.length} onClick={addRepairItem}>
+          + Thêm mục cần tự chữa {repairPlan.length ? `(${repairPlan.length}/3)` : ""}
+        </button>}
       </section>
     )}
     <div className={styles.thumbRow}>

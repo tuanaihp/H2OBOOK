@@ -87,8 +87,22 @@ export interface ClassSessionSubmission {
   totalScore: number | null;
   maxScore: number | null;
   durationMinutes: number | null;
+  repairPlan: SelfRepairPlanItem[];
   submittedAt: string;
   updatedAt: string;
+}
+
+// A learner's own correction plan is intentionally stored with their pre-grading submission,
+// rather than in class_evaluations. It gives the instructor context for coaching while keeping
+// the official score fully under instructor control.
+export type SelfRepairAction = "practice_again" | "review_demo" | "ask_teacher";
+
+export interface SelfRepairPlanItem {
+  criterionId: string;
+  action: SelfRepairAction;
+  issue: string;
+  nextStep: string;
+  completed: boolean;
 }
 
 // One AI draft assessment of a student's session submission (migration 0065). Always a DRAFT —
