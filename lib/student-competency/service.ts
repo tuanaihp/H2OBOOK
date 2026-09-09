@@ -71,18 +71,50 @@ function mapAiAssessment(row: Record<string, unknown>): ClassAiAssessment {
   };
 }
 
+interface SelfAssessmentMetadata {
+  rubricId: string | null;
+  rubricVersionLabel: string;
+  criterionScores: Record<string, number>;
+  totalScore: number | null;
+  maxScore: number | null;
+  durationMinutes: number | null;
+}
+
+const SELF_ASSESSMENT_PREFIX = "\n<!--h2o-self-assessment:";
+const SELF_ASSESSMENT_SUFFIX = "-->";
+
+function readSelfAssessmentMetadata(note: string): { note: string; metadata: SelfAssessmentMetadata | null } {
+  const start = note.lastIndexOf(SELF_ASSESSMENT_PREFIX);
+  if (start < 0 || !note.endsWith(SELF_ASSESSMENT_SUFFIX)) return { note, metadata: null };
+  try {
+    const encoded = note.slice(start + SELF_ASSESSMENT_PREFIX.length, -SELF_ASSESSMENT_SUFFIX.length);
+    const value = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SelfAssessmentMetadata;
+    if (!value || typeof value !== "object" || !value.criterionScores || typeof value.criterionScores !== "object") throw new Error("INVALID_METADATA");
+    return { note: note.slice(0, start).trimEnd(), metadata: value };
+  } catch {
+    return { note, metadata: null };
+  }
+}
+
+function writeSelfAssessmentMetadata(note: string, metadata: SelfAssessmentMetadata): string {
+  const encoded = Buffer.from(JSON.stringify(metadata), "utf8").toString("base64url");
+  return `${note.trimEnd()}${SELF_ASSESSMENT_PREFIX}${encoded}${SELF_ASSESSMENT_SUFFIX}`;
+}
+
 function mapSubmission(row: Record<string, unknown>): ClassSessionSubmission {
+  const parsed = readSelfAssessmentMetadata(String(row.note ?? ""));
+  const metadata = parsed.metadata;
   return {
     classSessionId: String(row.class_session_id),
     studentId: String(row.student_id),
     assetIds: (row.asset_ids ?? []) as string[],
-    note: String(row.note ?? ""),
-    rubricId: row.rubric_id ? String(row.rubric_id) : null,
-    rubricVersionLabel: String(row.rubric_version_label ?? ""),
-    criterionScores: (row.criterion_scores ?? {}) as Record<string, number>,
-    totalScore: row.self_total_score == null ? null : Number(row.self_total_score),
-    maxScore: row.self_max_score == null ? null : Number(row.self_max_score),
-    durationMinutes: row.self_duration_minutes == null ? null : Number(row.self_duration_minutes),
+    note: parsed.note,
+    rubricId: row.rubric_id ? String(row.rubric_id) : metadata?.rubricId ?? null,
+    rubricVersionLabel: String(row.rubric_version_label ?? metadata?.rubricVersionLabel ?? ""),
+    criterionScores: (row.criterion_scores ?? metadata?.criterionScores ?? {}) as Record<string, number>,
+    totalScore: row.self_total_score == null ? metadata?.totalScore ?? null : Number(row.self_total_score),
+    maxScore: row.self_max_score == null ? metadata?.maxScore ?? null : Number(row.self_max_score),
+    durationMinutes: row.self_duration_minutes == null ? metadata?.durationMinutes ?? null : Number(row.self_duration_minutes),
     submittedAt: String(row.submitted_at ?? row.updated_at ?? ""),
     updatedAt: String(row.updated_at ?? "")
   };
@@ -421,7 +453,7 @@ export async function getStudentSessionAiContext(studentId: string, classSession
       sessionTitle: String(session.title ?? ""),
       sessionType: String(session.session_type ?? ""),
       rubric,
-      note: String(submission?.note ?? ""),
+      note: readSelfAssessmentMetadata(String(submission?.note ?? "")).note,
       assetIds: (submission?.asset_ids ?? []) as string[],
     },
   };
@@ -468,9 +500,13 @@ export async function listSessionSubmissions(access: TeachingAccessSnapshot, cla
   if (!canAccessClass(access, classId) || !canAccessStudent(access, studentId)) return null;
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
-  const { data } = await admin.from("class_session_submissions")
+  const expanded = await admin.from("class_session_submissions")
     .select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,submitted_at,updated_at")
     .eq("organization_id", access.organizationId).eq("class_id", classId).eq("student_id", studentId);
+  const { data } = expanded.error
+    ? await admin.from("class_session_submissions").select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at")
+      .eq("organization_id", access.organizationId).eq("class_id", classId).eq("student_id", studentId)
+    : expanded;
   return (data ?? []).map((row) => mapSubmission(row as Record<string, unknown>));
 }
 
@@ -503,7 +539,7 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
 
   let rubricId: string | null = null;
   let rubricVersionLabel = "";
-  let criterionScores: Record<string, number> = {};
+  const criterionScores: Record<string, number> = {};
   let selfTotalScore: number | null = null;
   let selfMaxScore: number | null = null;
   if (input.rubricId) {
@@ -538,7 +574,11 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, error: "SUPABASE_NOT_CONFIGURED" };
-  const { data: saved, error } = await supabase.from("class_session_submissions").upsert({
+  const selfAssessment: SelfAssessmentMetadata = {
+    rubricId, rubricVersionLabel, criterionScores,
+    totalScore: selfTotalScore, maxScore: selfMaxScore, durationMinutes,
+  };
+  const expanded = await supabase.from("class_session_submissions").upsert({
     organization_id: organizationId,
     class_id: classId,
     class_session_id: input.classSessionId,
@@ -553,7 +593,21 @@ export async function upsertOwnSessionSubmission(studentId: string, input: OwnSu
     self_duration_minutes: durationMinutes,
     updated_at: new Date().toISOString()
   }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,rubric_id,rubric_version_label,criterion_scores,self_total_score,self_max_score,self_duration_minutes,submitted_at,updated_at").single();
-  if (error || !saved) return { ok: false, error: error?.message ?? "SUBMISSION_SAVE_FAILED" };
+  if (!expanded.error && expanded.data) return { ok: true, submission: mapSubmission(expanded.data as Record<string, unknown>) };
+
+  // Existing production databases can safely accept self-assessment before migration 0070 is run.
+  // Metadata stays hidden from the learner's note and is read back by mapSubmission above.
+  const fallback = await supabase.from("class_session_submissions").upsert({
+    organization_id: organizationId,
+    class_id: classId,
+    class_session_id: input.classSessionId,
+    student_id: studentId,
+    asset_ids: assetIds,
+    note: writeSelfAssessmentMetadata(note, selfAssessment),
+    updated_at: new Date().toISOString()
+  }, { onConflict: "class_session_id,student_id" }).select("class_session_id,student_id,asset_ids,note,submitted_at,updated_at").single();
+  const { data: saved, error } = fallback;
+  if (error || !saved) return { ok: false, error: error?.message ?? expanded.error?.message ?? "SUBMISSION_SAVE_FAILED" };
   return { ok: true, submission: mapSubmission(saved as Record<string, unknown>) };
 }
 
