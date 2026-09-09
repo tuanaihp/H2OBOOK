@@ -125,6 +125,13 @@ export function GradingForm({ classId, organizationId, roster, category, session
     setScores((current) => ({ ...current, [speedCriterion.id]: Math.min(speedCriterion.maxScore, timeScore + progressControlScore) }));
   };
 
+  // The prescribed duration band updates as soon as the instructor records the actual time.
+  useEffect(() => {
+    if (category === "makeup" && speedCriterion && durationMinutes) applyDurationScore();
+    // This derived action intentionally tracks the primitive score inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, speedCriterion?.id, speedCriterion?.maxScore, durationMinutes, progressControlScore]);
+
   async function onPickEvidence(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
