@@ -28,6 +28,14 @@ interface Submission {
   repairPlan: RepairPlanItem[];
   updatedAt: string;
 }
+interface LocalAssessmentDraft {
+  savedAt: number;
+  assetIds?: string[];
+  note?: string;
+  criterionScores?: Record<string, number>;
+  durationMinutes?: string;
+  repairPlan?: RepairPlanItem[];
+}
 type RepairAction = "practice_again" | "review_demo" | "ask_teacher";
 interface RepairPlanItem {
   criterionId: string;
@@ -574,12 +582,12 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
         <span className={styles.copilotBadge} data-live={!offline && aiInfo?.live ? "" : undefined}>{engineBadge(aiInfo)}</span>
       </div>
 
-      <div className={styles.copilotTabs}>
-        <button type="button" data-active={tab === "overview" || undefined} onClick={() => setTab("overview")}>Kết quả buổi</button>
-        <button type="button" data-active={tab === "chat" || undefined} onClick={() => setTab("chat")}>Chat Coach</button>
-        <button type="button" data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
-        <button type="button" data-active={tab === "self" || undefined} onClick={() => setTab("self")}>Tự đánh giá</button>
-        <button type="button" data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Rubric</button>
+      <div className={styles.copilotTabs} role="tablist" aria-label="Công cụ học tập cho buổi đã chọn">
+        <button type="button" role="tab" aria-selected={tab === "overview"} data-active={tab === "overview" || undefined} onClick={() => setTab("overview")}>Kết quả buổi</button>
+        <button type="button" role="tab" aria-selected={tab === "chat"} data-active={tab === "chat" || undefined} onClick={() => setTab("chat")}>Chat Coach</button>
+        <button type="button" role="tab" aria-selected={tab === "assess"} data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
+        <button type="button" role="tab" aria-selected={tab === "self"} data-active={tab === "self" || undefined} onClick={() => setTab("self")}>Tự đánh giá</button>
+        <button type="button" role="tab" aria-selected={tab === "rubric"} data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Tiêu chí</button>
       </div>
 
       {!session || !ctx ? (
@@ -591,8 +599,10 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
             <span className={styles.pill} data-tone={ctx.evaluation ? "done" : (ctx.submission?.assetIds.length ?? 0) > 0 ? "info" : undefined}>{status}</span>
           </div>
 
-          {tab === "overview" && <SessionOverview session={session} ctx={ctx} onNavigate={setTab} />}
-          {tab === "chat" && (
+          <div className={styles.copilotPane} hidden={tab !== "overview"}>
+            <SessionOverview session={session} ctx={ctx} onNavigate={setTab} />
+          </div>
+          <div className={styles.copilotPane} hidden={tab !== "chat"}>
             <div className={styles.copilotChat}>
               <CoachConversation
                 messages={thread.messages}
@@ -601,8 +611,8 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
                 onAttach={ctx.evaluation ? undefined : attachPhotos}
               />
             </div>
-          )}
-          {tab === "assess" && (
+          </div>
+          <div className={styles.copilotPane} hidden={tab !== "assess"}>
             <SessionDetail
               key={session.id}
               session={session}
@@ -620,8 +630,8 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
               variant="panel"
               content="evidence"
             />
-          )}
-          {tab === "self" && (
+          </div>
+          <div className={styles.copilotPane} hidden={tab !== "self"}>
             <SessionDetail
               key={`${session.id}-self`}
               session={session}
@@ -635,8 +645,10 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
               variant="panel"
               content="self"
             />
-          )}
-          {tab === "rubric" && <RubricSummary rubric={ctx.rubric} detailed />}
+          </div>
+          <div className={styles.copilotPane} hidden={tab !== "rubric"}>
+            <RubricSummary rubric={ctx.rubric} detailed />
+          </div>
         </div>
       )}
     </aside>
@@ -788,10 +800,18 @@ function JourneyBody({ journey, view, aiInfo, onSubmissionSaved, onAiAssessed }:
   const avgScore = gradedPercents.length ? Math.round(gradedPercents.reduce((a, b) => a + b, 0) / gradedPercents.length) : null;
 
   return <>
-    <HeroCard name={klass.name} code={klass.code} progressPct={overallPct} />
-    <ProgressStrip completed={completedCount} total={totalSessions} graded={evaluations.length} avgScore={avgScore} />
+    <details className={styles.mobileCourseOverview}>
+      <summary>
+        <div><small>KHÓA HỌC ĐANG HỌC</small><strong>{klass.name}</strong><span>Mã lớp {klass.code}</span></div>
+        <b>{completedCount}/{totalSessions}<small> buổi</small></b>
+      </summary>
+      <div className={styles.mobileCourseOverviewBody}>
+        <HeroCard name={klass.name} code={klass.code} progressPct={overallPct} />
+        <ProgressStrip completed={completedCount} total={totalSessions} graded={evaluations.length} avgScore={avgScore} />
+        <RoadmapList sessions={sessions} />
+      </div>
+    </details>
     <div className={styles.noteBanner}><Sparkles size={14} /><span>{AI_NOTE}</span></div>
-    <RoadmapList sessions={sessions} />
     <p className={styles.viewSub}>{meta.title.toUpperCase()} · {meta.sub}</p>
     <LaneWorkspace journey={journey} view={view} aiInfo={aiInfo} onSubmissionSaved={onSubmissionSaved} onAiAssessed={onAiAssessed} />
     <JourneyFooter />
@@ -878,9 +898,7 @@ function LaneWorkspace({ journey, view, aiInfo, onSubmissionSaved, onAiAssessed 
   journey: Journey; view: JourneyView; aiInfo: AiInfo | null; onSubmissionSaved: (s: Submission) => void; onAiAssessed: (a: AiAssessment) => void;
 }) {
   const evaluationBySession = useMemo(() => new Map(journey.evaluations.map((e) => [e.classSessionId, e])), [journey.evaluations]);
-  const aiBySession = useMemo(() => new Map(journey.aiAssessments.map((a) => [a.classSessionId, a])), [journey.aiAssessments]);
   const submissionBySession = useMemo(() => new Map(journey.submissions.map((s) => [s.classSessionId, s])), [journey.submissions]);
-  const rubricByCategory = useMemo(() => new Map(journey.rubrics.map((r) => [r.category, r])), [journey.rubrics]);
 
   const hasRealDates = useMemo(() => journey.sessions.some((s) => s.sessionDate), [journey.sessions]);
   const anchor = useMemo(() => {
@@ -921,18 +939,6 @@ function LaneWorkspace({ journey, view, aiInfo, onSubmissionSaved, onAiAssessed 
       : (submissionBySession.get(s.id)?.assetIds.length ?? 0) > 0 ? "submitted"
       : "none";
 
-  const detailProps = (session: ClassSession) => ({
-    session,
-    organizationId: journey.class.organizationId,
-    rubric: rubricByCategory.get(RUBRIC_FOR_TYPE[session.sessionType] ?? null) ?? null,
-    evaluation: evaluationBySession.get(session.id) ?? null,
-    submission: submissionBySession.get(session.id) ?? null,
-    aiAssessment: aiBySession.get(session.id) ?? null,
-    aiInfo,
-    onSaved: onSubmissionSaved,
-    onAiAssessed,
-  });
-
   if (!items.length) return <p className={styles.muted}>Chưa có buổi nào thuộc nhóm này. Giảng viên sẽ bổ sung vào lịch.</p>;
 
   return <div>
@@ -959,35 +965,39 @@ function LaneWorkspace({ journey, view, aiInfo, onSubmissionSaved, onAiAssessed 
       <p className={styles.calHint}>Ngày học đang hiển thị <b>theo dự kiến</b>. Khi giảng viên xếp lịch chính thức, ngày sẽ tự cập nhật.</p>
     )}
 
-    <div className={styles.laneList}>
+    <div className={styles.mobileSessionPicker}>
+      <div className={styles.mobileSessionPickerHead}>
+        <strong>Chọn buổi để xem và chấm</strong>
+        <span>{items.length} buổi</span>
+      </div>
+      <div className={styles.mobileSessionRail} aria-label="Danh sách buổi học">
       {items.map((it) => {
         const st = statusOf(it.session);
         return (
           <button
             key={it.session.id}
             type="button"
-            className={styles.laneRow}
+            className={styles.mobileSessionChip}
             data-active={selected?.session.id === it.session.id ? "" : undefined}
             onClick={() => setSelectedId(it.session.id)}
+            aria-pressed={selected?.session.id === it.session.id}
           >
-            <div className={styles.laneBox} data-cat={CATEGORY_FOR_TYPE[it.session.sessionType]}>{it.session.sessionNo}</div>
-            <div className={styles.laneCopy}>
-              <strong>{SESSION_TYPE_LABEL[it.session.sessionType]}{it.session.title ? ` · ${it.session.title}` : ""}</strong>
-              <small>{it.date ? fmtShort(it.date) : "Chưa xếp lịch"}{it.synthetic ? " · dự kiến" : ""}</small>
-            </div>
-            <span className={styles.pill} data-tone={st === "graded" ? "done" : st === "submitted" ? "info" : undefined}>
-              {st === "graded" ? "Đã chấm" : st === "submitted" ? "Đã nộp" : "Chưa nộp"}
-            </span>
+            <b data-cat={CATEGORY_FOR_TYPE[it.session.sessionType]}>{it.session.sessionNo}</b>
+            <span>{it.date ? fmtShort(it.date) : "Chưa xếp lịch"}</span>
+            <i data-state={st}>{st === "graded" ? "✓ Đã chấm" : st === "submitted" ? "• Đã nộp" : "Chưa làm"}</i>
           </button>
         );
       })}
+      </div>
     </div>
 
-    {selected && (
-      <div className={styles.workspaceCard}>
-        <SessionDetail {...detailProps(selected.session)} />
-      </div>
-    )}
+    <CopilotPanel
+      journey={journey}
+      session={selected?.session ?? null}
+      aiInfo={aiInfo}
+      onSubmissionSaved={onSubmissionSaved}
+      onAiAssessed={onAiAssessed}
+    />
   </div>;
 }
 
@@ -1414,16 +1424,43 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const latestDraftRef = useRef<LocalAssessmentDraft | null>(null);
   const showEvidence = displayMode !== "self";
   const showSelfAssessment = displayMode !== "evidence";
+  const draftKey = `h2obook:student-assessment-draft:${sessionId}:${displayMode}`;
 
   useEffect(() => {
-    setAssetIds(submission?.assetIds ?? []);
-    setNote(submission?.note ?? "");
-    setScores(submission?.criterionScores ?? {});
-    setDurationMinutes(submission?.durationMinutes == null ? "" : String(submission.durationMinutes));
-    setRepairPlan(submission?.repairPlan ?? []);
-  }, [submission]);
+    let nextAssetIds = submission?.assetIds ?? [];
+    let nextNote = submission?.note ?? "";
+    let nextScores = submission?.criterionScores ?? {};
+    let nextDuration = submission?.durationMinutes == null ? "" : String(submission.durationMinutes);
+    let nextRepairPlan = submission?.repairPlan ?? [];
+    let restored = false;
+    if (!locked) {
+      try {
+        const raw = window.localStorage.getItem(draftKey);
+        const draft = raw ? JSON.parse(raw) as LocalAssessmentDraft : null;
+        if (draft) {
+          if (showEvidence && Array.isArray(draft.assetIds)) nextAssetIds = draft.assetIds;
+          if (showSelfAssessment) {
+            if (typeof draft.note === "string") nextNote = draft.note;
+            if (draft.criterionScores && typeof draft.criterionScores === "object") nextScores = draft.criterionScores;
+            if (typeof draft.durationMinutes === "string") nextDuration = draft.durationMinutes;
+            if (Array.isArray(draft.repairPlan)) nextRepairPlan = draft.repairPlan;
+          }
+          restored = true;
+        }
+      } catch {
+        window.localStorage.removeItem(draftKey);
+      }
+    }
+    setAssetIds(nextAssetIds);
+    setNote(nextNote);
+    setScores(nextScores);
+    setDurationMinutes(nextDuration);
+    setRepairPlan(nextRepairPlan);
+    if (restored) setMessage("Đã khôi phục bản nháp trên điện thoại.");
+  }, [draftKey, locked, showEvidence, showSelfAssessment, submission]);
 
   const duration = durationMinutes.trim() === "" ? null : Number(durationMinutes);
   const timeBand = makeupTimeBand(duration);
@@ -1453,6 +1490,31 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   const selfTotal = rubric?.criteria.reduce((sum, criterion) => sum + criterionScore(criterion), 0) ?? 0;
   const selfMax = rubric?.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0) ?? 0;
   const completedRepairCount = repairPlan.filter((item) => item.completed).length;
+
+  // Keep a light local draft so changing tabs, choosing another session, closing the keyboard or
+  // briefly losing the network cannot discard scores and notes. Only the fields owned by this tab
+  // are cached, so saving evidence never overwrites an unfinished self-assessment (and vice versa).
+  useEffect(() => {
+    if (locked || !dirty) {
+      latestDraftRef.current = null;
+      return;
+    }
+    const draft: LocalAssessmentDraft = {
+      savedAt: Date.now(),
+      ...(showEvidence ? { assetIds } : {}),
+      ...(showSelfAssessment ? { note, criterionScores: scores, durationMinutes, repairPlan } : {}),
+    };
+    latestDraftRef.current = draft;
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem(draftKey, JSON.stringify(draft));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [assetIds, dirty, draftKey, durationMinutes, locked, note, repairPlan, scores, showEvidence, showSelfAssessment]);
+
+  useEffect(() => () => {
+    const draft = latestDraftRef.current;
+    if (draft) window.localStorage.setItem(draftKey, JSON.stringify(draft));
+  }, [draftKey]);
 
   const updateRepairPlan = (index: number, patch: Partial<RepairPlanItem>) => {
     setRepairPlan((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
@@ -1518,6 +1580,8 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
         );
         return;
       }
+      window.localStorage.removeItem(draftKey);
+      latestDraftRef.current = null;
       onSaved(payload.submission);
       setMessage("Đã lưu tự chấm và kế hoạch tự chữa.");
     } finally {
@@ -1563,11 +1627,25 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
           {rubric.criteria.map((criterion) => {
             const score = criterionScore(criterion);
             const cap = scoreCap(criterion);
-            return <label key={criterion.id} className={styles.selfCriterion}>
+            const setScore = (next: number) => setScores((current) => ({ ...current, [criterion.id]: Math.min(cap, Math.max(0, next)) }));
+            return <div key={criterion.id} className={styles.selfCriterion}>
               <span>{criterion.title}{criterion.required ? <em> bắt buộc</em> : null}</span>
-              <input type="range" min={0} max={cap} step={1} disabled={locked} value={score} onChange={(event) => setScores((current) => ({ ...current, [criterion.id]: Number(event.target.value) }))} />
               <output>{score}/{criterion.maxScore}</output>
-            </label>;
+              <div className={styles.scoreControl}>
+                <button type="button" disabled={locked || score <= 0} onClick={() => setScore(score - 1)} aria-label={`Giảm điểm ${criterion.title}`}>−</button>
+                <input
+                  type="range"
+                  min={0}
+                  max={cap}
+                  step={1}
+                  disabled={locked}
+                  value={score}
+                  onChange={(event) => setScore(Number(event.target.value))}
+                  aria-label={`Điểm tự đánh giá: ${criterion.title}`}
+                />
+                <button type="button" disabled={locked || score >= cap} onClick={() => setScore(score + 1)} aria-label={`Tăng điểm ${criterion.title}`}>+</button>
+              </div>
+            </div>;
           })}
         </div>
       </section>
@@ -1660,11 +1738,11 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
       placeholder="Tự ghi chú: phần làm tốt, lỗi cần sửa, điều muốn hỏi giáo viên…"
     />}
     {showSelfAssessment && locked && note && <p className={styles.lockedNote}>{note}</p>}
-    {!locked && <div className={styles.evidenceActions}>
+    {!locked && <div className={styles.evidenceActions} data-dirty={dirty || undefined}>
       <button type="button" className={styles.primaryBtn} disabled={saving || uploading || !dirty} onClick={save}>
         {saving ? "Đang lưu…" : displayMode === "self" ? "Lưu tự đánh giá & ghi chú" : displayMode === "evidence" ? "Lưu minh chứng" : "Lưu tự chấm & ghi chú"}
       </button>
-      {message && <span className={styles.message}>{message}</span>}
+      <span className={styles.message} role="status">{saving ? "Đang đồng bộ…" : dirty ? "Có thay đổi chưa lưu" : message ?? "Đã đồng bộ"}</span>
     </div>}
     {locked && message && <span className={styles.message}>{message}</span>}
   </div>;

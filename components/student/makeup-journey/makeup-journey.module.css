@@ -51,7 +51,27 @@
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
   width: 100%; max-width: 560px; margin: 0 auto;
   padding: 16px 16px 28px;
+  overscroll-behavior-y: contain;
 }
+
+.mobileCourseOverview {
+  margin-bottom: 10px; border: 1px solid #e2dcff; border-radius: 16px;
+  background: #fff; overflow: hidden;
+}
+.mobileCourseOverview > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 72px; padding: 12px 14px; cursor: pointer; list-style: none;
+}
+.mobileCourseOverview > summary::-webkit-details-marker { display: none; }
+.mobileCourseOverview > summary > div { min-width: 0; display: grid; gap: 2px; }
+.mobileCourseOverview > summary > div small { color: #806fd4; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.mobileCourseOverview > summary > div strong { color: #1c1740; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobileCourseOverview > summary > div span { color: var(--student-muted, #718092); font-size: 11px; }
+.mobileCourseOverview > summary > b { flex: none; color: #5b41ad; font-size: 18px; font-variant-numeric: tabular-nums; }
+.mobileCourseOverview > summary > b small { font-size: 10px; color: #806fd4; }
+.mobileCourseOverview > summary::after { content: "⌄"; color: #7657e8; font-size: 18px; transition: transform .16s ease; }
+.mobileCourseOverview[open] > summary::after { transform: rotate(180deg); }
+.mobileCourseOverviewBody { padding: 0 10px 10px; }
 
 .bottomNav {
   flex: none;
@@ -112,6 +132,32 @@
 .laneCopy { display: grid; gap: 2px; min-width: 0; }
 .laneCopy strong { font-size: 12.5px; color: #1c1740; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .laneCopy small { font-size: 11px; color: var(--student-muted, #718092); }
+
+/* One-thumb session picker for the mobile assessment workspace. */
+.mobileSessionPicker { margin: 8px 0 12px; }
+.mobileSessionPickerHead { display: flex; justify-content: space-between; align-items: center; padding: 0 2px 8px; }
+.mobileSessionPickerHead strong { color: #1c1740; font-size: 12px; }
+.mobileSessionPickerHead span { color: var(--student-muted, #718092); font-size: 10px; }
+.mobileSessionRail {
+  display: flex; gap: 8px; overflow-x: auto; padding: 1px 2px 8px;
+  scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.mobileSessionRail::-webkit-scrollbar { display: none; }
+.mobileSessionChip {
+  flex: 0 0 92px; min-height: 88px; scroll-snap-align: start;
+  display: grid; grid-template-columns: 30px 1fr; align-content: center; align-items: center; gap: 4px 7px;
+  padding: 9px; border: 1px solid #e3def6; border-radius: 13px; background: #fff;
+  color: #514a68; text-align: left; cursor: pointer;
+}
+.mobileSessionChip > b { grid-row: 1 / 3; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: #eef2f6; color: #5d6a78; font-size: 13px; }
+.mobileSessionChip > b[data-cat="training"] { background: #e7f0fa; color: #135a80; }
+.mobileSessionChip > b[data-cat="makeup"] { background: #fbe9ef; color: #9c2350; }
+.mobileSessionChip > b[data-cat="hair"] { background: #efeafc; color: #5b41ad; }
+.mobileSessionChip > span { font-size: 9px; white-space: nowrap; }
+.mobileSessionChip > i { grid-column: 1 / -1; font-size: 9px; font-style: normal; color: #8a8397; }
+.mobileSessionChip > i[data-state="graded"] { color: #177a54; }
+.mobileSessionChip > i[data-state="submitted"] { color: #176d9b; }
+.mobileSessionChip[data-active] { border-color: #6e50e8; background: #f7f4ff; box-shadow: 0 0 0 2px rgba(110, 80, 232, .12); }
 
 .workspaceCard {
   border: 1px solid #e2dcff; border-radius: 16px; padding: 16px;
@@ -341,7 +387,7 @@
 .evidenceHead span { font-size: 12px; font-weight: 700; color: var(--student-ink, #111724); }
 .evidenceHead em { font-weight: 500; color: var(--student-muted, #718092); font-style: normal; }
 .selfAssessment { margin: 12px 0; padding: 12px; border: 1px solid #e8d9f0; border-radius: 14px; background: linear-gradient(135deg, #fffaff, #f7fbff); }
-.selfAssessmentHead { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 10px; }
+.selfAssessmentHead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
 .selfAssessmentHead strong { display: block; font-size: 12px; color: var(--student-ink, #111724); }
 .selfAssessmentHead small { display: block; max-width: 430px; margin-top: 3px; font-size: 10px; line-height: 1.45; color: var(--student-muted, #718092); }
 .selfAssessmentHead > b { font-size: 20px; color: var(--student-wine, #8d1d50); white-space: nowrap; }
@@ -350,8 +396,11 @@
 .selfCriterion { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(90px, 1.2fr) auto; align-items: center; gap: 8px; font-size: 11px; }
 .selfCriterion > span { color: var(--student-ink, #111724); line-height: 1.3; }
 .selfCriterion em { margin-left: 3px; color: #b22949; font-size: 9px; font-style: normal; }
-.selfCriterion input { accent-color: var(--student-wine, #8d1d50); min-width: 0; }
 .selfCriterion output { min-width: 32px; text-align: right; color: var(--student-muted, #718092); font-variant-numeric: tabular-nums; }
+.scoreControl { min-width: 0; display: grid; grid-template-columns: 32px minmax(80px, 1fr) 32px; align-items: center; gap: 7px; }
+.scoreControl input { width: 100%; min-width: 0; accent-color: var(--student-wine, #8d1d50); }
+.scoreControl button { width: 32px; height: 32px; border: 1px solid #ddd5ff; border-radius: 9px; background: #fff; color: #5b41ad; font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; }
+.scoreControl button:disabled { opacity: .38; cursor: default; }
 .selfTiming { display: grid; grid-template-columns: minmax(130px, 1fr) auto; gap: 5px 8px; align-items: center; padding: 8px 9px; border-radius: 9px; background: rgba(128, 89, 220, 0.07); color: var(--student-ink, #111724); font-size: 11px; }
 .selfTiming > span { font-weight: 700; }
 .selfTiming > span small { font-weight: 500; color: var(--student-muted, #718092); }
@@ -435,7 +484,7 @@
 .criteriaList li b[data-low] { color: #b22949; }
 @media (max-width: 560px) {
   .selfCriterion { grid-template-columns: 1fr auto; }
-  .selfCriterion input { grid-column: 1 / -1; grid-row: 2; }
+  .scoreControl { grid-column: 1 / -1; grid-row: 2; }
   .repairActionRow { grid-template-columns: 1fr; }
 }
 
@@ -551,6 +600,8 @@
 .copilotTabs button[data-active] { background: #6e50e8; color: #fff; }
 
 .copilotBody { flex: 1; min-height: 0; padding: 14px 16px 16px; overflow-y: auto; display: grid; align-content: start; gap: 14px; }
+.copilotPane { min-width: 0; }
+.copilotPane[hidden] { display: none; }
 .copilotEmpty { padding: 22px 16px; font-size: 12.5px; line-height: 1.6; color: var(--student-muted, #718092); }
 
 .copilotSession {
@@ -645,6 +696,89 @@
   background: #f4f1ff; color: #5b41ad; font-size: 11.5px; line-height: 1.7;
 }
 .flowLine b { color: #3f2fae; }
+
+/* Mobile operating mode: the course context collapses, sessions become a horizontal rail,
+   and every scoring control has a 44px touch target. Draft panes remain mounted so switching
+   tabs never discards an unfinished score or note. */
+@media (max-width: 899px) {
+  .appTopbar, .bottomNav { -webkit-backdrop-filter: none; backdrop-filter: none; background: #fff; }
+  .appBody { padding: 10px 10px 22px; scroll-padding-bottom: 92px; }
+  .noteBanner { margin-bottom: 10px; padding: 8px 10px; font-size: 10.5px; }
+  .viewSub { margin: 0 2px 6px; font-size: 10.5px; }
+  .todayCard { padding: 10px; margin-bottom: 9px; grid-template-columns: 46px 1fr 28px; border-radius: 14px; }
+  .todayBox { width: 46px; height: 46px; border-radius: 12px; }
+  .todayBox b { font-size: 20px; }
+  .todayCopy > span, .todayCopy small { font-size: 10px; }
+  .todayCopy strong { font-size: 12.5px; }
+  .calHint { margin-bottom: 8px; padding: 7px 9px; font-size: 10px; }
+
+  .copilot { position: static; height: auto; min-height: 0; border-radius: 16px; overflow: visible; }
+  .copilotHead { padding: 11px 12px; border-radius: 16px 16px 0 0; }
+  .copilotAvatar { width: 34px; height: 34px; border-radius: 10px; }
+  .copilotId strong { font-size: 12.5px; }
+  .copilotId small, .copilotBadge { font-size: 9px; }
+  .copilotTabs {
+    position: sticky; top: 0; z-index: 25;
+    display: flex; gap: 6px; padding: 8px 10px;
+    overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+    background: #fff; border-bottom: 1px solid #eeeaf8; -webkit-overflow-scrolling: touch;
+  }
+  .copilotTabs::-webkit-scrollbar { display: none; }
+  .copilotTabs button { flex: 0 0 auto; min-width: 104px; min-height: 44px; padding: 9px 12px; scroll-snap-align: center; font-size: 11px; }
+  .copilotBody { overflow: visible; padding: 10px; gap: 10px; }
+  .copilotSession { padding: 9px 10px; }
+  .copilotSession strong { font-size: 12px; }
+  .copilotChat { height: min(62dvh, 560px); }
+  .coachInput input { font-size: 16px; }
+  .coachQuick { padding: 8px; }
+
+  .overviewHero { padding: 13px; gap: 10px; }
+  .overviewHero strong { font-size: 14px; }
+  .overviewHero > b { min-width: 82px; padding: 9px; font-size: 18px; }
+  .overviewActions { grid-template-columns: 1fr; gap: 7px; }
+  .overviewActions button { min-height: 44px; padding: 9px 10px; }
+  .overviewCriteria { grid-template-columns: 1fr; }
+
+  .copilot .selfAssessment, .copilot .repairPlanner { margin: 0 0 10px; padding: 12px; }
+  .copilot .selfAssessmentHead { position: sticky; top: 61px; z-index: 15; margin: -12px -12px 10px; padding: 11px 12px; background: rgba(255, 255, 255, .97); border-bottom: 1px solid #ebe5fb; border-radius: 14px 14px 0 0; }
+  .copilot .selfAssessmentHead strong, .copilot .repairHead strong { font-size: 13px; }
+  .copilot .selfAssessmentHead small, .copilot .repairHead small { font-size: 10px; }
+  .copilot .selfCriteria { gap: 9px; }
+  .copilot .selfCriterion {
+    grid-template-columns: minmax(0, 1fr) auto; gap: 8px;
+    padding: 11px; border: 1px solid #ebe5fb; border-radius: 12px; background: #fff;
+    font-size: 12.5px; contain: layout paint;
+  }
+  .copilot .selfCriterion > span { font-weight: 700; }
+  .copilot .selfCriterion output { min-width: 52px; padding: 5px 8px; border-radius: 9px; background: #f0ecff; color: #5137ba; font-size: 13px; font-weight: 800; text-align: center; }
+  .copilot .scoreControl { grid-column: 1 / -1; grid-row: 2; grid-template-columns: 44px minmax(100px, 1fr) 44px; gap: 9px; }
+  .copilot .scoreControl button { width: 44px; height: 44px; border-radius: 12px; font-size: 21px; touch-action: manipulation; }
+  .copilot .scoreControl input { height: 44px; margin: 0; }
+  .copilot .scoreControl input::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: #ddd5ff; }
+  .copilot .scoreControl input::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -10px; }
+  .copilot .scoreControl input::-moz-range-track { height: 8px; border-radius: 999px; background: #ddd5ff; }
+  .copilot .scoreControl input::-moz-range-thumb { width: 28px; height: 28px; }
+  .copilot .selfTiming { grid-template-columns: 1fr; padding: 11px; font-size: 12px; }
+  .copilot .selfTiming input { width: 90px; min-height: 44px; font-size: 16px; }
+  .copilot .repairItem { padding: 11px; }
+  .copilot .repairItem select, .copilot .repairItem input:not([type="checkbox"]), .copilot .repairItem textarea { min-height: 44px; padding: 10px; font-size: 16px; }
+  .copilot .repairRemove { width: 40px; height: 40px; }
+  .copilot .repairAdd { min-height: 44px; width: 100%; }
+  .copilot .repairDone { min-height: 44px; align-items: center; font-size: 11px; }
+  .copilot .repairDone input { width: 22px; height: 22px; }
+  .copilot .note { min-height: 132px; padding: 12px; font-size: 16px; line-height: 1.5; scroll-margin-bottom: 100px; }
+  .copilot .evidenceActions {
+    position: sticky; bottom: 0; z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    margin: 12px -10px -10px; padding: 10px; border-top: 1px solid #e8e2f5;
+    background: rgba(255, 255, 255, .98); box-shadow: 0 -8px 18px rgba(37, 29, 78, .07);
+  }
+  .copilot .evidenceActions[data-dirty] { border-top-color: #b9a7ff; }
+  .copilot .evidenceActions .primaryBtn { min-height: 48px; }
+  .copilot .message { max-width: 92px; font-size: 9.5px; line-height: 1.35; }
+  .dropzone { min-height: 128px; }
+  .thumb, .addThumb { width: 84px; height: 84px; }
+  .journeyFooter, .flowLine { display: none; }
+}
 
 /* --- chat: photo attach button + image bubbles --- */
 .coachAttach {
