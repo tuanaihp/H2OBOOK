@@ -365,12 +365,15 @@ function DesktopJourney({ view, journey, mode, aiInfo, onSubmissionSaved, onAiAs
     <div className={styles.noteBanner}><Sparkles size={14} /><span>{AI_NOTE}</span></div>
 
     <div className={styles.copilotLayout}>
-      <CurriculumCalendar
-        journey={journey}
-        view={view}
-        selectedId={selectedSession?.id ?? null}
-        onSelect={setSelectedId}
-      />
+      <section className={styles.schedulePane} aria-label="Lịch học và buổi đang chọn">
+        <CurriculumCalendar
+          journey={journey}
+          view={view}
+          selectedId={selectedSession?.id ?? null}
+          onSelect={setSelectedId}
+        />
+        <SessionSnapshot journey={journey} session={selectedSession} />
+      </section>
       <CopilotPanel
         journey={journey}
         session={selectedSession}
@@ -422,6 +425,33 @@ function JourneyFooter() {
   );
 }
 
+// The calendar is a navigator, not the main workspace. This compact summary answers the most
+// important question immediately after a learner selects a date, while the full assessment work
+// happens in the wider Copilot workspace beside it.
+function SessionSnapshot({ journey, session }: { journey: Journey; session: ClassSession | null }) {
+  if (!session) return null;
+  const ctx = sessionContext(journey, session);
+  const scorePercent = ctx.evaluation ? pct(ctx.evaluation.totalScore, ctx.evaluation.maxScore) : null;
+  const date = session.sessionDate ? parseDateOnly(session.sessionDate).toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" }) : "Chưa xếp ngày chính thức";
+  return <article className={styles.sessionSnapshot}>
+    <div className={styles.snapshotHead}>
+      <div>
+        <small>BUỔI ĐANG CHỌN · {date}</small>
+        <strong>Buổi {session.sessionNo} · {SESSION_TYPE_LABEL[session.sessionType]}</strong>
+        {session.title && <span>{session.title}</span>}
+      </div>
+      <span className={styles.pill} data-tone={ctx.evaluation ? "done" : (ctx.submission?.assetIds.length ?? 0) > 0 ? "info" : undefined}>{ctx.evaluation ? "Đã chấm" : (ctx.submission?.assetIds.length ?? 0) > 0 ? "Đã nộp" : "Chưa nộp"}</span>
+    </div>
+    <div className={styles.snapshotMetrics}>
+      <span><small>Điểm giáo viên</small><b>{ctx.evaluation ? `${ctx.evaluation.totalScore}/${ctx.evaluation.maxScore}` : "—"}</b>{scorePercent != null && <em>{scorePercent}%</em>}</span>
+      <span><small>Tự đánh giá</small><b>{ctx.submission?.totalScore != null ? `${ctx.submission.totalScore}/${ctx.submission.maxScore ?? 100}` : "Chưa chấm"}</b></span>
+      <span><small>Minh chứng</small><b>{ctx.submission?.assetIds.length ?? 0}/6 ảnh</b></span>
+    </div>
+    {ctx.evaluation?.notes && <p className={styles.snapshotNote}><b>Nhận xét giáo viên:</b> {ctx.evaluation.notes}</p>}
+    {!ctx.evaluation && <p className={styles.snapshotHint}>Chi tiết, ảnh, nhận xét AI và phần tự chữa bài đang mở ở không gian H2O Learning Copilot bên phải.</p>}
+  </article>;
+}
+
 // =========================================================================
 // The persistent Learning Copilot panel — bound to whichever session is selected.
 // Flow: student drops photos in "Chat Coach" -> panel saves the submission and
@@ -435,7 +465,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
   onSubmissionSaved: (s: Submission) => void;
   onAiAssessed: (a: AiAssessment) => void;
 }) {
-  const [tab, setTab] = useState<"chat" | "assess" | "rubric">("chat");
+  const [tab, setTab] = useState<"overview" | "chat" | "assess" | "self" | "rubric">("overview");
   const [autoAssessAt, setAutoAssessAt] = useState(0);
   const [attaching, setAttaching] = useState(false);
   const offline = isOfflineEngine(aiInfo);
@@ -451,7 +481,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
   // Chat Coach with its result; a manual "Phân tích lại" on the Đánh giá ảnh tab stays put.
   const autoPendingRef = useRef(false);
   useEffect(() => () => { previewUrls.current.forEach(URL.revokeObjectURL); previewUrls.current = []; }, []);
-  useEffect(() => { setTab("chat"); setAutoAssessAt(0); autoPendingRef.current = false; }, [session?.id]);
+  useEffect(() => { setTab("overview"); setAutoAssessAt(0); autoPendingRef.current = false; }, [session?.id]);
 
   const say = (content: string): ChatMsg => ({ id: crypto.randomUUID(), role: "assistant", content });
 
@@ -482,7 +512,17 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
       const res = await fetch("/api/student/makeup-journey/submission", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ classSessionId: session.id, assetIds: merged, note: ctx.submission?.note ?? "" }),
+        // Keep a learner's self-assessment intact when they send another photo from Chat Coach.
+        // The same submission row backs every Copilot tab.
+        body: JSON.stringify({
+          classSessionId: session.id,
+          assetIds: merged,
+          note: ctx.submission?.note ?? "",
+          rubricId: ctx.rubric?.id ?? ctx.submission?.rubricId ?? undefined,
+          criterionScores: ctx.submission?.criterionScores ?? {},
+          durationMinutes: ctx.submission?.durationMinutes ?? undefined,
+          repairPlan: ctx.submission?.repairPlan ?? [],
+        }),
       });
       const payload = await res.json().catch(() => null) as { submission?: Submission; error?: string } | null;
       if (!res.ok || !payload?.submission) {
@@ -535,8 +575,10 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
       </div>
 
       <div className={styles.copilotTabs}>
+        <button type="button" data-active={tab === "overview" || undefined} onClick={() => setTab("overview")}>Kết quả buổi</button>
         <button type="button" data-active={tab === "chat" || undefined} onClick={() => setTab("chat")}>Chat Coach</button>
         <button type="button" data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
+        <button type="button" data-active={tab === "self" || undefined} onClick={() => setTab("self")}>Tự đánh giá</button>
         <button type="button" data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Rubric</button>
       </div>
 
@@ -549,6 +591,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
             <span className={styles.pill} data-tone={ctx.evaluation ? "done" : (ctx.submission?.assetIds.length ?? 0) > 0 ? "info" : undefined}>{status}</span>
           </div>
 
+          {tab === "overview" && <SessionOverview session={session} ctx={ctx} onNavigate={setTab} />}
           {tab === "chat" && (
             <div className={styles.copilotChat}>
               <CoachConversation
@@ -575,6 +618,22 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
               onAiAssessed={handleAssessed}
               onRequestCoach={() => setTab("chat")}
               variant="panel"
+              content="evidence"
+            />
+          )}
+          {tab === "self" && (
+            <SessionDetail
+              key={`${session.id}-self`}
+              session={session}
+              organizationId={journey.class.organizationId}
+              rubric={ctx.rubric}
+              evaluation={ctx.evaluation}
+              submission={ctx.submission}
+              aiAssessment={ctx.aiAssessment}
+              onSaved={onSubmissionSaved}
+              onAiAssessed={handleAssessed}
+              variant="panel"
+              content="self"
             />
           )}
           {tab === "rubric" && <RubricSummary rubric={ctx.rubric} detailed />}
@@ -582,6 +641,58 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
       )}
     </aside>
   );
+}
+
+function SessionOverview({ session, ctx, onNavigate }: {
+  session: ClassSession;
+  ctx: ReturnType<typeof sessionContext>;
+  onNavigate: (tab: "overview" | "chat" | "assess" | "self" | "rubric") => void;
+}) {
+  const evaluation = ctx.evaluation;
+  const submission = ctx.submission;
+  const aiAssessment = ctx.aiAssessment;
+  const percent = evaluation ? pct(evaluation.totalScore, evaluation.maxScore) : null;
+  return <div className={styles.sessionOverview}>
+    <div className={styles.overviewHero}>
+      <div>
+        <small>KẾT QUẢ BUỔI {session.sessionNo}</small>
+        <strong>{evaluation ? "Giáo viên đã đánh giá" : submission?.assetIds.length ? "Đã nộp minh chứng, chờ giáo viên" : "Chưa có minh chứng"}</strong>
+        <span>{SESSION_TYPE_LABEL[session.sessionType]}{session.title ? ` · ${session.title}` : ""}</span>
+      </div>
+      <b>{evaluation ? `${evaluation.totalScore}/${evaluation.maxScore}` : submission?.totalScore != null ? `${submission.totalScore}/${submission.maxScore ?? 100}` : "—"}<i>{evaluation ? `${percent}%` : submission?.totalScore != null ? "tự chấm" : ""}</i></b>
+    </div>
+
+    <div className={styles.overviewActions}>
+      <button type="button" onClick={() => onNavigate("assess")}>Ảnh & nhận xét AI</button>
+      <button type="button" onClick={() => onNavigate("self")}>Tự đánh giá / chữa bài</button>
+      <button type="button" onClick={() => onNavigate("rubric")}>Xem tiêu chí</button>
+    </div>
+
+    {evaluation ? <>
+      <section className={styles.overviewSection}>
+        <div className={styles.overviewSectionHead}><strong>Điểm giáo viên theo tiêu chí</strong><span>Điểm chính thức</span></div>
+        <ul className={styles.overviewCriteria}>
+          {(ctx.rubric?.criteria ?? []).map((criterion) => {
+            const score = evaluation.criterionScores[criterion.id] ?? 0;
+            return <li key={criterion.id} data-low={score < criterion.maxScore * .6 || undefined}>
+              <span>{criterion.title}</span>
+              <b>{score}/{criterion.maxScore}</b>
+            </li>;
+          })}
+        </ul>
+      </section>
+      {evaluation.notes && <section className={styles.overviewNote}><strong>Nhận xét của giáo viên</strong><p>{evaluation.notes}</p></section>}
+    </> : <section className={styles.overviewEmpty}>
+      <strong>Điểm chính thức sẽ xuất hiện sau khi giáo viên duyệt.</strong>
+      <p>{submission?.totalScore != null ? `Bạn đã tự chấm ${submission.totalScore}/${submission.maxScore ?? 100}. Hãy hoàn thiện ảnh và kế hoạch tự chữa để giáo viên đối chiếu nhanh hơn.` : "Bắt đầu bằng cách tải ảnh sản phẩm hoặc tự đánh giá theo rubric của buổi này."}</p>
+    </section>}
+
+    {aiAssessment?.status === "ai_draft" && <section className={styles.overviewAi}>
+      <strong>AI nhận xét sơ bộ · {aiAssessment.totalScore ?? "—"}/{aiAssessment.maxScore}</strong>
+      {aiAssessment.summary && <p>{aiAssessment.summary}</p>}
+      {aiAssessment.priorityFixes.length > 0 && <ul>{aiAssessment.priorityFixes.slice(0, 3).map((fix) => <li key={fix}>{fix}</li>)}</ul>}
+    </section>}
+  </div>;
 }
 
 function RubricSummary({ rubric, detailed = false }: { rubric: Rubric | null; detailed?: boolean }) {
@@ -1063,7 +1174,7 @@ function CurriculumCalendar({ journey, view, selectedId, onSelect }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant, content = "full" }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
@@ -1077,6 +1188,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   onAiAssessed: (a: AiAssessment) => void;
   onRequestCoach?: () => void;
   variant?: "panel";
+  content?: "full" | "evidence" | "self";
 }) {
   const [coachOpen, setCoachOpen] = useState(false);
   const hasEvidence = (submission?.assetIds.length ?? 0) > 0;
@@ -1093,9 +1205,9 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
     )}
     {variant !== "panel" && session.title && <p className={styles.detailTitle}>{session.title}</p>}
 
-    <SessionEvidence sessionId={session.id} organizationId={organizationId} rubric={rubric} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} />
+    <SessionEvidence sessionId={session.id} organizationId={organizationId} rubric={rubric} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} displayMode={content === "self" ? "self" : content === "evidence" ? "evidence" : "all"} />
 
-    {evaluation
+    {content !== "self" && (evaluation
       ? <GradePanel evaluation={evaluation} rubric={rubric} submission={submission} />
       : <div className={styles.pendingPanel}>
           <span className={styles.pendingTag}>Chưa chấm</span>
@@ -1109,9 +1221,9 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
                 </ul>
               </>
             : <p>Buổi này chưa gắn bộ tiêu chí chấm.</p>}
-        </div>}
+        </div>)}
 
-    {(rubric?.criteria.length ?? 0) > 0 && (
+    {content !== "self" && (rubric?.criteria.length ?? 0) > 0 && (
       <AiDraftSection
         sessionId={session.id}
         assessment={aiAssessment}
@@ -1284,7 +1396,7 @@ function AICoachSheet({ sessionId, sessionTitle, onClose }: { sessionId: string;
   </>;
 }
 
-function SessionEvidence({ sessionId, organizationId, rubric, submission, locked, onSaved, variant }: {
+function SessionEvidence({ sessionId, organizationId, rubric, submission, locked, onSaved, variant, displayMode = "all" }: {
   sessionId: string;
   organizationId: string;
   rubric: Rubric | null;
@@ -1292,6 +1404,7 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   locked: boolean;
   onSaved: (next: Submission) => void;
   variant?: "panel";
+  displayMode?: "all" | "evidence" | "self";
 }) {
   const [assetIds, setAssetIds] = useState<string[]>(submission?.assetIds ?? []);
   const [note, setNote] = useState(submission?.note ?? "");
@@ -1301,6 +1414,8 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const showEvidence = displayMode !== "self";
+  const showSelfAssessment = displayMode !== "evidence";
 
   useEffect(() => {
     setAssetIds(submission?.assetIds ?? []);
@@ -1410,13 +1525,13 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
     }
   }
 
-  const bigDrop = variant === "panel" && assetIds.length === 0 && !locked;
+  const bigDrop = showEvidence && variant === "panel" && assetIds.length === 0 && !locked;
 
   return <div className={styles.evidence}>
-    <div className={styles.evidenceHead}>
+    {showEvidence && <div className={styles.evidenceHead}>
       <span>Minh chứng của bạn {locked && <em>· đã khoá vì buổi đã được chấm</em>}</span>
-    </div>
-    {rubric && rubric.criteria.length > 0 && (
+    </div>}
+    {showSelfAssessment && rubric && rubric.criteria.length > 0 && (
       <section className={styles.selfAssessment} aria-label="Tự đánh giá theo rubric">
         <div className={styles.selfAssessmentHead}>
           <div><strong>Tự chấm trước khi giáo viên duyệt</strong><small>Điểm này là bản tự đánh giá; giáo viên sẽ đối chiếu và quyết định điểm chính thức.</small></div>
@@ -1457,7 +1572,7 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
         </div>
       </section>
     )}
-    {rubric && rubric.criteria.length > 0 && (
+    {showSelfAssessment && rubric && rubric.criteria.length > 0 && (
       <section className={styles.repairPlanner} aria-label="Kế hoạch tự chữa bài">
         <div className={styles.repairHead}>
           <div>
@@ -1519,7 +1634,7 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
         </button>}
       </section>
     )}
-    <div className={styles.thumbRow}>
+    {showEvidence && <div className={styles.thumbRow}>
       {assetIds.map((id) => (
         <span key={id} className={styles.thumb}>
           <AssetThumb assetId={id} />
@@ -1535,8 +1650,8 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
         </label>
       )}
       {assetIds.length === 0 && locked && <span className={styles.muted}>Không có ảnh nào được nộp cho buổi này.</span>}
-    </div>
-    {!locked && <textarea
+    </div>}
+    {showSelfAssessment && !locked && <textarea
       className={styles.note}
       value={note}
       onChange={(e) => setNote(e.target.value)}
@@ -1544,10 +1659,10 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
       maxLength={500}
       placeholder="Tự ghi chú: phần làm tốt, lỗi cần sửa, điều muốn hỏi giáo viên…"
     />}
-    {locked && note && <p className={styles.lockedNote}>{note}</p>}
+    {showSelfAssessment && locked && note && <p className={styles.lockedNote}>{note}</p>}
     {!locked && <div className={styles.evidenceActions}>
       <button type="button" className={styles.primaryBtn} disabled={saving || uploading || !dirty} onClick={save}>
-        {saving ? "Đang lưu…" : "Lưu tự chấm & ghi chú"}
+        {saving ? "Đang lưu…" : displayMode === "self" ? "Lưu tự đánh giá & ghi chú" : displayMode === "evidence" ? "Lưu minh chứng" : "Lưu tự chấm & ghi chú"}
       </button>
       {message && <span className={styles.message}>{message}</span>}
     </div>}
