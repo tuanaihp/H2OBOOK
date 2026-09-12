@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { resolveTeachingAccess } from "@/lib/teaching/request";
 import { createRubricVersion, listRubrics, type CreateRubricVersionInput } from "@/lib/student-competency/service";
+import type { RubricCategory } from "@/lib/student-competency/types";
 
-const CATEGORIES = new Set(["training", "makeup", "hair"]);
+const CATEGORIES = new Set(["training", "makeup", "hair", "makeup_product"]);
 
 export async function GET(request: Request) {
   const { access, response } = await resolveTeachingAccess(request);
   if (response) return response;
   const categoryParam = new URL(request.url).searchParams.get("category");
-  const category = categoryParam && CATEGORIES.has(categoryParam) ? (categoryParam as "training" | "makeup" | "hair") : undefined;
+  const category = categoryParam && CATEGORIES.has(categoryParam) ? (categoryParam as RubricCategory) : undefined;
   const rubrics = await listRubrics(access!, category);
   return NextResponse.json({ rubrics });
 }

@@ -4,6 +4,7 @@
 // package (lib/student-competency/README not needed — the migration header carries the audit).
 
 export type SessionType = "training_makeup_hair" | "training_hair" | "practice_makeup_hair" | "practice_hair" | "extracurricular";
+export type RubricCategory = "training" | "makeup" | "hair" | "makeup_product";
 
 export const SESSION_TYPE_LABEL: Record<SessionType, string> = {
   training_makeup_hair: "Training Makeup & Tóc",
@@ -51,7 +52,7 @@ export interface RubricCriterionView {
 export interface RubricView {
   id: string;
   title: string;
-  category: "training" | "makeup" | "hair" | null;
+  category: RubricCategory | null;
   quickIssues: string[];
   updatedAt: string;
   criteria: RubricCriterionView[];

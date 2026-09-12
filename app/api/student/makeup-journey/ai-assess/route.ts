@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
-import { getStudentSessionAiContext, saveClassAiAssessment, listOwnAiAssessments } from "@/lib/student-competency/service";
+import { getStudentSessionAiContext, saveClassAiAssessment } from "@/lib/student-competency/service";
+import { MAKEUP_PRODUCT_IMAGE_RUBRIC } from "@/lib/student-competency/makeup-product-rubric";
 import { analyzeSubmission, describeAiProvider } from "@/lib/h2obook/ai/adapter";
 import { createDownloadUrl } from "@/lib/storage/r2";
 import { isR2Configured } from "@/lib/runtime-config";
@@ -8,7 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-// AI draft scoring of the student's own session evidence against the teacher rubric. Always a
+// Draft scoring of the student's finished Makeup photos against the product-image rubric. Always a
 // DRAFT — never touches class_evaluations. AI failure returns 200 with status "unavailable";
 // the student's submission and any official score are untouched.
 export async function PUT(request: Request) {
@@ -24,9 +25,12 @@ export async function PUT(request: Request) {
     const status = ctx.error === "STUDENT_NOT_IN_CLASS" ? 403 : ctx.error === "SESSION_NOT_FOUND" ? 404 : 400;
     return NextResponse.json({ error: ctx.error }, { status });
   }
-  if (!ctx.context.rubric.length) return NextResponse.json({ error: "NO_RUBRIC_FOR_SESSION" }, { status: 400 });
-
+  if (!ctx.context.assetIds.length) return NextResponse.json({ error: "NO_MAKEUP_PHOTOS" }, { status: 400 });
   const { provider, model } = describeAiProvider();
+  const productRubric = ctx.context.productRubric.length
+    ? ctx.context.productRubric
+    : MAKEUP_PRODUCT_IMAGE_RUBRIC.map((criterion) => ({ ...criterion }));
+  const productContext = { ...ctx.context, rubric: productRubric };
 
   // Signed URLs only for key-backed providers; mock never needs them.
   let imageUrls: string[] = [];
@@ -40,11 +44,11 @@ export async function PUT(request: Request) {
     }
   }
 
-  const attemptCount = (await listOwnAiAssessments(auth.user!.id, ctx.context.classId)).filter((a) => a.classSessionId === body.classSessionId).length;
-
   const result = await analyzeSubmission({
-    seed: `${body.classSessionId}|${auth.user!.id}|${attemptCount}`,
-    rubric: ctx.context.rubric,
+    // The same image set + note produces the same offline result. Re-uploading a corrected image
+    // changes the asset id and therefore creates a new, reproducible assessment.
+    seed: `${body.classSessionId}|${auth.user!.id}|${ctx.context.assetIds.join("|")}|${ctx.context.note}`,
+    rubric: productRubric,
     note: ctx.context.note,
     imageCount: ctx.context.assetIds.length,
     imageUrls,
@@ -55,7 +59,7 @@ export async function PUT(request: Request) {
   const saved = await saveClassAiAssessment({
     studentId: auth.user!.id,
     classSessionId: body.classSessionId,
-    context: ctx.context,
+    context: productContext,
     result,
     provider,
     model,

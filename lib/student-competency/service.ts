@@ -6,7 +6,7 @@ import type { TeachingAccessSnapshot } from "@/lib/teaching/types";
 import { calculateGraduationStatus } from "./graduation";
 import { aggregateCompetencyProfile } from "./competency";
 import { CURRICULUM_DEFAULTS } from "./types";
-import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, ClassAiAssessment, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint, SelfRepairAction, SelfRepairPlanItem } from "./types";
+import type { ClassSession, ClassEvaluation, ClassEvaluationAuditEntry, ClassSessionSubmission, ClassAiAssessment, RubricView, RubricCriterionView, SessionType, GraduationResult, CompetencySkillPoint, SelfRepairAction, SelfRepairPlanItem, RubricCategory } from "./types";
 import type { AiAssessment } from "@/lib/h2obook/ai/types";
 
 // Service layer for the Student Management & Competency module (spec: v6-tich-hop-them). Reads go
@@ -208,11 +208,14 @@ export async function updateClassSession(access: TeachingAccessSnapshot, classId
   return { ok: true as const, session: mapSession(data as Record<string, unknown>) };
 }
 
-export async function listRubrics(access: TeachingAccessSnapshot, category?: "training" | "makeup" | "hair"): Promise<RubricView[]> {
+export async function listRubrics(access: TeachingAccessSnapshot, category?: RubricCategory): Promise<RubricView[]> {
   const admin = createSupabaseAdminClient();
   if (!admin) return [];
   let query = admin.from("rubrics").select("id,title,description,updated_at,category").eq("organization_id", access.organizationId);
-  if (category) query = query.eq("category", category);
+  // Older production databases do not yet allow `makeup_product` in the category constraint.
+  // Product-rubric versions saved there use a metadata marker with category=null until migration
+  // 0072 is applied, so fetch the small organization list and normalize both representations.
+  if (category && category !== "makeup_product") query = query.eq("category", category);
   const { data: rubricRows } = await query.order("updated_at", { ascending: false });
   const rubrics = rubricRows ?? [];
   if (!rubrics.length) return [];
@@ -230,18 +233,21 @@ export async function listRubrics(access: TeachingAccessSnapshot, category?: "tr
     });
     byRubric.set(String(row.rubric_id), list);
   }
-  return rubrics.map((r) => {
+  const mapped = rubrics.map((r) => {
     let quickIssues: string[] = [];
+    let metadataCategory: RubricCategory | null = null;
     try {
-      const metadata = JSON.parse(String(r.description ?? "{}")) as { quickIssues?: unknown };
+      const metadata = JSON.parse(String(r.description ?? "{}")) as { quickIssues?: unknown; rubricCategory?: unknown };
       if (Array.isArray(metadata.quickIssues)) quickIssues = metadata.quickIssues.filter((item): item is string => typeof item === "string");
+      if (metadata.rubricCategory === "makeup_product") metadataCategory = "makeup_product";
     } catch { /* Older rubrics may contain a plain-text description. */ }
-    return { id: String(r.id), title: String(r.title), category: r.category ? r.category as RubricView["category"] : null, quickIssues, updatedAt: String(r.updated_at), criteria: byRubric.get(String(r.id)) ?? [] };
+    return { id: String(r.id), title: String(r.title), category: metadataCategory ?? (r.category ? r.category as RubricView["category"] : null), quickIssues, updatedAt: String(r.updated_at), criteria: byRubric.get(String(r.id)) ?? [] };
   });
+  return category ? mapped.filter((rubric) => rubric.category === category) : mapped;
 }
 
 export interface CreateRubricVersionInput {
-  category: "training" | "makeup" | "hair";
+  category: RubricCategory;
   title: string;
   quickIssues?: string[];
   criteria: { title: string; description?: string; maxScore: number; required?: boolean; skillKey?: string | null }[];
@@ -258,7 +264,14 @@ export async function createRubricVersion(access: TeachingAccessSnapshot, input:
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false as const, error: "SUPABASE_NOT_CONFIGURED" };
   const quickIssues = [...new Set((input.quickIssues ?? []).map((issue) => issue.trim()).filter(Boolean))].slice(0, 30);
-  const { data: rubric, error } = await supabase.from("rubrics").insert({ organization_id: access.organizationId, title, description: JSON.stringify({ quickIssues }), category: input.category, updated_at: new Date().toISOString() }).select("id").single();
+  const description = JSON.stringify({ quickIssues, ...(input.category === "makeup_product" ? { rubricCategory: "makeup_product" } : {}) });
+  let { data: rubric, error } = await supabase.from("rubrics").insert({ organization_id: access.organizationId, title, description, category: input.category, updated_at: new Date().toISOString() }).select("id").single();
+  // Backward-compatible save path while production is waiting for migration 0072.
+  if ((error || !rubric) && input.category === "makeup_product") {
+    const fallback = await supabase.from("rubrics").insert({ organization_id: access.organizationId, title, description, category: null, updated_at: new Date().toISOString() }).select("id").single();
+    rubric = fallback.data;
+    error = fallback.error;
+  }
   if (error || !rubric) return { ok: false as const, error: error?.message ?? "RUBRIC_CREATE_FAILED" };
   const rows = criteria.map((criterion, position) => ({
     organization_id: access.organizationId, rubric_id: rubric.id, title: criterion.title.trim(), description: criterion.description?.trim() ?? "",
@@ -441,6 +454,7 @@ export interface SessionAiContext {
   sessionTitle: string;
   sessionType: string;
   rubric: { id: string; label: string; maxScore: number; description?: string }[];
+  productRubric: { id: string; label: string; maxScore: number; description?: string }[];
   note: string;
   assetIds: string[];
 }
@@ -467,8 +481,17 @@ export async function getStudentSessionAiContext(studentId: string, classSession
     assignedClassIds: [classId], assignedStudentIds: [studentId],
     canViewAllStudents: false, canViewAllClasses: false,
   };
-  const rubrics = category ? await listRubrics(access, category) : [];
+  const [rubrics, productRubrics] = await Promise.all([
+    category ? listRubrics(access, category) : Promise.resolve([]),
+    listRubrics(access, "makeup_product"),
+  ]);
   const rubric = (rubrics[0]?.criteria ?? []).map((c) => ({ id: c.id, label: c.title, maxScore: c.maxScore, description: c.description || undefined }));
+  const productRubric = (productRubrics[0]?.criteria ?? []).map((c) => ({
+    id: `makeup-product-config-${c.id}`,
+    label: c.title,
+    maxScore: c.maxScore,
+    description: c.description || undefined,
+  }));
 
   const { data: submission } = await admin.from("class_session_submissions")
     .select("note,asset_ids").eq("class_session_id", classSessionId).eq("student_id", studentId).maybeSingle();
@@ -480,6 +503,7 @@ export async function getStudentSessionAiContext(studentId: string, classSession
       sessionTitle: String(session.title ?? ""),
       sessionType: String(session.session_type ?? ""),
       rubric,
+      productRubric,
       note: readSelfAssessmentMetadata(String(submission?.note ?? "")).note,
       assetIds: (submission?.asset_ids ?? []) as string[],
     },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aggregateCompetencyProfile, estimateClientReadiness } from "@/lib/student-competency/competency";
 import { calculateGraduationStatus } from "@/lib/student-competency/graduation";
+import { MAKEUP_PRODUCT_IMAGE_MAX_SCORE, MAKEUP_PRODUCT_IMAGE_RUBRIC, isMakeupProductImageRubric } from "@/lib/student-competency/makeup-product-rubric";
 
 describe("student competency rules", () => {
   it("requires every graduation condition and recommends the configured supplement range", () => {
@@ -40,5 +41,18 @@ describe("student competency rules", () => {
 
     expect(profile.find((skill) => skill.key === "foundation")).toMatchObject({ latestScore: 90, trend30: 80, evidenceCount: 2, weakEvidenceCount: 0 });
     expect(estimateClientReadiness(profile)).toBe("san_sang");
+  });
+
+  it("recognizes only the built-in makeup product image rubric", () => {
+    expect(MAKEUP_PRODUCT_IMAGE_MAX_SCORE).toBe(100);
+    expect(isMakeupProductImageRubric(MAKEUP_PRODUCT_IMAGE_RUBRIC)).toBe(true);
+    expect(isMakeupProductImageRubric([
+      ...MAKEUP_PRODUCT_IMAGE_RUBRIC.slice(0, -1),
+      { id: "makeup-product-extra" },
+    ])).toBe(false);
+    expect(isMakeupProductImageRubric([
+      { id: "makeup-product-config-one", maxScore: 60 },
+      { id: "makeup-product-config-two", maxScore: 40 },
+    ])).toBe(true);
   });
 });

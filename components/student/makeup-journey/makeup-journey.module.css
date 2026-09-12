@@ -386,6 +386,13 @@
 .evidence { border-top: 1px dashed var(--student-line, #dfe7ee); padding-top: 12px; }
 .evidenceHead span { font-size: 12px; font-weight: 700; color: var(--student-ink, #111724); }
 .evidenceHead em { font-weight: 500; color: var(--student-muted, #718092); font-style: normal; }
+.photoGuide { margin: 10px 0 12px; padding: 12px; border: 1px solid #ddd5ff; border-radius: 12px; background: #faf8ff; }
+.photoGuide > div:first-child { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.photoGuide strong { color: #382a79; font-size: 12px; }
+.photoGuide > div:first-child span { color: #6e50e8; font-size: 11px; font-weight: 800; }
+.photoGuide p { margin: 5px 0 9px; color: #68758a; font-size: 10.5px; line-height: 1.5; }
+.photoGuideChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.photoGuideChips span { padding: 5px 8px; border: 1px solid #e1dcf3; border-radius: 999px; background: #fff; color: #625a76; font-size: 9.5px; }
 .selfAssessment { margin: 12px 0; padding: 12px; border: 1px solid #e8d9f0; border-radius: 14px; background: linear-gradient(135deg, #fffaff, #f7fbff); }
 .selfAssessmentHead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
 .selfAssessmentHead strong { display: block; font-size: 12px; color: var(--student-ink, #111724); }
@@ -662,6 +669,14 @@
 .overviewHero span { display: block; margin-top: 5px; color: #64718a; font-size: 12px; }
 .overviewHero > b { min-width: 112px; padding: 10px 12px; border-radius: 12px; background: #fff; color: #5b41ad; font-size: 23px; text-align: center; box-shadow: 0 4px 12px rgba(91, 65, 173, .08); }
 .overviewHero > b i { display: block; margin-top: 2px; color: #7d739d; font-size: 10px; font-style: normal; font-weight: 700; }
+.resultSources { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.resultSources article { min-width: 0; padding: 12px; border: 1px solid #e4e8ee; border-radius: 12px; background: #fbfcfe; }
+.resultSources article[data-ready] { border-color: #d6cdfd; background: #faf8ff; }
+.resultSources small { display: block; color: #7a8798; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.resultSources strong { display: block; margin-top: 5px; color: #27364b; font-size: 14px; }
+.resultSources article[data-ready] strong { color: #5b41ad; }
+.resultSources span { display: block; margin-top: 3px; color: #7a8798; font-size: 10px; }
+.compositeNote { margin: -4px 0 0; padding: 8px 10px; border-radius: 9px; background: #f7f9fc; color: #68758a; font-size: 10px; line-height: 1.5; }
 .overviewActions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .overviewActions button { border: 1px solid #ddd5ff; border-radius: 10px; padding: 10px 12px; background: #fff; color: #573dc1; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .overviewActions button:hover { background: #f4f1ff; border-color: #a993ff; }
@@ -681,8 +696,13 @@
 .overviewAi ul { display: grid; gap: 4px; margin: 8px 0 0; padding-left: 18px; }
 .overviewEmpty { border: 1px dashed #cad4df; background: #fbfdff; color: #66768a; }
 
+.rubricGroups { display: grid; gap: 12px; }
 .rubricSummary { border: 1px solid #e6e1f4; border-radius: 12px; padding: 12px; }
-.rubricSummaryHead { font-size: 12px; font-weight: 800; color: #1c1740; margin-bottom: 8px; }
+.rubricSummary[data-product] { border-color: #cfc3ff; background: linear-gradient(180deg, #fbf9ff, #fff); }
+.rubricSummaryHead { display: grid; gap: 3px; margin-bottom: 8px; }
+.rubricSummaryHead > span { color: #7657d9; font-size: 9px; font-weight: 900; letter-spacing: .09em; }
+.rubricSummaryHead > strong { color: #1c1740; font-size: 12px; }
+.rubricSummaryHead > small { color: var(--student-muted, #718092); font-size: 10px; font-weight: 500; line-height: 1.45; }
 .rubricDesc { color: var(--student-muted, #718092); font-style: normal; font-weight: 400; }
 
 /* --- footer cards + standard-flow line (both breakpoints) --- */
@@ -738,6 +758,14 @@
   .overviewActions { grid-template-columns: 1fr; gap: 7px; }
   .overviewActions button { min-height: 44px; padding: 9px 10px; }
   .overviewCriteria { grid-template-columns: 1fr; }
+  .resultSources { grid-template-columns: 1fr; gap: 7px; }
+  .resultSources article { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 11px; }
+  .resultSources strong { grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0; }
+  .resultSources span { margin: 0; }
+  .photoGuide { padding: 10px; }
+  .photoGuideChips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
+  .photoGuideChips::-webkit-scrollbar { display: none; }
+  .photoGuideChips span { flex: none; min-height: 34px; display: inline-flex; align-items: center; }
 
   .copilot .selfAssessment, .copilot .repairPlanner { margin: 0 0 10px; padding: 12px; }
   .copilot .selfAssessmentHead { position: sticky; top: 61px; z-index: 15; margin: -12px -12px 10px; padding: 11px 12px; background: rgba(255, 255, 255, .97); border-bottom: 1px solid #ebe5fb; border-radius: 14px 14px 0 0; }

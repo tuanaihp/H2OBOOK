@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/auth/api";
 import { getStudentSessionAiContext, listOwnAiAssessments } from "@/lib/student-competency/service";
 import { chatWithCoach } from "@/lib/h2obook/ai/adapter";
 import type { CoachChatMessage } from "@/lib/h2obook/ai/types";
+import { MAKEUP_PRODUCT_IMAGE_RUBRIC, isMakeupProductImageRubric } from "@/lib/student-competency/makeup-product-rubric";
 
 export const runtime = "nodejs";
 
@@ -30,11 +31,13 @@ export async function POST(request: Request) {
   }
 
   const latest = (await listOwnAiAssessments(auth.user!.id, ctx.context.classId))
-    .find((a) => a.classSessionId === body.classSessionId && a.status === "ai_draft");
+    .find((a) => a.classSessionId === body.classSessionId && a.status === "ai_draft" && isMakeupProductImageRubric(a.rubricSnapshot));
 
   const reply = await chatWithCoach({
     sessionTitle: ctx.context.sessionTitle,
-    rubric: ctx.context.rubric,
+    rubric: ctx.context.productRubric.length
+      ? ctx.context.productRubric
+      : MAKEUP_PRODUCT_IMAGE_RUBRIC.map((criterion) => ({ ...criterion })),
     latestAssessment: latest
       ? {
           totalScore: latest.totalScore ?? 0,

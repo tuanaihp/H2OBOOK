@@ -17,9 +17,12 @@ const ISSUE_BANK: { match: RegExp; issue: string; rec: string }[] = [
   { match: /m[aà]y|brow|ch[aâ]n m[aà]y/i, issue: "Đầu mày một bên hơi đậm", rec: "Tán mềm đầu mày, kéo màu về đuôi" },
   { match: /m[aắ]t|eye/i, issue: "Đuôi eyeliner chưa cân hai bên", rec: "Kẻ lại đuôi liner đối xứng, soi gương thẳng" },
   { match: /mi|lash/i, issue: "Chân mi chưa gọn", rec: "Làm sạch chân mi, gắn sát chân mi thật" },
-  { match: /kh[oố]i|contour/i, issue: "Khối vùng hàm hơi cứng", rec: "Blend mềm ranh giới khối, giảm sắc độ" },
-  { match: /m[aá]|m[oô]i|cheek|lip/i, issue: "Màu má/môi lệch tông nhẹ", rec: "Chọn má-môi cùng nhóm màu, chuyển sắc mềm hơn" },
-  { match: /th[oờ]i gian|time|layout|quy tr[iì]nh/i, issue: "Kiểm soát tiến độ chưa đều", rec: "Bấm giờ từng bước, không dồn việc cuối giờ" },
+  { match: /kh[oố]i|b[aắ]t s[aá]ng|c[aấ]u tr[uú]c|contour/i, issue: "Khối vùng hàm hơi cứng", rec: "Blend mềm ranh giới khối và tiết chế bắt sáng ở vùng có kết cấu da" },
+  { match: /m[aá]|cheek|blush/i, issue: "Vị trí má chưa nâng cấu trúc gương mặt", rec: "Đặt má cao hơn và tán chuyển tiếp mềm với mắt, khối" },
+  { match: /m[oô]i|son|lip/i, issue: "Viền môi và khóe môi chưa thật gọn", rec: "Chỉnh lại viền môi bằng cọ nhỏ, làm sạch khóe và cân hai bên" },
+  { match: /layout|h[oò]a s[aắ]c|t[yỷ] l[eệ]|t[oổ]ng th[eể]/i, issue: "Điểm nhấn và hòa sắc tổng thể chưa liền mạch", rec: "Chọn một điểm nhấn chính, liên kết tone mắt–má–môi và rà lại tỷ lệ" },
+  { match: /ho[aà]n thi[eệ]n|s[aạ]ch ngh[eề]|finish/i, issue: "Một số đường biên và vùng rơi phấn chưa sạch", rec: "Soi cận toàn mặt, dọn keo/lem/rơi phấn trước khi chụp ảnh bàn giao" },
+  { match: /th[oờ]i gian|time|quy tr[iì]nh/i, issue: "Kiểm soát tiến độ chưa đều", rec: "Bấm giờ từng bước, không dồn việc cuối giờ" },
 ];
 function issueFor(label: string) {
   return ISSUE_BANK.find((b) => b.match.test(label)) ?? { issue: "Còn điểm chưa gọn ở tiêu chí này", rec: "Xem lại phần demo của giảng viên và làm lại chậm" };

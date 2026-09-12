@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Bell, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, GraduationCap, Home, ImagePlus, Scissors, Sparkles, X } from "lucide-react";
 import { uploadAsset, resolveAssetUrl } from "@/lib/assets/asset-client";
 import { SESSION_TYPE_LABEL, type SessionType } from "@/lib/student-competency/types";
+import { MAKEUP_PRODUCT_IMAGE_RUBRIC, isMakeupProductImageRubric } from "@/lib/student-competency/makeup-product-rubric";
 import styles from "./makeup-journey.module.css";
 
 // ---------------------------------------------------------------------------
@@ -13,7 +14,8 @@ import styles from "./makeup-journey.module.css";
 type SessionStatus = "scheduled" | "completed" | "cancelled";
 interface ClassSession { id: string; sessionNo: number; sessionType: SessionType; title: string; sessionDate: string | null; status: SessionStatus }
 interface RubricCriterion { id: string; title: string; description: string; maxScore: number; required: boolean; skillKey?: string }
-interface Rubric { id: string; title: string; category: "training" | "makeup" | "hair" | null; criteria: RubricCriterion[] }
+interface Rubric { id: string; title: string; category: "training" | "makeup" | "hair" | "makeup_product" | null; criteria: RubricCriterion[] }
+interface ProductRubricCriterion { id: string; label: string; description?: string; maxScore: number }
 interface Evaluation { classSessionId: string; totalScore: number; maxScore: number; criterionScores: Record<string, number>; notes: string; assetIds: string[]; updatedAt: string }
 interface Submission {
   classSessionId: string;
@@ -70,6 +72,14 @@ interface Journey {
 interface AiInfo { provider: string; model: string | null; live: boolean }
 
 const MAX_EVIDENCE = 6;
+const MAKEUP_PHOTO_GUIDE = [
+  "Toàn mặt chính diện",
+  "Góc nghiêng 45°",
+  "Cận nền & má",
+  "Cận lông mày",
+  "Cận mắt & mi",
+  "Cận son môi",
+] as const;
 const REPAIR_ACTION_LABEL: Record<RepairAction, string> = {
   practice_again: "Luyện lại theo quy trình",
   review_demo: "Xem lại Demo và ghi chép",
@@ -135,8 +145,8 @@ const JOURNEY_CARDS = [
   { title: "Skill Map tự cập nhật", body: "Chỉ cập nhật sau khi giảng viên duyệt điểm." },
   { title: "Portfolio Evidence", body: "Ảnh đạt yêu cầu có thể đưa vào portfolio." },
 ];
-const FLOW_LINE = "Rubric giảng viên → Nộp minh chứng → AI tiền chấm (offline) → Coaching học viên → Giảng viên duyệt → Điểm chính thức → Skill Map → Portfolio.";
-const AI_NOTE = "Learning Copilot chỉ đưa ra nhận xét sơ bộ theo rubric giảng viên. Điểm chính thức vẫn do giảng viên duyệt.";
+const FLOW_LINE = "Tải bộ ảnh Makeup → Phân tích sản phẩm → Học viên tự đánh giá & chữa bài → Giáo viên đối chiếu → Kết quả cuối buổi → Skill Map → Portfolio.";
+const AI_NOTE = "Phân tích ảnh dùng bộ tiêu chí sản phẩm Makeup riêng. Tự đánh giá dùng rubric quá trình học; kết quả chính thức vẫn do giáo viên duyệt.";
 
 // --- date helpers (no external dep) ---------------------------------------
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -193,7 +203,7 @@ const COACH_QUICK = ["Em sai ở đâu nhiều nhất?", "Cho checklist làm l�
 // Chat Coach tab. The desktop panel also injects photo-attach and assessment-result messages.
 function useCoachThread(sessionId: string, sessionTitle: string) {
   const welcome = (): ChatMsg[] => [
-    { id: "welcome", role: "assistant", content: `Mình là H2O Learning Copilot cho ${sessionTitle}. Em gửi ảnh vào đây, mình chấm sơ bộ theo rubric giảng viên rồi trả kết quả lại cho em. Điểm chính thức vẫn do giảng viên duyệt.` },
+    { id: "welcome", role: "assistant", content: `Mình là H2O Learning Copilot cho ${sessionTitle}. Em gửi bộ ảnh Makeup vào đây, mình đối chiếu 9 tiêu chí sản phẩm rồi trả phần cần sửa. Kết quả cuối buổi vẫn do giảng viên duyệt.` },
   ];
   const [messages, setMessages] = useState<ChatMsg[]>(welcome);
   const [loading, setLoading] = useState(false);
@@ -478,6 +488,10 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
   const [attaching, setAttaching] = useState(false);
   const offline = isOfflineEngine(aiInfo);
   const ctx = session ? sessionContext(journey, session) : null;
+  const configuredProductRubric = journey.rubrics.find((item) => item.category === "makeup_product");
+  const productRubric: readonly ProductRubricCriterion[] = configuredProductRubric?.criteria.length
+    ? configuredProductRubric.criteria.map((criterion) => ({ id: criterion.id, label: criterion.title, description: criterion.description, maxScore: criterion.maxScore }))
+    : MAKEUP_PRODUCT_IMAGE_RUBRIC;
   const status = ctx?.evaluation ? "Đã chấm" : (ctx?.submission?.assetIds.length ?? 0) > 0 ? "Đã nộp" : "Chưa chấm";
 
   const thread = useCoachThread(
@@ -544,7 +558,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
       }
       onSubmissionSaved(payload.submission);
       if (uploaded.length < imgs.length) thread.append(say(`Có ${imgs.length - uploaded.length} ảnh chưa tải được, mình dùng ${uploaded.length} ảnh còn lại.`));
-      thread.append(say("Đã nhận ảnh và lưu minh chứng. Mình chuyển sang tab “Đánh giá ảnh” để chấm sơ bộ theo rubric…"));
+      thread.append(say("Đã nhận và lưu bộ ảnh. Mình chuyển sang tab “Đánh giá ảnh” để phân tích lớp nền, mày, mắt–mi, khối, má, môi và tổng thể layout…"));
       autoPendingRef.current = true;
       setTab("assess");
       setAutoAssessAt(Date.now());
@@ -559,7 +573,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
   function handleAssessed(a: AiAssessment) {
     onAiAssessed(a);
     if (a.status === "ai_draft") {
-      const parts = [`Kết quả sơ bộ theo rubric: ${a.totalScore ?? "—"}/${a.maxScore}.`];
+      const parts = [`Kết quả phân tích sản phẩm Makeup: ${a.totalScore ?? "—"}/${a.maxScore}.`];
       if (a.summary) parts.push(a.summary);
       if (a.priorityFixes.length) parts.push("Ưu tiên sửa:\n" + a.priorityFixes.slice(0, 3).map((f, i) => `${i + 1}. ${f}`).join("\n"));
       parts.push("Đây là điểm nháp — giảng viên sẽ chấm chính thức.");
@@ -577,17 +591,17 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
         <div className={styles.copilotAvatar}>✦</div>
         <div className={styles.copilotId}>
           <strong>H2O Learning Copilot</strong>
-          <small>{offline ? "Rubric-aware · Local-first" : "AI nâng cao · Online"}</small>
+          <small>{offline ? "Makeup Photo Review · Local-first" : "Makeup Vision · Online"}</small>
         </div>
         <span className={styles.copilotBadge} data-live={!offline && aiInfo?.live ? "" : undefined}>{engineBadge(aiInfo)}</span>
       </div>
 
       <div className={styles.copilotTabs} role="tablist" aria-label="Công cụ học tập cho buổi đã chọn">
-        <button type="button" role="tab" aria-selected={tab === "overview"} data-active={tab === "overview" || undefined} onClick={() => setTab("overview")}>Kết quả buổi</button>
+        <button type="button" role="tab" aria-selected={tab === "overview"} data-active={tab === "overview" || undefined} onClick={() => setTab("overview")}>Kết quả cuối buổi</button>
         <button type="button" role="tab" aria-selected={tab === "chat"} data-active={tab === "chat" || undefined} onClick={() => setTab("chat")}>Chat Coach</button>
         <button type="button" role="tab" aria-selected={tab === "assess"} data-active={tab === "assess" || undefined} onClick={() => setTab("assess")}>Đánh giá ảnh</button>
         <button type="button" role="tab" aria-selected={tab === "self"} data-active={tab === "self" || undefined} onClick={() => setTab("self")}>Tự đánh giá</button>
-        <button type="button" role="tab" aria-selected={tab === "rubric"} data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Tiêu chí</button>
+        <button type="button" role="tab" aria-selected={tab === "rubric"} data-active={tab === "rubric" || undefined} onClick={() => setTab("rubric")}>Bộ tiêu chí</button>
       </div>
 
       {!session || !ctx ? (
@@ -640,6 +654,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
               evaluation={ctx.evaluation}
               submission={ctx.submission}
               aiAssessment={ctx.aiAssessment}
+              productRubric={productRubric}
               onSaved={onSubmissionSaved}
               onAiAssessed={handleAssessed}
               variant="panel"
@@ -647,7 +662,7 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
             />
           </div>
           <div className={styles.copilotPane} hidden={tab !== "rubric"}>
-            <RubricSummary rubric={ctx.rubric} detailed />
+            <RubricSummary rubric={ctx.rubric} productRubric={productRubric} detailed />
           </div>
         </div>
       )}
@@ -662,22 +677,44 @@ function SessionOverview({ session, ctx, onNavigate }: {
 }) {
   const evaluation = ctx.evaluation;
   const submission = ctx.submission;
-  const aiAssessment = ctx.aiAssessment;
+  const imageAssessment = ctx.aiAssessment && isMakeupProductImageRubric(ctx.aiAssessment.rubricSnapshot) ? ctx.aiAssessment : null;
   const percent = evaluation ? pct(evaluation.totalScore, evaluation.maxScore) : null;
+  const imagePercent = imageAssessment?.totalScore != null ? pct(imageAssessment.totalScore, imageAssessment.maxScore) : null;
+  const selfPercent = submission?.totalScore != null ? pct(submission.totalScore, submission.maxScore ?? 100) : null;
+  const preliminaryPercent = imagePercent != null && selfPercent != null
+    ? Math.round(imagePercent * .7 + selfPercent * .3)
+    : imagePercent ?? selfPercent;
+  const completedSources = [imagePercent, selfPercent, percent].filter((score) => score != null).length;
+  const heroScore = evaluation
+    ? `${evaluation.totalScore}/${evaluation.maxScore}`
+    : preliminaryPercent != null ? `${preliminaryPercent}/100` : "—";
   return <div className={styles.sessionOverview}>
     <div className={styles.overviewHero}>
       <div>
         <small>KẾT QUẢ BUỔI {session.sessionNo}</small>
-        <strong>{evaluation ? "Giáo viên đã đánh giá" : submission?.assetIds.length ? "Đã nộp minh chứng, chờ giáo viên" : "Chưa có minh chứng"}</strong>
+        <strong>{evaluation ? "Kết quả cuối buổi đã được giáo viên duyệt" : completedSources >= 2 ? "Đã có kết quả tổng hợp tạm thời" : submission?.assetIds.length ? "Đã nộp ảnh, tiếp tục hoàn thiện đánh giá" : "Bắt đầu đánh giá buổi học"}</strong>
         <span>{SESSION_TYPE_LABEL[session.sessionType]}{session.title ? ` · ${session.title}` : ""}</span>
       </div>
-      <b>{evaluation ? `${evaluation.totalScore}/${evaluation.maxScore}` : submission?.totalScore != null ? `${submission.totalScore}/${submission.maxScore ?? 100}` : "—"}<i>{evaluation ? `${percent}%` : submission?.totalScore != null ? "tự chấm" : ""}</i></b>
+      <b>{heroScore}<i>{evaluation ? "điểm chính thức" : preliminaryPercent != null ? "tạm tính" : "chưa chấm"}</i></b>
     </div>
 
+    <div className={styles.resultSources}>
+      <article data-ready={imagePercent != null || undefined}>
+        <small>SẢN PHẨM MAKEUP</small><strong>{imagePercent != null ? `${imagePercent}/100` : "Chưa phân tích"}</strong><span>Đánh giá từ bộ ảnh</span>
+      </article>
+      <article data-ready={selfPercent != null || undefined}>
+        <small>TỰ ĐÁNH GIÁ</small><strong>{selfPercent != null ? `${selfPercent}/100` : "Chưa tự chấm"}</strong><span>Quá trình học & chữa bài</span>
+      </article>
+      <article data-ready={percent != null || undefined}>
+        <small>GIÁO VIÊN DUYỆT</small><strong>{percent != null ? `${percent}/100` : "Đang chờ"}</strong><span>Kết quả chính thức</span>
+      </article>
+    </div>
+    {!evaluation && preliminaryPercent != null && <p className={styles.compositeNote}>Điểm tạm tính = 70% sản phẩm Makeup + 30% tự đánh giá khi có đủ hai phần. Giáo viên có quyền điều chỉnh và duyệt kết quả cuối buổi.</p>}
+
     <div className={styles.overviewActions}>
-      <button type="button" onClick={() => onNavigate("assess")}>Ảnh & nhận xét AI</button>
+      <button type="button" onClick={() => onNavigate("assess")}>Phân tích ảnh Makeup</button>
       <button type="button" onClick={() => onNavigate("self")}>Tự đánh giá / chữa bài</button>
-      <button type="button" onClick={() => onNavigate("rubric")}>Xem tiêu chí</button>
+      <button type="button" onClick={() => onNavigate("rubric")}>Xem bộ tiêu chí</button>
     </div>
 
     {evaluation ? <>
@@ -699,30 +736,50 @@ function SessionOverview({ session, ctx, onNavigate }: {
       <p>{submission?.totalScore != null ? `Bạn đã tự chấm ${submission.totalScore}/${submission.maxScore ?? 100}. Hãy hoàn thiện ảnh và kế hoạch tự chữa để giáo viên đối chiếu nhanh hơn.` : "Bắt đầu bằng cách tải ảnh sản phẩm hoặc tự đánh giá theo rubric của buổi này."}</p>
     </section>}
 
-    {aiAssessment?.status === "ai_draft" && <section className={styles.overviewAi}>
-      <strong>AI nhận xét sơ bộ · {aiAssessment.totalScore ?? "—"}/{aiAssessment.maxScore}</strong>
-      {aiAssessment.summary && <p>{aiAssessment.summary}</p>}
-      {aiAssessment.priorityFixes.length > 0 && <ul>{aiAssessment.priorityFixes.slice(0, 3).map((fix) => <li key={fix}>{fix}</li>)}</ul>}
+    {imageAssessment?.status === "ai_draft" && <section className={styles.overviewAi}>
+      <strong>Nhận xét sản phẩm Makeup · {imageAssessment.totalScore ?? "—"}/{imageAssessment.maxScore}</strong>
+      {imageAssessment.summary && <p>{imageAssessment.summary}</p>}
+      {imageAssessment.priorityFixes.length > 0 && <ul>{imageAssessment.priorityFixes.slice(0, 3).map((fix) => <li key={fix}>{fix}</li>)}</ul>}
     </section>}
   </div>;
 }
 
-function RubricSummary({ rubric, detailed = false }: { rubric: Rubric | null; detailed?: boolean }) {
-  if (!rubric || rubric.criteria.length === 0) {
-    return <p className={styles.copilotEmpty}>Buổi này chưa gắn bộ tiêu chí chấm.</p>;
-  }
-  const totalMax = rubric.criteria.reduce((s, c) => s + c.maxScore, 0);
+function RubricSummary({ rubric, productRubric, detailed = false }: { rubric: Rubric | null; productRubric: readonly ProductRubricCriterion[]; detailed?: boolean }) {
+  const learningTotal = rubric?.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0) ?? 0;
+  const productTotal = productRubric.reduce((sum, criterion) => sum + criterion.maxScore, 0);
   return (
-    <div className={styles.rubricSummary}>
-      <div className={styles.rubricSummaryHead}>Rubric giảng viên đã khóa · {rubric.criteria.length} tiêu chí / {totalMax}đ</div>
-      <ul className={styles.criteriaList}>
-        {rubric.criteria.map((c) => (
-          <li key={c.id}>
-            <span>{c.title}{detailed && c.description ? <em className={styles.rubricDesc}> — {c.description}</em> : null}</span>
-            <b>{c.maxScore}</b>
-          </li>
-        ))}
-      </ul>
+    <div className={styles.rubricGroups}>
+      <section className={styles.rubricSummary} data-product>
+        <div className={styles.rubricSummaryHead}>
+          <span>ĐÁNH GIÁ ẢNH</span>
+          <strong>Sản phẩm Makeup · {productRubric.length} tiêu chí / {productTotal}đ</strong>
+          <small>Dùng cho ảnh toàn mặt và các ảnh cận nền, mày, mắt–mi, má, môi.</small>
+        </div>
+        <ul className={styles.criteriaList}>
+          {productRubric.map((criterion) => (
+            <li key={criterion.id}>
+              <span>{criterion.label}{detailed && criterion.description ? <em className={styles.rubricDesc}> — {criterion.description}</em> : null}</span>
+              <b>{criterion.maxScore}</b>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className={styles.rubricSummary}>
+        <div className={styles.rubricSummaryHead}>
+          <span>QUÁ TRÌNH HỌC</span>
+          <strong>{rubric ? `${rubric.title} · ${rubric.criteria.length} tiêu chí / ${learningTotal}đ` : "Buổi này chưa gắn rubric quá trình học"}</strong>
+          <small>Dùng cho tab Tự đánh giá và phần giáo viên kiểm tra trên lớp.</small>
+        </div>
+        {rubric && rubric.criteria.length > 0 && <ul className={styles.criteriaList}>
+          {rubric.criteria.map((criterion) => (
+            <li key={criterion.id}>
+              <span>{criterion.title}{detailed && criterion.description ? <em className={styles.rubricDesc}> — {criterion.description}</em> : null}</span>
+              <b>{criterion.maxScore}</b>
+            </li>
+          ))}
+        </ul>}
+      </section>
     </div>
   );
 }
@@ -1184,13 +1241,14 @@ function CurriculumCalendar({ journey, view, selectedId, onSelect }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant, content = "full" }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, productRubric = MAKEUP_PRODUCT_IMAGE_RUBRIC, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant, content = "full" }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
   evaluation: Evaluation | null;
   submission: Submission | null;
   aiAssessment: AiAssessment | null;
+  productRubric?: readonly ProductRubricCriterion[];
   aiInfo?: AiInfo | null;
   autoAssessAt?: number;
   onConsumeAutoRun?: () => void;
@@ -1217,7 +1275,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
 
     <SessionEvidence sessionId={session.id} organizationId={organizationId} rubric={rubric} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} displayMode={content === "self" ? "self" : content === "evidence" ? "evidence" : "all"} />
 
-    {content !== "self" && (evaluation
+    {content === "full" && (evaluation
       ? <GradePanel evaluation={evaluation} rubric={rubric} submission={submission} />
       : <div className={styles.pendingPanel}>
           <span className={styles.pendingTag}>Chưa chấm</span>
@@ -1233,10 +1291,11 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
             : <p>Buổi này chưa gắn bộ tiêu chí chấm.</p>}
         </div>)}
 
-    {content !== "self" && (rubric?.criteria.length ?? 0) > 0 && (
+    {content !== "self" && (
       <AiDraftSection
         sessionId={session.id}
         assessment={aiAssessment}
+        productRubric={productRubric}
         canRun={hasEvidence}
         offline={offline}
         autoRunAt={autoAssessAt}
@@ -1250,9 +1309,10 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   </div>;
 }
 
-function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onConsumeAutoRun, onAiAssessed, onOpenCoach }: {
+function AiDraftSection({ sessionId, assessment, productRubric, canRun, offline, autoRunAt, onConsumeAutoRun, onAiAssessed, onOpenCoach }: {
   sessionId: string;
   assessment: AiAssessment | null;
+  productRubric: readonly ProductRubricCriterion[];
   canRun: boolean;
   offline: boolean;
   autoRunAt?: number;
@@ -1262,7 +1322,7 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onC
 }) {
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const analyzeLabel = offline ? "✦ Phân tích offline theo rubric" : "✦ Phân tích bằng AI";
+  const analyzeLabel = offline ? "Phân tích bộ ảnh Makeup" : "Phân tích chuyên sâu bộ ảnh";
 
   async function run() {
     setRunning(true); setMessage(null);
@@ -1274,7 +1334,7 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onC
       });
       const payload = await response.json().catch(() => null) as { assessment?: AiAssessment; error?: string } | null;
       if (!response.ok || !payload?.assessment) {
-        setMessage(payload?.error === "NO_RUBRIC_FOR_SESSION" ? "Buổi này chưa có rubric để chấm." : "Không chạy được phân tích. Bài nộp của bạn vẫn được giữ.");
+        setMessage("Không chạy được phân tích ảnh. Bộ ảnh của bạn vẫn được giữ.");
         return;
       }
       onAiAssessed(payload.assessment);
@@ -1292,18 +1352,20 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRunAt]);
 
-  const a = assessment;
+  const a = assessment && isMakeupProductImageRubric(assessment.rubricSnapshot) ? assessment : null;
+  const needsRefresh = Boolean(assessment && !a);
+  const productMaxScore = productRubric.reduce((sum, criterion) => sum + criterion.maxScore, 0);
   return <div className={styles.aiCard}>
     <div className={styles.aiHead}>
-      <strong>{offline ? "✦ Đánh giá offline theo rubric" : "✦ Đánh giá bằng AI"}</strong>
-      <span className={styles.aiDraftTag}>NHÁP · không phải điểm chính thức</span>
+      <strong>Phân tích sản phẩm Makeup theo hình ảnh</strong>
+      <span className={styles.aiDraftTag}>{productRubric.length} TIÊU CHÍ · {productMaxScore} ĐIỂM</span>
     </div>
 
     {a && a.status === "ai_draft" && (
       <>
         <div className={styles.aiScore}>
           <div><small>Điểm sơ bộ</small><strong>{a.totalScore ?? "—"}<i>/{a.maxScore}</i></strong></div>
-          <span className={styles.pill} data-tone="info">{offline ? "Offline · rubric" : a.provider}</span>
+          <span className={styles.pill} data-tone="info">{offline ? "Cấu hình offline" : a.provider}</span>
         </div>
         {a.summary && <p className={styles.aiSummary}>{a.summary}</p>}
         {a.rubricSnapshot.length > 0 && (
@@ -1333,17 +1395,19 @@ function AiDraftSection({ sessionId, assessment, canRun, offline, autoRunAt, onC
 
     {message && <p className={styles.aiSummary} style={{ color: "#b22949" }}>{message}</p>}
 
-    {!canRun && !a && <p className={styles.aiSummary}>Tải minh chứng (ảnh) trước để chạy đánh giá theo rubric.</p>}
+    {needsRefresh && <p className={styles.aiSummary}>Kết quả cũ dùng bộ tiêu chí của lớp học. Hãy phân tích lại để chuyển sang bộ tiêu chí sản phẩm Makeup mới.</p>}
+
+    {!canRun && !a && <p className={styles.aiSummary}>Tải ít nhất một ảnh Makeup để bắt đầu phân tích theo bộ tiêu chí sản phẩm.</p>}
 
     <div className={styles.aiActions}>
       <button type="button" className={styles.primaryBtn} disabled={running || !canRun} onClick={run}>
-        {running ? "Đang phân tích…" : a ? "Phân tích lại" : analyzeLabel}
+        {running ? "Đang phân tích ảnh…" : a ? "Phân tích lại bộ ảnh" : analyzeLabel}
       </button>
       {a && a.status === "ai_draft" && (
         <button type="button" className={styles.aiCoachBtn} onClick={onOpenCoach}>Hỏi H2O Copilot</button>
       )}
     </div>
-    <p className={styles.aiPrivacy}>Chỉ dùng ảnh bài nộp + rubric của buổi học. Điểm chính thức do giảng viên quyết định.</p>
+    <p className={styles.aiPrivacy}>Đối chiếu bộ ảnh với tiêu chí sản phẩm Makeup đã cài đặt. Bản offline là nhận xét sơ bộ; giáo viên xác nhận kết quả cuối buổi.</p>
   </div>;
 }
 
@@ -1593,7 +1657,14 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
 
   return <div className={styles.evidence}>
     {showEvidence && <div className={styles.evidenceHead}>
-      <span>Minh chứng của bạn {locked && <em>· đã khoá vì buổi đã được chấm</em>}</span>
+      <span>Ảnh sản phẩm Makeup {locked && <em>· đã khoá vì buổi đã được chấm</em>}</span>
+    </div>}
+    {showEvidence && <div className={styles.photoGuide}>
+      <div><strong>Bộ ảnh khuyến nghị</strong><span>{assetIds.length}/{MAX_EVIDENCE} ảnh</span></div>
+      <p>Chụp đủ ánh sáng, không dùng filter làm thay đổi màu da và giữ cùng một tone sáng giữa các ảnh.</p>
+      <div className={styles.photoGuideChips}>
+        {MAKEUP_PHOTO_GUIDE.map((item, index) => <span key={item}>{index + 1}. {item}</span>)}
+      </div>
     </div>}
     {showSelfAssessment && rubric && rubric.criteria.length > 0 && (
       <section className={styles.selfAssessment} aria-label="Tự đánh giá theo rubric">
