@@ -1241,7 +1241,7 @@ function CurriculumCalendar({ journey, view, selectedId, onSelect }: {
 }
 
 // =========================================================================
-function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, productRubric = MAKEUP_PRODUCT_IMAGE_RUBRIC, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant, content = "full" }: {
+function SessionDetail({ session, organizationId, rubric, evaluation, submission, aiAssessment, productRubric = MAKEUP_PRODUCT_IMAGE_RUBRIC, aiInfo, autoAssessAt, onConsumeAutoRun, onSaved, onAiAssessed, onRequestCoach, variant, content }: {
   session: ClassSession;
   organizationId: string;
   rubric: Rubric | null;
@@ -1256,7 +1256,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
   onAiAssessed: (a: AiAssessment) => void;
   onRequestCoach?: () => void;
   variant?: "panel";
-  content?: "full" | "evidence" | "self";
+  content: "evidence" | "self";
 }) {
   const [coachOpen, setCoachOpen] = useState(false);
   const hasEvidence = (submission?.assetIds.length ?? 0) > 0;
@@ -1273,23 +1273,7 @@ function SessionDetail({ session, organizationId, rubric, evaluation, submission
     )}
     {variant !== "panel" && session.title && <p className={styles.detailTitle}>{session.title}</p>}
 
-    <SessionEvidence sessionId={session.id} organizationId={organizationId} rubric={rubric} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} displayMode={content === "self" ? "self" : content === "evidence" ? "evidence" : "all"} />
-
-    {content === "full" && (evaluation
-      ? <GradePanel evaluation={evaluation} rubric={rubric} submission={submission} />
-      : <div className={styles.pendingPanel}>
-          <span className={styles.pendingTag}>Chưa chấm</span>
-          {rubric && rubric.criteria.length > 0
-            ? <>
-                <p>Giảng viên sẽ chấm dựa trên minh chứng bạn nộp và các tiêu chí sau:</p>
-                <ul className={styles.criteriaList}>
-                  {rubric.criteria.map((c) => (
-                    <li key={c.id}><span>{c.title}</span><b>/ {c.maxScore}{c.required ? " · bắt buộc" : ""}</b></li>
-                  ))}
-                </ul>
-              </>
-            : <p>Buổi này chưa gắn bộ tiêu chí chấm.</p>}
-        </div>)}
+    <SessionEvidence sessionId={session.id} organizationId={organizationId} rubric={rubric} submission={submission} locked={Boolean(evaluation)} onSaved={onSaved} variant={variant} displayMode={content} />
 
     {content !== "self" && (
       <AiDraftSection
@@ -1816,41 +1800,6 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
       <span className={styles.message} role="status">{saving ? "Đang đồng bộ…" : dirty ? "Có thay đổi chưa lưu" : message ?? "Đã đồng bộ"}</span>
     </div>}
     {locked && message && <span className={styles.message}>{message}</span>}
-  </div>;
-}
-
-function GradePanel({ evaluation, rubric, submission }: { evaluation: Evaluation; rubric: Rubric | null; submission: Submission | null }) {
-  const percent = pct(evaluation.totalScore, evaluation.maxScore);
-  return <div className={styles.gradePanel}>
-    <div className={styles.gradeTop}>
-      <div>
-        <span>Điểm giảng viên</span>
-        <strong>{evaluation.totalScore}<i>/{evaluation.maxScore}</i></strong>
-      </div>
-      <span className={styles.pill} data-tone={percent >= 90 ? "done" : percent >= 70 ? "info" : "warn"}>{percent}%</span>
-    </div>
-    {submission?.totalScore != null && <div className={styles.selfVsTeacher}>
-      <span>Bạn tự chấm <b>{submission.totalScore}/{submission.maxScore ?? evaluation.maxScore}</b></span>
-      <span>Chênh lệch <b data-positive={evaluation.totalScore >= submission.totalScore ? "" : undefined}>{evaluation.totalScore >= submission.totalScore ? "+" : ""}{(evaluation.totalScore - submission.totalScore).toFixed(0)} điểm</b></span>
-    </div>}
-
-    {rubric && rubric.criteria.length > 0 && (
-      <ul className={styles.criteriaList}>
-        {rubric.criteria.map((c) => {
-          const s = evaluation.criterionScores[c.id] ?? 0;
-          return <li key={c.id}>
-            <span>{c.title}</span>
-            <b data-low={s < c.maxScore * 0.6 ? "" : undefined}>{submission?.criterionScores[c.id] != null ? `Tự ${submission.criterionScores[c.id]} · ` : ""}{s} / {c.maxScore}</b>
-          </li>;
-        })}
-      </ul>
-    )}
-
-    {evaluation.notes && <p className={styles.gradeNotes}>{evaluation.notes}</p>}
-
-    {evaluation.assetIds.length > 0 && <div className={styles.thumbRow}>
-      {evaluation.assetIds.map((id) => <span key={id} className={styles.thumb}><AssetThumb assetId={id} /></span>)}
-    </div>}
   </div>;
 }
 
