@@ -7,6 +7,7 @@ function localId() { return `local:${crypto.randomUUID()}`; }
 const COMPRESSIBLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_DIMENSION = 2000;
 const IMAGE_OUTPUT_QUALITY = 0.82;
+export const PROXY_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 
 /** Resizes/re-encodes oversized raster images to WebP before upload to reduce storage; falls back to the original file on any failure or when it isn't smaller. */
 async function compressImageFile(file: File): Promise<File> {
@@ -51,8 +52,32 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
     const assetId = localId(); await saveLocalAsset(assetId, file);
     return { assetId, previewUrl: URL.createObjectURL(file), mode: "local", mimeType: file.type, fileName: file.name };
   }
-  const uploaded = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
-  if (!uploaded.ok) throw new Error("Upload file thất bại.");
+  let uploaded: Response | null = null;
+  try {
+    uploaded = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
+  } catch {
+    // A missing/misconfigured R2 CORS rule makes browser fetch throw before it can expose the
+    // response. Small evidence images get a same-origin fallback so the learning flow remains
+    // usable while operators repair bucket CORS. Large files keep the direct-to-R2 path only.
+  }
+  if (!uploaded?.ok) {
+    if (file.size > PROXY_UPLOAD_MAX_BYTES) throw new Error("R2_UPLOAD_FAILED: Cần kiểm tra CORS của kho file.");
+    const proxied = await fetch("/api/storage/upload-proxy", {
+      method: "POST",
+      headers: {
+        "content-type": file.type,
+        "x-h2obook-file-name": encodeURIComponent(file.name),
+        "x-h2obook-size": String(file.size),
+        "x-h2obook-storage-key": signed.key,
+        ...(input?.organizationId ? { "x-h2obook-organization-id": input.organizationId } : {})
+      },
+      body: file
+    });
+    if (!proxied.ok) {
+      const error = await proxied.json().catch(() => null) as { error?: string; message?: string } | null;
+      throw new Error(error?.message || error?.error || "Upload file thất bại.");
+    }
+  }
   const complete = await fetch("/api/storage/complete", {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ organizationId: input?.organizationId, key: signed.key, fileName: file.name, mimeType: file.type, sizeBytes: file.size, assetType: input?.assetType ?? "image", metadata: input?.metadata ?? {}, checksum: input?.checksum, width: input?.width, height: input?.height })

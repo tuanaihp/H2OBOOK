@@ -10,6 +10,22 @@
 6. Test R2, Redis/BullMQ, ClamAV and document processor together.
 7. Test cancellation, timeout, stale-session recovery and idempotent commit.
 
+## R2 browser upload CORS
+
+Preview the managed H2OBOOK rule, then apply it to the configured private bucket:
+
+```bash
+pnpm configure:r2-cors
+pnpm configure:r2-cors -- --apply
+```
+
+The rule permits signed `GET`, `PUT` and `HEAD` requests from `NEXT_PUBLIC_APP_URL` and
+`http://localhost:3000`. Set `R2_CORS_ADDITIONAL_ORIGINS` to a comma-separated list to replace the
+local-development default. Existing R2 CORS rules with other IDs are preserved. Applying through
+the script requires credentials with R2 Admin Read & Write; an object-only token can upload files
+but cannot change bucket CORS. In that case, copy the previewed rule into Cloudflare Dashboard →
+R2 → bucket → Settings → CORS Policy.
+
 ## Deployment order
 
 1. Database migration 0022.
