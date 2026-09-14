@@ -16,4 +16,8 @@ describe("Input production hardening", () => {
     expect(() => validateCorrections(Array.from({ length: 5001 }, (_, index) => ({ nodeId: `node-${index}` })))).toThrow("INPUT_CORRECTION_LIMIT_EXCEEDED");
     expect(() => validateInputSessionEnvelope({ sourceName: "URL", format: "url", mode: "editable_content", source: { kind: "url", url: `https://example.com/${"x".repeat(2100)}` }, destination: { type: "new_book" } })).toThrow("INPUT_URL_INVALID");
   });
+  it("rejects non-http URL sources before processing", () => {
+    expect(() => validateInputSessionEnvelope({ sourceName: "URL", format: "url", mode: "editable_content", source: { kind: "url", url: "file:///etc/passwd" }, destination: { type: "new_book" } })).toThrow("INPUT_URL_PROTOCOL_UNSUPPORTED");
+    expect(validateInputSessionEnvelope({ sourceName: "URL", format: "url", mode: "editable_content", source: { kind: "url", url: "https://example.com/doc" }, destination: { type: "new_book" } })).toBe(true);
+  });
 });

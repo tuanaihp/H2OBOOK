@@ -76,6 +76,14 @@ export function createInputTraceId(): string {
   return `itr_${crypto.randomUUID().replaceAll("-", "")}`;
 }
 
+export function isHttpUrl(value: string): boolean {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
 export function validateInputSessionEnvelope(input: {
   sourceName: string;
   format: InputFormat;
@@ -87,6 +95,7 @@ export function validateInputSessionEnvelope(input: {
   if (input.source.kind === "url") {
     const url = input.source.url ?? "";
     if (!url || url.length > limits.maxUrlChars) throw new Error("INPUT_URL_INVALID");
+    if (!isHttpUrl(url)) throw new Error("INPUT_URL_PROTOCOL_UNSUPPORTED");
   }
   if (jsonSizeBytes(input.source) > limits.maxMetadataBytes) throw new Error("INPUT_SOURCE_METADATA_TOO_LARGE");
   if (jsonSizeBytes(input.destination) > 64 * 1024) throw new Error("INPUT_DESTINATION_TOO_LARGE");
