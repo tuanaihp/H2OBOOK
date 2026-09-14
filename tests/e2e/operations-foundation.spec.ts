@@ -9,7 +9,7 @@ test("customer portal renders for the demo owner", async ({ page }) => {
 test("instructor workspace renders for the demo owner", async ({ page }) => {
   await page.goto("/instructor/classes");
   await expect(page).toHaveURL(/\/instructor\/classes$/);
-  await expect(page.getByRole("link", { name: "Command Center" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Command Center", exact: true })).toBeVisible();
 });
 
 test("operations center renders admissions pipeline", async ({ page }) => {
@@ -38,5 +38,5 @@ test("unknown certificate number reports invalid, not an error page", async ({ p
 
 test("workspace sidebar surfaces Operations Center under System", async ({ page }) => {
   await page.goto("/settings");
-  await expect(page.locator('a[href="/operations"]')).toBeVisible();
+  await expect(page.locator('a[href="/operations"]').first()).toBeVisible();
 });

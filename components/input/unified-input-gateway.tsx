@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileArchive, FileImage, FileStack, FileText, Globe2, Loader2, Play, RefreshCw, RotateCcw, Save, Upload, XCircle } from "lucide-react";
 import type { H2OBook, H2OElement, H2OPage } from "@/types/editor";
 import type { ImportDocument, InputDestinationConfig, InputMode, InputSessionStatus, OrchestratedInputSession } from "@h2obook/input-core";
-import { detectInputFormat, extractSessionOutline, inputModeMatrix, plainTextToImportDocument, sessionDisplayStage, summarizeWarnings } from "@h2obook/input-core";
+import { detectInputFormat, extractSessionOutline, inputModeMatrix, isHttpUrl, plainTextToImportDocument, sessionDisplayStage, summarizeWarnings } from "@h2obook/input-core";
 import { useAppStore } from "@/store/app-store";
 import { useEditorStore } from "@/store/editor-store";
 import { importDocxToBookDocument } from "@/lib/input/word-import";
@@ -139,6 +139,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
   };
 
   const selectUrl = () => {
+    if (!isHttpUrl(urlValue.trim())) { setError("INPUT_URL_PROTOCOL_UNSUPPORTED"); setMessage("Chỉ hỗ trợ URL http:// hoặc https://."); return; }
     try { const normalized = new URL(urlValue.trim()).toString(); setSource({ kind: "url", url: normalized }); setMode("editable_content"); setSession(null); setPreview(null); setDesignPayload(null); setError(""); setMessage(`URL đã sẵn sàng: ${normalized}`); }
     catch { setError("URL_INVALID"); }
   };

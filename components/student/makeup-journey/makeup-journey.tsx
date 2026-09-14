@@ -515,16 +515,13 @@ function CopilotPanel({ journey, session, aiInfo, onSubmissionSaved, onAiAssesse
     thread.append({ id: crypto.randomUUID(), role: "user", content: imgs.length > 1 ? `Em gửi ${imgs.length} ảnh cho buổi này.` : "Em gửi ảnh cho buổi này.", images: previews });
     setAttaching(true);
     try {
-      const uploaded: string[] = [];
-      const uploadErrors: string[] = [];
-      for (const f of imgs) {
-        try {
-          const a = await uploadAsset(f, { organizationId: journey.class.organizationId, category: "student-competency", assetType: "image", compress: true });
-          uploaded.push(a.assetId);
-        } catch (error) {
-          uploadErrors.push(error instanceof Error ? error.message : "UPLOAD_FAILED");
-        }
-      }
+      // Parallel uploads: each file costs presign + PUT + complete roundtrips, so a serial
+      // loop multiplies serverless cold-start latency by the photo count.
+      const settled = await Promise.allSettled(imgs.map((f) =>
+        uploadAsset(f, { organizationId: journey.class.organizationId, category: "student-competency", assetType: "image", compress: true })
+      ));
+      const uploaded = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value.assetId] : []));
+      const uploadErrors = settled.flatMap((r) => (r.status === "rejected" ? [r.reason instanceof Error ? r.reason.message : "UPLOAD_FAILED"] : []));
       if (!uploaded.length) {
         const detail = uploadErrors[0] ? ` Chi tiết: ${uploadErrors[0]}` : "";
         thread.append(say(`Chưa gửi được ảnh lên máy chủ.${detail} Em bấm “Gửi ảnh” thử lại ngay tại đây — không cần rời khỏi khung chat. Nếu vẫn lỗi, báo giúp mình dòng chi tiết này.`));
@@ -1470,6 +1467,9 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   const [durationMinutes, setDurationMinutes] = useState(submission?.durationMinutes == null ? "" : String(submission.durationMinutes));
   const [repairPlan, setRepairPlan] = useState<RepairPlanItem[]>(submission?.repairPlan ?? []);
   const [uploading, setUploading] = useState(false);
+  // Fresh uploads already hold an object URL — reuse it for the thumbnail so the UI does not
+  // burn one extra /api/assets/[id]/url roundtrip per photo just to render what it just sent.
+  const previewByAsset = useRef(new Map<string, string>());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const latestDraftRef = useRef<LocalAssessmentDraft | null>(null);
@@ -1587,18 +1587,22 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
     event.target.value = "";
     const room = MAX_EVIDENCE - assetIds.length;
     if (room <= 0) { setMessage(`Tối đa ${MAX_EVIDENCE} ảnh.`); return; }
+    const picked = files.filter((file) => file.type.startsWith("image/")).slice(0, room);
+    if (!picked.length) return;
     setUploading(true); setMessage(null);
-    try {
-      for (const file of files.slice(0, room)) {
-        if (!file.type.startsWith("image/")) continue;
-        const asset = await uploadAsset(file, { organizationId, category: "student-competency", assetType: "image", compress: true });
-        setAssetIds((current) => [...current, asset.assetId]);
-      }
-    } catch {
-      setMessage("Tải ảnh thất bại — thử lại.");
-    } finally {
-      setUploading(false);
+    // Parallel per-file pipeline (presign → PUT → complete). Serial awaits multiplied latency
+    // by photo count — up to ~18 sequential serverless roundtrips for six photos.
+    const settled = await Promise.allSettled(picked.map((file) =>
+      uploadAsset(file, { organizationId, category: "student-competency", assetType: "image", compress: true })
+    ));
+    const okAssets = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    const failed = settled.length - okAssets.length;
+    if (okAssets.length) {
+      okAssets.forEach((asset) => previewByAsset.current.set(asset.assetId, asset.previewUrl));
+      setAssetIds((current) => [...current, ...okAssets.map((asset) => asset.assetId)].slice(0, MAX_EVIDENCE));
     }
+    if (failed) setMessage(failed === settled.length ? "Tải ảnh thất bại — thử lại." : `${failed} ảnh chưa tải được — thử lại.`);
+    setUploading(false);
   }
 
   async function save() {
@@ -1770,7 +1774,7 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
     {showEvidence && <div className={styles.thumbRow}>
       {assetIds.map((id) => (
         <span key={id} className={styles.thumb}>
-          <AssetThumb assetId={id} />
+          <AssetThumb assetId={id} initialUrl={previewByAsset.current.get(id) ?? null} />
           {!locked && <button type="button" aria-label="Bỏ ảnh này" onClick={() => setAssetIds((v) => v.filter((x) => x !== id))}><X size={12} /></button>}
         </span>
       ))}
@@ -1803,13 +1807,14 @@ function SessionEvidence({ sessionId, organizationId, rubric, submission, locked
   </div>;
 }
 
-function AssetThumb({ assetId }: { assetId: string }) {
-  const [url, setUrl] = useState<string | null>(null);
+function AssetThumb({ assetId, initialUrl }: { assetId: string; initialUrl?: string | null }) {
+  const [url, setUrl] = useState<string | null>(initialUrl ?? null);
   useEffect(() => {
+    if (initialUrl) { setUrl(initialUrl); return; }
     let cancelled = false;
     void resolveAssetUrl(assetId).then((u) => { if (!cancelled) setUrl(u); });
     return () => { cancelled = true; };
-  }, [assetId]);
+  }, [assetId, initialUrl]);
   if (!url) return <span className={styles.thumbPlaceholder}><CheckCircle2 size={14} /></span>;
   // eslint-disable-next-line @next/next/no-img-element
   return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="Minh chứng" /></a>;
