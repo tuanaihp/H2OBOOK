@@ -42,11 +42,18 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
     await saveLocalAsset(assetId, file);
     return { assetId, previewUrl: URL.createObjectURL(file), mode: "local", mimeType: file.type, fileName: file.name };
   }
-  const presign = await fetch("/api/storage/presign-upload", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ fileName: file.name, mimeType: file.type, sizeBytes: file.size, organizationId: input?.organizationId, category: input?.category ?? "assets" })
-  });
-  if (!presign.ok) throw new Error("Không thể tạo đường dẫn upload an toàn.");
+  // Step-tagged errors: a bare "Failed to fetch" tells nobody which of the four network hops
+  // (presign → R2 PUT → proxy fallback → complete) actually died on production.
+  let presign: Response;
+  try {
+    presign = await fetch("/api/storage/presign-upload", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ fileName: file.name, mimeType: file.type, sizeBytes: file.size, organizationId: input?.organizationId, category: input?.category ?? "assets" })
+    });
+  } catch (error) {
+    throw new Error(`PRESIGN_NETWORK: ${error instanceof Error ? error.message : "không kết nối được máy chủ"}`);
+  }
+  if (!presign.ok) throw new Error(`PRESIGN_${presign.status}: Không thể tạo đường dẫn upload an toàn.`);
   const signed = await presign.json() as { mode: "demo" | "cloud"; key: string; uploadUrl: string | null };
   if (!signed.uploadUrl) {
     const assetId = localId(); await saveLocalAsset(assetId, file);
@@ -62,27 +69,37 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   }
   if (!uploaded?.ok) {
     if (file.size > PROXY_UPLOAD_MAX_BYTES) throw new Error("R2_UPLOAD_FAILED: Cần kiểm tra CORS của kho file.");
-    const proxied = await fetch("/api/storage/upload-proxy", {
-      method: "POST",
-      headers: {
-        "content-type": file.type,
-        "x-h2obook-file-name": encodeURIComponent(file.name),
-        "x-h2obook-size": String(file.size),
-        "x-h2obook-storage-key": signed.key,
-        ...(input?.organizationId ? { "x-h2obook-organization-id": input.organizationId } : {})
-      },
-      body: file
-    });
+    let proxied: Response;
+    try {
+      proxied = await fetch("/api/storage/upload-proxy", {
+        method: "POST",
+        headers: {
+          "content-type": file.type,
+          "x-h2obook-file-name": encodeURIComponent(file.name),
+          "x-h2obook-size": String(file.size),
+          "x-h2obook-storage-key": signed.key,
+          ...(input?.organizationId ? { "x-h2obook-organization-id": input.organizationId } : {})
+        },
+        body: file
+      });
+    } catch (error) {
+      throw new Error(`PROXY_NETWORK: ${error instanceof Error ? error.message : "không kết nối được máy chủ"}`);
+    }
     if (!proxied.ok) {
       const error = await proxied.json().catch(() => null) as { error?: string; message?: string } | null;
-      throw new Error(error?.message || error?.error || "Upload file thất bại.");
+      throw new Error(error?.message || error?.error || `PROXY_${proxied.status}: Upload file thất bại.`);
     }
   }
-  const complete = await fetch("/api/storage/complete", {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ organizationId: input?.organizationId, key: signed.key, fileName: file.name, mimeType: file.type, sizeBytes: file.size, assetType: input?.assetType ?? "image", metadata: input?.metadata ?? {}, checksum: input?.checksum, width: input?.width, height: input?.height })
-  });
-  if (!complete.ok) throw new Error("Không thể xác nhận file đã tải lên.");
+  let complete: Response;
+  try {
+    complete = await fetch("/api/storage/complete", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ organizationId: input?.organizationId, key: signed.key, fileName: file.name, mimeType: file.type, sizeBytes: file.size, assetType: input?.assetType ?? "image", metadata: input?.metadata ?? {}, checksum: input?.checksum, width: input?.width, height: input?.height })
+    });
+  } catch (error) {
+    throw new Error(`COMPLETE_NETWORK: ${error instanceof Error ? error.message : "không kết nối được máy chủ"}`);
+  }
+  if (!complete.ok) throw new Error(`COMPLETE_${complete.status}: Không thể xác nhận file đã tải lên.`);
   const result = await complete.json() as { asset: { id: string; storage_key?: string; mime_type?: string; original_name?: string; quarantine_status?: string }; scan?: { status?: string } };
   return { assetId: result.asset.id, previewUrl: URL.createObjectURL(file), mode: "cloud", storageKey: result.asset.storage_key ?? signed.key, mimeType: result.asset.mime_type ?? file.type, fileName: result.asset.original_name ?? file.name, scanStatus: result.scan?.status ?? result.asset.quarantine_status };
 }
