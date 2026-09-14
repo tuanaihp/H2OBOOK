@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAppStore } from "@/store/app-store";
+import { applyServerSettings } from "@/lib/settings/organization-settings-client";
 
 const VERSION_KEY = "h2obook-cloud-client-version";
 const fingerprint = (value: string) => {
@@ -30,6 +31,8 @@ export function CloudSyncAgent() {
         if (Number(snapshot.client_version ?? 0) > localVersion) {
           applyingRemote = true;
           useAppStore.getState().importData(snapshot.payload);
+          // organization_settings is authoritative for settings; an older snapshot must not roll them back.
+          applyServerSettings();
           localStorage.setItem(VERSION_KEY, String(snapshot.client_version));
           queueMicrotask(() => { applyingRemote = false; });
         }
