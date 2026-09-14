@@ -33,6 +33,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - name: Install Tesseract OCR
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie libgl1
       - run: pnpm install --frozen-lockfile
       - run: pip install -r services/document-processor/requirements.txt
       - run: pnpm validate:claude-guides
