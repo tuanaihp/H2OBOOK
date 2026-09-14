@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
-import { saveResourceNote } from "@/lib/curriculum/reader-context";
+import { listResourceNotes, saveResourceNote } from "@/lib/curriculum/reader-context";
 import { emitDomainEvent } from "@/lib/domain/events";
 
 type Body = { resourceType?: string; resourceId?: string; missionId?: string | null; title?: string; body?: string };
+
+/** The student's own notes for one resource (newest first) — same trust boundary as POST. */
+export async function GET(request: Request) {
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const organizationId = await configuredAcademyOrganizationId();
+  if (!organizationId || auth.user!.demo) return NextResponse.json({ notes: [] });
+  const params = new URL(request.url).searchParams;
+  const resourceType = params.get("resourceType");
+  const resourceId = params.get("resourceId");
+  if (!resourceType || !resourceId) return NextResponse.json({ error: "RESOURCE_REQUIRED" }, { status: 400 });
+  const notes = await listResourceNotes(organizationId, auth.user!.id, resourceType, resourceId);
+  return NextResponse.json({ notes });
+}
 
 export async function POST(request: Request) {
   const auth = await requireApiUser();

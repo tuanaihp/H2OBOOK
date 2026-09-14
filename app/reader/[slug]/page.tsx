@@ -43,6 +43,12 @@ export default function ReaderPage() {
   const stageRef = useRef<HTMLDivElement>(null);
   const pageStartedAt = useRef(Date.now());
   const openedBook = useRef<string | null>(null);
+  // Server sync only applies to books whose id is a real database UUID — local seed ids like
+  // "book_makeup_pro" would fail the uuid column. Timers debounce writes so typing a note or
+  // flipping pages quickly doesn't fire a request per keystroke.
+  const progressSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serverBookId = book && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(book.id) ? book.id : null;
   // Books authored from a template carry {{brand.name}}, {{expert.title}} and friends. The editor
   // resolves them against the active brand; the reader never did, so a published book showed the
   // raw handlebars to the reader. Resolving here fixes it for every book at once rather than by
@@ -76,13 +82,50 @@ export default function ReaderPage() {
 
   useEffect(() => {
     if (!book) return;
+    let saved: { page?: number; bookmarks?: number[]; notes?: Record<number,string>; at?: number } = {};
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as { page?: number; bookmarks?: number[]; notes?: Record<number,string> };
+      saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
       if (typeof saved.page === "number" && saved.page < book.pages.length) setIndex(saved.page);
       setBookmarks(saved.bookmarks ?? []);
       setNote(saved.notes?.[saved.page ?? 0] ?? "");
     } catch { /* ignore invalid local state */ }
-  }, [book, storageKey]);
+    if (!serverBookId) return;
+    const localAt = typeof saved.at === "number" ? saved.at : 0;
+    // Server is the cross-device source: a newer last_read_at wins over this device's saved page.
+    void fetch(`/api/student/reader/progress?resourceType=book&resourceId=${serverBookId}`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { progress?: { progressPercent: number; lastReadAt: string | null } | null } | null) => {
+        const progress = payload?.progress;
+        if (!progress) return;
+        const serverAt = progress.lastReadAt ? Date.parse(progress.lastReadAt) : 0;
+        if (progress.progressPercent > 0 && serverAt > localAt) {
+          const serverPage = Math.min(book.pages.length - 1, Math.max(0, Math.round((progress.progressPercent / 100) * book.pages.length) - 1));
+          setIndex(serverPage);
+        }
+      })
+      .catch(() => {});
+    // Server notes use the "Trang N" title convention — merge them in only for pages without a
+    // local note so an in-progress draft on this device is never overwritten.
+    void fetch(`/api/student/reader/note?resourceType=book&resourceId=${serverBookId}`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { notes?: Array<{ title?: string; body?: string }> } | null) => {
+        const merged: Record<number, string> = { ...(saved.notes ?? {}) };
+        let changed = false;
+        for (const item of payload?.notes ?? []) {
+          const match = /^Trang (\d+)$/.exec(String(item.title ?? ""));
+          if (!match) continue;
+          const pageIndex = Number(match[1]) - 1;
+          if (pageIndex >= 0 && pageIndex < book.pages.length && merged[pageIndex] === undefined && String(item.body ?? "").trim()) {
+            merged[pageIndex] = String(item.body);
+            changed = true;
+          }
+        }
+        if (!changed) return;
+        try { localStorage.setItem(storageKey, JSON.stringify({ ...saved, notes: merged, at: saved.at ?? Date.now() })); } catch { /* storage full */ }
+        setNote((current) => current || merged[saved.page ?? 0] || "");
+      })
+      .catch(() => {});
+  }, [book, storageKey, serverBookId]);
 
   useEffect(() => {
     if (!book || openedBook.current === book.id) return;
@@ -101,9 +144,20 @@ export default function ReaderPage() {
 
   const persist = (nextIndex: number, nextBookmarks = bookmarks, nextNote = note) => {
     if (!book) return;
-    let saved: { page?: number; bookmarks?: number[]; notes?: Record<number,string> } = {};
+    let saved: { page?: number; bookmarks?: number[]; notes?: Record<number,string>; at?: number } = {};
     try { saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}"); } catch { saved = {}; }
-    localStorage.setItem(storageKey, JSON.stringify({ ...saved, page: nextIndex, bookmarks: nextBookmarks, notes: { ...(saved.notes ?? {}), [index]: nextNote } }));
+    localStorage.setItem(storageKey, JSON.stringify({ ...saved, page: nextIndex, bookmarks: nextBookmarks, notes: { ...(saved.notes ?? {}), [index]: nextNote }, at: Date.now() }));
+    if (!serverBookId) return;
+    if (progressSyncTimer.current) clearTimeout(progressSyncTimer.current);
+    const percent = Math.round(((nextIndex + 1) / Math.max(1, book.pages.length)) * 100);
+    const bookmarked = nextBookmarks.length > 0;
+    progressSyncTimer.current = setTimeout(() => {
+      void fetch("/api/student/reader/progress", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resourceType: "book", resourceId: serverBookId, progressPercent: percent, bookmarked })
+      }).catch(() => {});
+    }, 800);
   };
   const go = (next: number) => {
     if (!book) return;
@@ -116,7 +170,21 @@ export default function ReaderPage() {
     const next = bookmarks.includes(index) ? bookmarks.filter((item) => item !== index) : [...bookmarks, index];
     setBookmarks(next); persist(index, next); if (!bookmarks.includes(index)) track("bookmark_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } });
   };
-  const saveNote = (value: string) => { setNote(value); persist(index, bookmarks, value); if (value.trim().length === 1) track("note_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } }); };
+  const saveNote = (value: string) => {
+    setNote(value); persist(index, bookmarks, value);
+    if (value.trim().length === 1) track("note_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } });
+    if (!serverBookId) return;
+    if (noteSyncTimer.current) clearTimeout(noteSyncTimer.current);
+    const pageIndex = index;
+    noteSyncTimer.current = setTimeout(() => {
+      if (!value.trim()) return;
+      void fetch("/api/student/reader/note", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resourceType: "book", resourceId: serverBookId, title: `Trang ${pageIndex + 1}`, body: value })
+      }).catch(() => {});
+    }, 1500);
+  };
   const fullscreen = () => stageRef.current?.requestFullscreen?.();
   const pageGroups = useMemo(() => { const all = book?.pages.map((item, pageIndex) => ({ item, pageIndex })) ?? []; const value = search.trim().toLowerCase(); if (!value) return all; return all.filter(({ item }) => `${item.name} ${item.chapter ?? ""} ${item.elements.map((element) => element.text ?? "").join(" ")}`.toLowerCase().includes(value)); }, [book, search]);
   const downloadProject = () => { const campaign=readCampaign(book.id); if(campaign.enabled && campaign.downloadRequiresLead && !hasReaderLead(book.id)){ go(Math.max(0,(campaign.leadGatePage ?? 1)-1)); return; } const payload = JSON.stringify({ format: "h2obook-reader-export", version: 4, exportedAt: new Date().toISOString(), book }, null, 2); const url = URL.createObjectURL(new Blob([payload], { type: "application/json" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${book.slug || book.id}.h2obook.json`; anchor.click(); URL.revokeObjectURL(url); };
@@ -128,7 +196,7 @@ export default function ReaderPage() {
       {tocOpen && <aside className="reader-toc"><header><div><List size={16}/><strong>Mục lục</strong></div><button aria-label="Đóng mục lục" onClick={() => setTocOpen(false)}><PanelLeftClose size={15} aria-hidden="true"/></button></header>{searchOpen && <div className="reader-search-box"><Search size={14}/><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong sách..."/>{search && <button aria-label="Xóa từ khóa tìm kiếm" onClick={() => setSearch("")}><X size={12} aria-hidden="true"/></button>}</div>}<div>{pageGroups.map(({ item, pageIndex }) => <button key={item.id} className={pageIndex === index ? "active" : ""} onClick={() => go(pageIndex)}><span>{pageIndex + 1}</span><span><strong>{item.name}</strong><small>{item.chapter ?? item.pageType ?? "Trang sách"}</small></span>{bookmarks.includes(pageIndex) && <Bookmark size={11} fill="currentColor"/>}</button>)}</div></aside>}
       <section className="reader-stage-v2" ref={stageRef}><div className="reader-page-frame" style={{ width: 794 * scale, height: 1123 * scale }}><div className="reader-page-v2" style={{ width: 794, height: 1123, background: page.background, transform: `scale(${scale})` }}>{page.elements.map((element) => <ReaderElement key={element.id} element={element}/>) }<div className="watermark-v2"><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span></div></div></div><GrowthLayer bookId={book.id} pageIndex={index}/>{presenter && page.notes && <div className="presenter-notes"><strong>Ghi chú giảng viên</strong><p>{page.notes}</p></div>}</section>
       {accessibilityOpen && <AccessibilityDock text={pageText || page.notes || page.name} onClose={() => setAccessibilityOpen(false)}/>}
-      {notesOpen && <aside className="reader-notes"><header><div><MessageSquareText size={16}/><strong>Ghi chú của tôi</strong></div><button onClick={() => setNotesOpen(false)}><X size={15}/></button></header><textarea value={note} onChange={(event) => saveNote(event.target.value)} placeholder="Ghi lại ý quan trọng, câu hỏi hoặc nội dung cần thực hành..."/><small>Ghi chú được lưu trên thiết bị hiện tại.</small><div className="reader-page-note"><strong>Ghi chú giảng viên</strong><p>{page.notes || "Trang này chưa có ghi chú dành cho giảng viên."}</p></div></aside>}{studyOpen && <aside className="reader-study-dock"><header><div><Brain size={16}/><strong>Smart Study Local</strong></div><button onClick={() => setStudyOpen(false)}><X size={15}/></button></header><div className="study-dock-tabs"><button className={studyTab === "summary" ? "active" : ""} onClick={() => setStudyTab("summary")}><Layers3 size={13}/>Tóm tắt</button><button className={studyTab === "questions" ? "active" : ""} onClick={() => setStudyTab("questions")}><ListChecks size={13}/>Câu hỏi</button><button className={studyTab === "cards" ? "active" : ""} onClick={() => setStudyTab("cards")}><Sparkles size={13}/>Flashcard</button></div>{studyTab === "summary" && <div className="study-dock-content"><pre>{localStudy.summary}</pre></div>}{studyTab === "questions" && <div className="study-dock-content"><pre>{localStudy.questions}</pre></div>}{studyTab === "cards" && <div className="study-card-list">{localStudy.cards.map((card, cardIndex) => <article key={cardIndex}><strong>{card.front}</strong><p>{card.back}</p></article>)}<button className="btn btn-primary btn-sm" onClick={() => { store.addFlashcardsFromText({ text: pageText || page.notes || page.name, bookId: book.id, pageId: page.id }); store.addStudySession({ bookId: book.id, mode: "review", durationMinutes: 5, completedItems: localStudy.cards.length }); }}>Lưu thẻ vào lịch ôn</button></div>}<footer><WifiOffBadge/></footer></aside>}
+      {notesOpen && <aside className="reader-notes"><header><div><MessageSquareText size={16}/><strong>Ghi chú của tôi</strong></div><button onClick={() => setNotesOpen(false)}><X size={15}/></button></header><textarea value={note} onChange={(event) => saveNote(event.target.value)} placeholder="Ghi lại ý quan trọng, câu hỏi hoặc nội dung cần thực hành..."/><small>{serverBookId ? "Ghi chú đồng bộ với tài khoản của bạn." : "Ghi chú được lưu trên thiết bị hiện tại."}</small><div className="reader-page-note"><strong>Ghi chú giảng viên</strong><p>{page.notes || "Trang này chưa có ghi chú dành cho giảng viên."}</p></div></aside>}{studyOpen && <aside className="reader-study-dock"><header><div><Brain size={16}/><strong>Smart Study Local</strong></div><button onClick={() => setStudyOpen(false)}><X size={15}/></button></header><div className="study-dock-tabs"><button className={studyTab === "summary" ? "active" : ""} onClick={() => setStudyTab("summary")}><Layers3 size={13}/>Tóm tắt</button><button className={studyTab === "questions" ? "active" : ""} onClick={() => setStudyTab("questions")}><ListChecks size={13}/>Câu hỏi</button><button className={studyTab === "cards" ? "active" : ""} onClick={() => setStudyTab("cards")}><Sparkles size={13}/>Flashcard</button></div>{studyTab === "summary" && <div className="study-dock-content"><pre>{localStudy.summary}</pre></div>}{studyTab === "questions" && <div className="study-dock-content"><pre>{localStudy.questions}</pre></div>}{studyTab === "cards" && <div className="study-card-list">{localStudy.cards.map((card, cardIndex) => <article key={cardIndex}><strong>{card.front}</strong><p>{card.back}</p></article>)}<button className="btn btn-primary btn-sm" onClick={() => { store.addFlashcardsFromText({ text: pageText || page.notes || page.name, bookId: book.id, pageId: page.id }); store.addStudySession({ bookId: book.id, mode: "review", durationMinutes: 5, completedItems: localStudy.cards.length }); }}>Lưu thẻ vào lịch ôn</button></div>}<footer><WifiOffBadge/></footer></aside>}
     </div>
     <footer className="reader-footer-v2"><div className="reader-controls"><button className="reader-btn" aria-label="Trang trước" onClick={() => go(index - 1)} disabled={index === 0}><ChevronLeft size={16} aria-hidden="true"/></button><span>{index + 1} / {book.pages.length}</span><button className="reader-btn" aria-label="Trang sau" onClick={() => go(index + 1)} disabled={index === book.pages.length - 1}><ChevronRight size={16} aria-hidden="true"/></button></div><div className="reader-progress-v2"><span style={{ width: `${progress}%` }}/></div><div className="reader-controls"><button className="reader-btn" aria-label="Thu nhỏ" onClick={() => setScale((value) => Math.max(0.28, value - 0.08))}><ZoomOut size={15} aria-hidden="true"/></button><span>{Math.round(scale * 100)}%</span><button className="reader-btn" aria-label="Phóng to" onClick={() => setScale((value) => Math.min(1.25, value + 0.08))}><ZoomIn size={15} aria-hidden="true"/></button><button className="reader-btn" title="Tải gói sách H2OBOOK" aria-label="Tải gói sách H2OBOOK" onClick={downloadProject}><Download size={15} aria-hidden="true"/></button></div></footer>
   </main>;

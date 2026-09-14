@@ -1,10 +1,26 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { configuredAcademyOrganizationId } from "@/lib/academy/service";
-import { recordResourceProgress, setResourceBookmark } from "@/lib/curriculum/reader-context";
+import { getResourceProgress, recordResourceProgress, setResourceBookmark } from "@/lib/curriculum/reader-context";
 import { emitDomainEvent } from "@/lib/domain/events";
 
 type Body = { resourceType?: string; resourceId?: string; progressPercent?: number; bookmarked?: boolean; missionId?: string | null };
+
+/** Signed-in student's saved position for one resource — the "continue reading" source when they
+ *  reopen a book on another device. Anonymous/demo readers simply get an empty payload and keep
+ *  using localStorage. */
+export async function GET(request: Request) {
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const organizationId = await configuredAcademyOrganizationId();
+  if (!organizationId || auth.user!.demo) return NextResponse.json({ progress: null });
+  const params = new URL(request.url).searchParams;
+  const resourceType = params.get("resourceType");
+  const resourceId = params.get("resourceId");
+  if (!resourceType || !resourceId) return NextResponse.json({ error: "RESOURCE_REQUIRED" }, { status: 400 });
+  const progress = await getResourceProgress(organizationId, auth.user!.id, resourceType, resourceId);
+  return NextResponse.json({ progress });
+}
 
 export async function POST(request: Request) {
   const auth = await requireApiUser();

@@ -14,6 +14,9 @@ tests/fixtures/input/generated-pdf/
 
 .vercel
 
+# Supabase CLI local artefacts (linked project cache, temp files) — machine-local, never commit.
+supabase/.temp/
+
 # Audit and test artefacts — screenshots, Playwright traces, generated reports. Produced by
 # tooling run against the deployed site, not source, and large/binary.
 audit-output/

@@ -28,15 +28,15 @@ export async function loadReaderMissionContext(userId: string, organizationId: s
   };
 }
 
-export interface ResourceProgress { progressPercent: number; bookmarked: boolean }
+export interface ResourceProgress { progressPercent: number; bookmarked: boolean; lastReadAt: string | null }
 
 export async function getResourceProgress(organizationId: string, studentId: string, resourceType: string, resourceId: string): Promise<ResourceProgress | null> {
   const admin = createSupabaseAdminClient();
   if (!admin) return null;
-  const { data } = await admin.from("student_resource_progress").select("progress_percent,bookmarked")
+  const { data } = await admin.from("student_resource_progress").select("progress_percent,bookmarked,last_read_at")
     .eq("organization_id", organizationId).eq("student_id", studentId).eq("resource_type", resourceType).eq("resource_id", resourceId).maybeSingle();
   if (!data) return null;
-  return { progressPercent: Number(data.progress_percent), bookmarked: Boolean(data.bookmarked) };
+  return { progressPercent: Number(data.progress_percent), bookmarked: Boolean(data.bookmarked), lastReadAt: data.last_read_at ? String(data.last_read_at) : null };
 }
 
 async function upsertProgress(organizationId: string, studentId: string, resourceType: string, resourceId: string, patch: { progress_percent?: number; bookmarked?: boolean }): Promise<Result<null>> {
@@ -60,6 +60,20 @@ export async function recordResourceProgress(organizationId: string, studentId: 
 
 export async function setResourceBookmark(organizationId: string, studentId: string, resourceType: string, resourceId: string, bookmarked: boolean): Promise<Result<null>> {
   return upsertProgress(organizationId, studentId, resourceType, resourceId, { bookmarked });
+}
+
+export interface ResourceNote { id: string; title: string; body: string; createdAt: string }
+
+/** The reader's own notes for one resource (newest first) — lets a signed-in student reopen a
+ *  book on another device and see the notes they wrote elsewhere. */
+export async function listResourceNotes(organizationId: string, studentId: string, resourceType: string, resourceId: string): Promise<ResourceNote[]> {
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return [];
+  const { data } = await supabase.from("learner_notes").select("id,title,body,created_at")
+    .eq("organization_id", organizationId).eq("user_id", studentId)
+    .eq("resource_type", resourceType).eq("resource_id", resourceId)
+    .order("created_at", { ascending: false }).limit(200);
+  return (data ?? []).map((row) => ({ id: String(row.id), title: String(row.title ?? ""), body: String(row.body ?? ""), createdAt: String(row.created_at ?? "") }));
 }
 
 /** "Lưu vào Học & ghi nhớ" from the Reader — reuses learner_notes (migration 0026), now generalized (0053) to accept resource_type/resource_id instead of requiring a Knowledge Space. */

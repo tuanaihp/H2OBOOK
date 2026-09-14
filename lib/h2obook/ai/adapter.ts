@@ -11,9 +11,18 @@ import type { AiAssessment, AiChatReply, AiProvider, AnalyzeInput, ChatInput } f
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 const TIMEOUT_MS = 25_000;
 
+let warnedUnsupported = false;
+
 export function getAiProvider(): AiProvider {
   const raw = (process.env.H2O_AI_PROVIDER ?? "mock").trim().toLowerCase();
-  if (raw === "gemini" || raw === "openai" || raw === "local-http" || raw === "ollama") return raw;
+  if (raw === "gemini" || raw === "local-http" || raw === "ollama") return raw;
+  if (raw === "openai") {
+    // The OpenAI branch is not implemented (analyzeSubmission/chatWithCoach return null). Falling
+    // back to the deterministic mock keeps the feature usable instead of silently answering
+    // "unavailable" — same contract as every other unconfigured optional provider.
+    if (!warnedUnsupported) { warnedUnsupported = true; console.warn("[h2o-ai] H2O_AI_PROVIDER=openai is not implemented yet; using mock."); }
+    return "mock";
+  }
   return "mock";
 }
 
@@ -21,7 +30,6 @@ export function describeAiProvider(): { provider: AiProvider; model: string | nu
   const provider = getAiProvider();
   if (provider === "gemini") return { provider, model: isGeminiConfigured() ? geminiModel() : null, live: isGeminiConfigured() };
   if (provider === "local-http" || provider === "ollama") return { provider, model: null, live: Boolean(process.env.H2O_LOCAL_AI_URL?.trim()) };
-  if (provider === "openai") return { provider, model: process.env.OPENAI_MODEL ?? "gpt-4o-mini", live: Boolean(process.env.OPENAI_API_KEY?.trim()) };
   return { provider: "mock", model: "mock-heuristic", live: true };
 }
 
@@ -174,7 +182,6 @@ export async function analyzeSubmission(input: AnalyzeInput): Promise<AiAssessme
   const provider = getAiProvider();
   if (provider === "gemini") return geminiAnalyze(input);
   if (provider === "local-http" || provider === "ollama") return localAnalyze(input);
-  if (provider === "openai") return null; // TODO: openai branch when a key is provided
   return mockAssessment(input);
 }
 
@@ -231,6 +238,5 @@ export async function chatWithCoach(input: ChatInput): Promise<AiChatReply | nul
   const provider = getAiProvider();
   if (provider === "gemini") return geminiChat(input);
   if (provider === "local-http" || provider === "ollama") return localChat(input);
-  if (provider === "openai") return null;
   return mockChat(input);
 }

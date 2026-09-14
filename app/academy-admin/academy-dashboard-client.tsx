@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, BookOpenCheck, Compass, GraduationCap, LibraryBig, UserRoundPlus, UsersRound } from "lucide-react";
+import { BadgeCheck, BookOpenCheck, CheckCircle2, Circle, Compass, GraduationCap, LibraryBig, ListChecks, UserRoundPlus, UsersRound } from "lucide-react";
 import { SimpleOperationsShell } from "@/components/operations/simple-shell";
 import { OperationsMetric } from "@/components/operations/metric-card";
 import { academyAdminRoutes } from "@/lib/operations/routes";
@@ -28,6 +28,15 @@ export function AcademyDashboardClient() {
   }, []);
 
   const draftStages = data ? data.totalStages - data.publishedStages : 0;
+  // Setup checklist: the four steps that take a fresh organization from empty to enrolling.
+  // Hidden once everything is done — a working academy does not need the scaffolding.
+  const setupSteps = data ? [
+    { done: data.totalStages > 0, label: "Tạo giai đoạn lộ trình", detail: data.totalStages > 0 ? `${data.totalStages} giai đoạn` : "Chưa có", href: "/academy-admin/stages" },
+    { done: data.stageResources > 0, label: "Gắn tài liệu vào giai đoạn", detail: data.stageResources > 0 ? `${data.stageResources} tài liệu` : "Chưa có", href: "/academy-admin/stages" },
+    { done: data.publishedStages > 0, label: "Publish giai đoạn đầu tiên", detail: data.publishedStages > 0 ? `${data.publishedStages} đã publish` : "Chưa publish", href: "/academy-admin/stages" },
+    { done: data.activeStudents > 0 || data.pendingApplications > 0, label: "Mời học viên đầu tiên", detail: data.activeStudents > 0 ? `${data.activeStudents} đang học` : data.pendingApplications > 0 ? `${data.pendingApplications} hồ sơ chờ` : "Chưa có", href: "/operations/admissions" }
+  ] : [];
+  const setupDone = setupSteps.length > 0 && setupSteps.every((step) => step.done);
 
   return <SimpleOperationsShell title="Academy Control Center" subtitle="Tổng quan đào tạo" homeHref="/academy-admin" routes={academyAdminRoutes} accentLabel="Academy Admin">
     <header className={styles.header}>
@@ -36,6 +45,22 @@ export function AcademyDashboardClient() {
         <Link href="/academy-admin/stages" className={`${styles.button} ${styles.buttonPrimary}`}>Mở Giai đoạn &amp; lộ trình</Link>
       </div>
     </header>
+
+    {!loading && data && !setupDone && (
+      <section className={styles.card}>
+        <div className={styles.cardHead}><div><h2><ListChecks size={16} style={{ verticalAlign: "-2px", marginRight: 6 }}/>Thiết lập học viện</h2><p>Bốn bước đưa học viện từ trống đến tuyển sinh được.</p></div></div>
+        <div className={styles.cardBody} style={{ padding: "8px 18px 16px" }}>
+          <div className={styles.list}>
+            {setupSteps.map((step, index) => (
+              <Link href={step.href} className={styles.listItem} key={step.label} style={{ textDecoration: "none", color: "inherit" }}>
+                <span className={styles.listItemIcon}>{step.done ? <CheckCircle2 size={16}/> : <Circle size={16}/>}</span>
+                <div><strong>{index + 1}. {step.label}</strong><small>{step.detail}</small></div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
 
     {/* Career stages come first: this is where an admin configures what students actually learn, and
         the metrics below it (courses/lessons) describe only one kind of resource inside it. */}

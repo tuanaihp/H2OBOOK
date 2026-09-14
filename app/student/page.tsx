@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, GraduationCap, RefreshCw, Sparkles, Target, Trophy } from "lucide-react";
 import { useStudentData, useStudentName } from "@/components/student/student-data";
+import { OnboardingChecklist } from "@/components/student/onboarding-checklist";
 import { useLocale } from "@/components/providers/locale-provider";
 import styles from "@/components/ui/experience.module.css";
 
@@ -32,6 +33,7 @@ export default function StudentDashboard() {
     </section>
     {error !== null || (!loading && !data) ? <div className={styles.notice} role="alert"><p>{l("Chưa tải được tiến độ học tập. Bạn vẫn có thể mở khóa học và thư viện.", "Learning progress is unavailable. You can still open your courses and library.")}</p><div className={styles.actions}><button onClick={refresh} disabled={loading}><RefreshCw size={16}/>{l("Thử lại", "Retry")}</button></div></div> : null}
     {data?.mode === "demo" && <div className={styles.notice}>{l("Bạn đang xem dữ liệu minh họa.", "You are viewing sample data.")}</div>}
+    <OnboardingChecklist/>
     <section className={styles.metrics} aria-busy={loading} aria-label={l("Tiến độ học tập", "Learning progress")}>{metrics.map(({ icon: Icon, value, label }) => <article className={styles.metric} key={label}><Icon size={24}/><div><strong>{value}</strong><small>{label}</small></div></article>)}</section>
     <div className={styles.toolbar}><span role="status">{loading ? l("Đang cập nhật tiến độ…", "Updating progress…") : l("Kế hoạch học tập của bạn", "Your learning plan")}</span><div className={styles.actions}><button disabled={loading} onClick={refresh}><RefreshCw size={16}/>{l("Cập nhật", "Refresh")}</button></div></div>
     <div className={styles.columns}>
