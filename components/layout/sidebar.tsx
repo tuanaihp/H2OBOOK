@@ -12,6 +12,12 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import { operationsFeatures } from "@/lib/operations/feature";
 import { useLocale } from "@/components/providers/locale-provider";
+import { resolveStudioHref } from "@/lib/editor/sample-books";
+import { APP_VERSION_SHORT } from "@/lib/version";
+
+// Placeholder href for "H2OBOOK Studio": resolved per user to their latest real book (or /books).
+// It used to be hardcoded to /editor/book_makeup_pro, which opened the demo book for real users.
+const STUDIO_ROUTE = "/editor";
 
 const legacyTeachingNavigation = process.env.NEXT_PUBLIC_LEGACY_TEACHING_NAV === "true";
 const teachingLinks = legacyTeachingNavigation ? [
@@ -53,7 +59,7 @@ const domains = [
     { href: "/design-library", label: "Thư viện thiết kế", icon: Palette },
     { href: "/clones", label: "Brand Clone", icon: BookCopy },
     { href: "/bulk-publishing", label: "Bulk Publishing", icon: Sheet },
-    { href: "/editor/book_makeup_pro", label: "H2OBOOK Studio", icon: WandSparkles },
+    { href: STUDIO_ROUTE, label: "H2OBOOK Studio", icon: WandSparkles },
     { href: "/content-health", label: "Preflight", icon: HeartPulse },
     { href: "/publish", label: "Publish Center", icon: Send }
   ]},
@@ -99,7 +105,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const workspace = useAppStore((state) => state.workspace);
   const smart = useAppStore((state) => state.smartSettings);
-  const usage = Math.min(100, Math.round(workspace.storageUsedMb / workspace.storageLimitMb * 100));
+  const books = useAppStore((state) => state.books);
+  const studioHref = resolveStudioHref(books);
+  const usage =Math.min(100, Math.round(workspace.storageUsedMb / workspace.storageLimitMb * 100));
   const activeDomain = domains.find((domain) => pathname === domain.href || domain.links.some((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))) ?? domains[0];
   return <aside className="sidebar quantum-sidebar">
     <div className="quantum-rail">
@@ -108,18 +116,22 @@ export function Sidebar() {
       <Link href="/ai-studio" className={cn("quantum-assist-link", pathname.startsWith("/ai-studio") && "active")} title={t("Smart Tools – AI tùy chọn")}><Sparkles/><span>Smart</span><i>{smart.aiEnabled ? "AI" : "LOCAL"}</i></Link>
     </div>
     <div className="quantum-context-nav">
-      <Link href="/dashboard" className="brand-logo"><div className="brand-mark">H2</div><div className="brand-word"><strong>H2OBOOK</strong><span>Editor 4.14</span></div></Link>
+      <Link href="/dashboard" className="brand-logo"><div className="brand-mark">H2</div><div className="brand-word"><strong>H2OBOOK</strong><span>Editor {APP_VERSION_SHORT}</span></div></Link>
       <div className="context-domain-head"><span>{t(activeDomain.label)}</span><small>{smart.aiEnabled ? t("AI hỗ trợ đang bật") : t("Lõi độc lập AI")}</small></div>
-      <div className="sidebar-scroll">{activeDomain.links.length ? activeDomain.links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn("nav-link", pathname === href || pathname.startsWith(`${href}/`) ? "active" : "")}><Icon/>{t(label)}</Link>) : <div className="context-home-card"><strong>{t("Smart Home")}</strong><p>{t("Ưu tiên hôm nay, tiến độ học và các dự án đang hoạt động.")}</p></div>}</div>
+      <div className="sidebar-scroll">{activeDomain.links.length ? activeDomain.links.map(({ href, label, icon: Icon }) => {
+        const target = href === STUDIO_ROUTE ? studioHref : href;
+        const active = href === STUDIO_ROUTE ? pathname.startsWith(`${STUDIO_ROUTE}/`) : pathname === href || pathname.startsWith(`${href}/`);
+        return <Link key={href} href={target} className={cn("nav-link", active ? "active" : "")}><Icon/>{t(label)}</Link>;
+      }) : <div className="context-home-card"><strong>{t("Smart Home")}</strong><p>{t("Ưu tiên hôm nay, tiến độ học và các dự án đang hoạt động.")}</p></div>}</div>
       <div className="sidebar-bottom"><div className="plan-card"><div className="plan-title"><strong>{workspace.plan === "academy" ? "Academy Pro" : workspace.plan}</strong><span>{usage}%</span></div><p>{(workspace.storageUsedMb / 1024).toFixed(1)} GB / {(workspace.storageLimitMb / 1024).toFixed(0)} GB {t("dung lượng")}</p><div className="plan-progress"><span style={{ width: `${usage}%` }}/></div><Link href="/membership">{t("Quản lý gói")}</Link></div></div>
     </div>
   </aside>;
 }
 
 /** Desktop, mobile and command search share the same feature-gated destinations. */
-export function workspaceNavigationEntries(t: (key: string) => string) {
+export function workspaceNavigationEntries(t: (key: string) => string, studioHref = "/books") {
   const seen = new Set<string>();
-  return domains.flatMap(domain => [{ href: domain.href, label: domain.label }, ...domain.links].map(item => ({ href: item.href, label: t(item.label), group: t(domain.label) }))).filter(item => {
+  return domains.flatMap(domain => [{ href: domain.href, label: domain.label }, ...domain.links].map(item => ({ href: item.href === STUDIO_ROUTE ? studioHref : item.href, label: t(item.label), group: t(domain.label) }))).filter(item => {
     if (seen.has(item.href)) return false;
     seen.add(item.href);
     return true;

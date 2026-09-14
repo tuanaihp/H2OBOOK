@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAppMode, getRuntimeCapabilities } from "@/lib/runtime-config";
+import { APP_VERSION } from "@/lib/version";
 
 export async function GET() {
   return NextResponse.json({
     product: "H2OBOOK",
-    version: "4.12.0",
+    version: APP_VERSION,
     architecture: "offline-first-no-ai-first",
     mode: getAppMode(),
     coreRequiresAI: false,

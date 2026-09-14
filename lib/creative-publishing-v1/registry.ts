@@ -123,7 +123,7 @@ export const creativeSurfaceRegistry: CreativeSurfaceDefinition[] = [
     label: "H2OBOOK Studio",
     shortLabel: "Editor",
     description: "Compose, layout, text flow, layer, Smart Fields và chỉnh sửa thiết kế chính xác.",
-    route: "/editor/book_makeup_pro",
+    route: "/books",
     previewRoute: "/creative-publishing-v1-preview/editor",
     stage: 10,
     status: "ready",

@@ -60,7 +60,7 @@ export default async function LearnAndMemoryPage() {
         <div style={{ padding: 18 }}>
           {dueCards.length === 0 ? <p style={{ color: "#8d97a6" }}>Không có thẻ nào đến hạn hôm nay.</p> : <>
             <ul style={{ margin: "0 0 12px", paddingLeft: 18, fontSize: 12, color: "#354152" }}>{dueCards.slice(0, 4).map((card) => <li key={card.id}>{card.front}</li>)}</ul>
-            <Link href="/study" className="btn btn-primary btn-sm"><Sparkles size={14} />Ôn ngay</Link>
+            <Link href="/student/study" className="btn btn-primary btn-sm"><Sparkles size={14} />Ôn ngay</Link>
           </>}
         </div>
       </section>

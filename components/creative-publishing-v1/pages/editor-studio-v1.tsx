@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Boxes, FileCheck2, Layers3, type LucideIcon, MousePointer2, Palette, Send, Type, Upload, WandSparkles } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { readCreativeHandoff } from "@/lib/creative-publishing-v1/editor-handoff";
+import { resolveStudioHref } from "@/lib/editor/sample-books";
 import { CreativePageFrame, StatusPill, SurfaceCard, styles } from "../creative-shared";
 
 export function EditorStudioV1() {
@@ -15,7 +16,7 @@ export function EditorStudioV1() {
   const books = useMemo(() => allBooks.filter((book) => !book.archivedAt), [allBooks]);
   const [handoff, setHandoff] = useState<ReturnType<typeof readCreativeHandoff>>(null);
   useEffect(() => { setHandoff(readCreativeHandoff()); }, []);
-  return <CreativePageFrame active="editor" eyebrow="PROFESSIONAL AUTHORING" title="H2OBOOK Studio" description="Editor hiện tại được giữ nguyên; module chỉ chuẩn hóa handoff và luồng dữ liệu trước/sau Editor." actions={<Link className={styles.primaryButton} href={`/editor/${books[0]?.id ?? "book_makeup_pro"}`}><WandSparkles/>Mở Studio</Link>} metrics={[
+  return <CreativePageFrame active="editor" eyebrow="PROFESSIONAL AUTHORING" title="H2OBOOK Studio" description="Editor hiện tại được giữ nguyên; module chỉ chuẩn hóa handoff và luồng dữ liệu trước/sau Editor." actions={<Link className={styles.primaryButton} href={resolveStudioHref(books)}><WandSparkles/>Mở Studio</Link>} metrics={[
     { label: "Dự án sẵn sàng", value: books.length },
     { label: "Handoff chờ", value: handoff ? 1 : 0 },
     { label: "Text Flow", value: "V2" },

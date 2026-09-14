@@ -6,9 +6,10 @@ import "./globals.css";
 import "@/styles/global-neural-system.css";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import { DomTranslator } from "@/components/providers/dom-translator";
+import { APP_VERSION_SHORT } from "@/lib/version";
 
 export const metadata: Metadata = {
-  title: { default: "H2OBOOK 4.14 · AI Learning Universe", template: "%s | H2OBOOK" },
+  title: { default: `H2OBOOK ${APP_VERSION_SHORT} · AI Learning Universe`, template: "%s | H2OBOOK" },
   description: "Hệ sinh thái sách, khóa học, chiến lược nghề Makeup và trải nghiệm học viên thông minh của ThuyH2O Makeup Academy.",
   applicationName: "H2OBOOK",
   manifest: "/manifest.webmanifest",

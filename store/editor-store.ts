@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createDeferredLocalStorage } from "@/lib/storage/deferred-local-storage";
 import { defaultBrand, demoBook } from "@/lib/mock-data";
+import { isProductionMode, isSampleBookId } from "@/lib/editor/sample-books";
 import { applyBrandToBook } from "@/lib/brand-resolver";
 import { uid } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
@@ -30,7 +31,8 @@ type EditorState = {
   history: HistoryEntry[];
   historyIndex: number;
   committedBook: H2OBook;
-  loadBook: (bookId: string) => void;
+  /** Returns false when the book is not available locally (or is a sample book in Production). */
+  loadBook: (bookId: string) => boolean;
   saveToLibrary: () => void;
   replaceBook: (book: H2OBook) => void;
   setSelected: (id: string | null, additive?: boolean) => void;
@@ -172,11 +174,15 @@ export const useEditorStore = create<EditorState>()(
       selectedIds: [], zoom: 0.62, savedAt: now(), dirty: false, showGrid: false, snapToGrid: true, gridSize: 10,
       history: [], historyIndex: -1, committedBook: structuredClone(demoBook),
       loadBook: (bookId) => {
+        // In Production a seeded sample book is not the organization's project: report "not found" so
+        // the editor waits for the real cloud copy instead of showing (and later cloud-saving) the demo.
+        if (isProductionMode() && isSampleBookId(bookId)) return false;
         const source = useAppStore.getState().books.find((item) => item.id === bookId);
-        if (!source) return;
+        if (!source) return false;
         const brand = useAppStore.getState().brands.find((item) => item.id === source.brandId) ?? useAppStore.getState().brands[0] ?? defaultBrand;
         const book = structuredClone(source);
         set({ book, committedBook: structuredClone(book), brand: structuredClone(brand), activePageId: book.pages[0]?.id ?? "", selectedIds: [], history: [], historyIndex: -1, savedAt: now(), dirty: false });
+        return true;
       },
       saveToLibrary: () => {
         const book = { ...get().book, updatedAt: now() };

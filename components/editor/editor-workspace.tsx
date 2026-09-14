@@ -53,6 +53,12 @@ export function EditorWorkspace() {
   const fileRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<HTMLInputElement>(null);
   const loadedBookId = useRef<string | null>(null);
+  // "ready" only once the requested book is really in the editor. Until then the canvas is not
+  // rendered and save/publish are no-ops, so the persisted demo book can never be shown under a real
+  // /editor/[bookId] URL or cloud-saved into the organization.
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
+  const loadStateRef = useRef(loadState);
+  loadStateRef.current = loadState;
 
   useEffect(() => {
     const openImageImport = () => {
@@ -66,19 +72,30 @@ export function EditorWorkspace() {
   useEffect(() => {
     const bookId = params.bookId;
     if (bookId && loadedBookId.current !== bookId) {
-      store.loadBook(bookId);
+      const foundLocally = store.loadBook(bookId);
       loadedBookId.current = bookId;
       if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
+        setLoadState(foundLocally ? "ready" : "loading");
         const organizationId = useAppStore.getState().workspace.id;
         void fetch(`/api/books/cloud-load?clientKey=${encodeURIComponent(bookId)}&organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store" })
           .then((response) => response.ok ? response.json() : null)
-          .then((payload) => { if (payload?.book && loadedBookId.current === bookId) store.replaceBook(payload.book); })
-          .catch((error) => console.error("[H2OBOOK cloud load]", error));
+          .then((payload) => {
+            if (loadedBookId.current !== bookId) return;
+            if (payload?.book) { store.replaceBook(payload.book); setLoadState("ready"); }
+            else if (!foundLocally) setLoadState("missing");
+          })
+          .catch((error) => {
+            console.error("[H2OBOOK cloud load]", error);
+            if (loadedBookId.current === bookId && !foundLocally) setLoadState("missing");
+          });
+      } else {
+        setLoadState(foundLocally ? "ready" : "missing");
       }
     }
   }, [params.bookId, store]);
 
   const save = useCallback(() => {
+    if (loadStateRef.current !== "ready") return;
     store.saveToLibrary();
     if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
       const organizationId = useAppStore.getState().workspace.id;
@@ -142,10 +159,21 @@ export function EditorWorkspace() {
   };
 
   const publish = () => {
+    if (loadStateRef.current !== "ready") return;
     store.saveToLibrary();
     app.publishBook(store.book.id);
     setImportStatus("Đã xuất bản phiên bản mới và cập nhật quyền đọc.");
   };
+
+  if (loadState !== "ready") {
+    return <main className="editor-shell" style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
+      <section style={{ maxWidth: 440, textAlign: "center", padding: 28, background: "#fff", border: "1px solid #e4e8ec", borderRadius: 16 }}>
+        {loadState === "loading"
+          ? <><h1 style={{ fontSize: 18, margin: "0 0 8px" }}>Đang mở dự án…</h1><p style={{ color: "#718092", margin: 0 }}>Đang tải sách từ workspace của bạn.</p></>
+          : <><h1 style={{ fontSize: 18, margin: "0 0 8px" }}>Không tìm thấy dự án sách</h1><p style={{ color: "#718092", margin: "0 0 16px" }}>Sách này không tồn tại trong workspace hiện tại hoặc bạn không có quyền mở. Chọn một dự án trong danh sách để tiếp tục.</p><Link href="/books" className="btn btn-primary"><ArrowLeft size={15}/>Về Dự án sách</Link></>}
+      </section>
+    </main>;
+  }
 
   return <main className="editor-shell">
     <EditorCreativeHandoffBridge/>

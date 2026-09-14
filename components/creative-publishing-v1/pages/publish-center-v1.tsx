@@ -41,7 +41,7 @@ export function PublishCenterV1() {
     }, 700);
   };
 
-  return <CreativePageFrame active="publish" eyebrow="PROFESSIONAL PUBLISHING" title="Publish Center" description="Một nguồn nội dung, nhiều định dạng Web, PDF, EPUB và LMS." actions={<Link className={styles.secondaryButton} href={`/editor/${bookId || "book_makeup_pro"}`}><BookOpen/>Quay lại Studio</Link>} metrics={[
+  return <CreativePageFrame active="publish" eyebrow="PROFESSIONAL PUBLISHING" title="Publish Center" description="Một nguồn nội dung, nhiều định dạng Web, PDF, EPUB và LMS." actions={<Link className={styles.secondaryButton} href={bookId ? `/editor/${bookId}` : "/books"}><BookOpen/>Quay lại Studio</Link>} metrics={[
     { label: "Hồ sơ xuất", value: profiles.length },
     { label: "Preflight", value: report?.score ?? "—" },
     { label: "Chế độ", value: mode === "local" ? "Local" : "Worker" },
