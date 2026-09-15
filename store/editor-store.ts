@@ -16,6 +16,7 @@ type HistoryEntry = { forward: JsonPatchOperation[]; backward: JsonPatchOperatio
 type TextPreset = "heading" | "subheading" | "body" | "quote" | "caption";
 type ShapePreset = "rectangle" | "pill" | "circle" | "callout";
 type AlignMode = "left" | "center" | "right" | "top" | "middle" | "bottom";
+export type BookStructureInput = { title: string; chapters: string[]; includeIntro?: boolean; includeChecklist?: boolean; contentsPerChapter?: number };
 
 type EditorState = {
   book: H2OBook;
@@ -55,6 +56,18 @@ type EditorState = {
   toggleVisibility: (id: string) => void;
   moveLayer: (id: string, direction: "up" | "down" | "top" | "bottom") => void;
   alignSelected: (mode: AlignMode) => void;
+  /** Aligns every selected element to the page edge/center (multi-select aligns to the page, not to the selection box). */
+  alignToPage: (mode: AlignMode) => void;
+  /** Distributes 3+ selected elements with even gaps along an axis. */
+  distributeSelected: (axis: "horizontal" | "vertical") => void;
+  /** Clones the selection into a rows×cols grid starting at the current position. */
+  duplicateSelectedGrid: (rows: number, cols: number, gap?: number) => void;
+  /** Applies the active brand's fonts and colors to the selected elements. */
+  applyBrandStyleToSelected: () => void;
+  /** One-pass finishing: fills every Smart Field, renumbers chapter labels, reflows all text chains. */
+  autoCompleteBook: () => { filled: number; reflowed: number };
+  /** Generates a full book skeleton (cover + intro + numbered chapters + content + checklist) in one click. */
+  generateBookStructure: (input: BookStructureInput) => void;
   linkSelectedTextFrames: () => void;
   reflowTextChain: (chainId: string) => void;
   reflowAllText: () => void;
@@ -122,29 +135,34 @@ function makeShape(preset: ShapePreset = "rectangle"): H2OElement {
   };
 }
 
-function makePage(type: PageType = "blank"): H2OPage {
+const chapterLabel = (index: number) => `CHƯƠNG ${String(index).padStart(2, "0")}`;
+
+function makePage(type: PageType = "blank", context?: { chapterNumber?: number; chapterTitle?: string; bookTitle?: string }): H2OPage {
+  const chapter = context?.chapterNumber ? chapterLabel(context.chapterNumber) : "CHƯƠNG 01";
   const page: H2OPage = { id: uid("page"), name: "Trang mới", pageType: type, width: 794, height: 1123, background: "#fffdfb", elements: [] };
   if (type === "cover") {
+    const bookTitle = context?.bookTitle?.trim().toUpperCase() || "TÊN CUỐN SÁCH\nCỦA BẠN";
     page.name = "Bìa sách"; page.background = "#6f1d46";
     page.elements = [
       { ...makeText("caption"), id: uid("text"), name: "Tên thương hiệu", text: "{{brand.name}}", bindingKey: "brand.name", x: 85, y: 80, width: 624, height: 45, fontSize: 18, fontWeight: 700, fill: "#f7dce5", align: "center", permissions: permissions({ canDelete: false }) },
-      { ...makeText("heading"), id: uid("text"), name: "Tên sách", text: "TÊN CUỐN SÁCH\nCỦA BẠN", x: 85, y: 300, width: 624, height: 220, fontSize: 58, fill: "#ffffff", align: "center", permissions: permissions({ canDelete: false }) },
+      { ...makeText("heading"), id: uid("text"), name: "Tên sách", text: bookTitle, x: 85, y: 300, width: 624, height: 220, fontSize: 58, fill: "#ffffff", align: "center", permissions: permissions({ canDelete: false }) },
       { ...makeText("caption"), id: uid("text"), name: "Tác giả", text: "{{expert.name}} — {{expert.title}}", bindingKey: "expert.name", x: 100, y: 920, width: 594, height: 70, fontSize: 19, fill: "#ffffff", align: "center", permissions: permissions({ canDelete: false }) }
     ];
   }
   if (type === "content") {
     page.name = "Trang nội dung";
     page.elements = [
-      { ...makeText("caption"), id: uid("text"), name: "Nhãn chương", text: "CHƯƠNG 01", x: 70, y: 70, width: 650, height: 35, fontSize: 15, fontWeight: 700, fill: "#a44e73", align: "left" },
+      { ...makeText("caption"), id: uid("text"), name: "Nhãn chương", text: chapter, x: 70, y: 70, width: 650, height: 35, fontSize: 15, fontWeight: 700, fill: "#a44e73", align: "left" },
       { ...makeText("heading"), id: uid("text"), x: 70, y: 125, width: 650, height: 130 },
       { ...makeText("body"), id: uid("text"), x: 70, y: 300, width: 650, height: 650 }
     ];
   }
   if (type === "chapter") {
+    const chapterTitle = context?.chapterTitle?.trim().toUpperCase() || "TÊN CHƯƠNG";
     page.name = "Trang mở chương"; page.background = "#f1e5ea";
     page.elements = [
-      { ...makeText("caption"), id: uid("text"), text: "CHƯƠNG 01", x: 110, y: 300, width: 574, height: 45, fontSize: 18, fontWeight: 800, fill: "#9b4f70", align: "center" },
-      { ...makeText("heading"), id: uid("text"), text: "TÊN CHƯƠNG", x: 90, y: 400, width: 614, height: 170, fontSize: 60, fill: "#541b37", align: "center" }
+      { ...makeText("caption"), id: uid("text"), name: "Nhãn chương", text: chapter, x: 110, y: 300, width: 574, height: 45, fontSize: 18, fontWeight: 800, fill: "#9b4f70", align: "center" },
+      { ...makeText("heading"), id: uid("text"), text: chapterTitle, x: 90, y: 400, width: 614, height: 170, fontSize: 60, fill: "#541b37", align: "center" }
     ];
   }
   if (type === "checklist") {
@@ -165,6 +183,33 @@ function makePage(type: PageType = "blank"): H2OPage {
     ];
   }
   return page;
+}
+
+// Chapter numbering is derived from page order, never typed by hand: every "chapter" page bumps
+// the counter and every "content" page inherits the chapter it follows. Labels are matched by
+// element name ("Nhãn chương") or by an untouched "CHƯƠNG xx" text, so a label the author
+// deliberately rewrote is left alone.
+function renumberChapterLabels(book: H2OBook): H2OBook {
+  let chapterIndex = 0;
+  let changed = false;
+  const pages = book.pages.map((page) => {
+    const numbered = page.pageType === "chapter" || page.pageType === "content";
+    if (page.pageType === "chapter") chapterIndex += 1;
+    if (!numbered || chapterIndex === 0) return page;
+    const label = chapterLabel(chapterIndex);
+    let pageChanged = false;
+    const elements = page.elements.map((element) => {
+      if (element.type !== "text") return element;
+      const isLabel = element.name === "Nhãn chương" || /^CHƯƠNG\s*\d+/i.test((element.text ?? "").trim());
+      if (!isLabel || element.text === label) return element;
+      pageChanged = true;
+      return { ...element, text: label, sourceText: label };
+    });
+    if (!pageChanged) return page;
+    changed = true;
+    return { ...page, elements };
+  });
+  return changed ? { ...book, pages } : book;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -320,6 +365,112 @@ export const useEditorStore = create<EditorState>()(
         set((current) => ({ book: { ...current.book, pages: current.book.pages.map((item) => item.id === current.activePageId ? { ...item, elements: item.elements.map((element) => patchById.has(element.id) ? { ...element, ...patchById.get(element.id) } : element) } : item) }, dirty: true }));
         get().checkpoint();
       },
+      alignToPage: (mode) => {
+        const state = get(); const page = activePage(state);
+        const selected = page?.elements.filter((item) => state.selectedIds.includes(item.id)) ?? [];
+        if (!selected.length || !page) return;
+        const patchById = new Map<string, Partial<H2OElement>>();
+        selected.forEach((element) => {
+          if (mode === "left") patchById.set(element.id, { x: 0 });
+          if (mode === "center") patchById.set(element.id, { x: (page.width - element.width) / 2 });
+          if (mode === "right") patchById.set(element.id, { x: page.width - element.width });
+          if (mode === "top") patchById.set(element.id, { y: 0 });
+          if (mode === "middle") patchById.set(element.id, { y: (page.height - element.height) / 2 });
+          if (mode === "bottom") patchById.set(element.id, { y: page.height - element.height });
+        });
+        set((current) => ({ book: { ...current.book, pages: current.book.pages.map((item) => item.id === current.activePageId ? { ...item, elements: item.elements.map((element) => patchById.has(element.id) ? { ...element, ...patchById.get(element.id) } : element) } : item) }, dirty: true }));
+        get().checkpoint();
+      },
+      distributeSelected: (axis) => {
+        const state = get(); const page = activePage(state);
+        const selected = page?.elements.filter((item) => state.selectedIds.includes(item.id)) ?? [];
+        if (selected.length < 3 || !page) return;
+        const sorted = [...selected].sort((a, b) => axis === "horizontal" ? a.x - b.x : a.y - b.y);
+        const first = sorted[0]; const last = sorted[sorted.length - 1];
+        const span = axis === "horizontal" ? last.x + last.width - first.x : last.y + last.height - first.y;
+        const totalSize = sorted.reduce((sum, element) => sum + (axis === "horizontal" ? element.width : element.height), 0);
+        const gap = (span - totalSize) / (sorted.length - 1);
+        let cursor = axis === "horizontal" ? first.x : first.y;
+        const positions = new Map<string, number>();
+        sorted.forEach((element) => { positions.set(element.id, cursor); cursor += (axis === "horizontal" ? element.width : element.height) + gap; });
+        set((current) => ({ book: { ...current.book, pages: current.book.pages.map((item) => item.id === current.activePageId ? { ...item, elements: item.elements.map((element) => positions.has(element.id) ? { ...element, [axis === "horizontal" ? "x" : "y"]: positions.get(element.id)! } : element) } : item) }, dirty: true }));
+        get().checkpoint();
+      },
+      duplicateSelectedGrid: (rows, cols, gap = 24) => {
+        const state = get(); const page = activePage(state);
+        const sources = page?.elements.filter((item) => state.selectedIds.includes(item.id)) ?? [];
+        const rowCount = Math.min(6, Math.max(1, Math.round(rows)));
+        const colCount = Math.min(6, Math.max(1, Math.round(cols)));
+        if (!sources.length || rowCount * colCount <= 1 || rowCount * colCount > 30) return;
+        const minX = Math.min(...sources.map((item) => item.x)); const minY = Math.min(...sources.map((item) => item.y));
+        const cellW = Math.max(...sources.map((item) => item.x + item.width)) - minX;
+        const cellH = Math.max(...sources.map((item) => item.y + item.height)) - minY;
+        const copies: H2OElement[] = [];
+        for (let row = 0; row < rowCount; row += 1) {
+          for (let col = 0; col < colCount; col += 1) {
+            if (row === 0 && col === 0) continue;
+            sources.forEach((source) => copies.push({ ...structuredClone(source), id: uid(source.type), name: `${source.name} ${row * colCount + col + 1}`, x: source.x + col * (cellW + gap), y: source.y + row * (cellH + gap) }));
+          }
+        }
+        set((current) => ({ selectedIds: [...current.selectedIds, ...copies.map((copy) => copy.id)], book: { ...current.book, pages: current.book.pages.map((item) => item.id === current.activePageId ? { ...item, elements: [...item.elements, ...copies] } : item) }, dirty: true }));
+        get().checkpoint();
+      },
+      applyBrandStyleToSelected: () => {
+        const state = get(); const page = activePage(state); const brand = state.brand;
+        if (!page || !state.selectedIds.length) return;
+        set((current) => ({ book: { ...current.book, pages: current.book.pages.map((item) => item.id === current.activePageId ? { ...item, elements: item.elements.map((element) => {
+          if (!current.selectedIds.includes(element.id)) return element;
+          if (element.type === "text") {
+            const heading = (element.fontSize ?? 0) >= 30;
+            return { ...element, fontFamily: heading ? brand.headingFont : brand.bodyFont, fill: heading ? brand.primaryColor : element.fill };
+          }
+          if (element.type === "shape" || element.type === "line") return { ...element, fill: brand.secondaryColor, stroke: element.type === "line" ? brand.primaryColor : element.stroke };
+          return element;
+        }) } : item) }, dirty: true }));
+        get().checkpoint();
+      },
+      autoCompleteBook: () => {
+        const state = get();
+        let book = renumberChapterLabels(applyBrandToBook(state.book, state.brand, true));
+        const chainIds = new Set(book.pages.flatMap((page) => page.elements.map((element) => element.flowChainId).filter((value): value is string => Boolean(value))));
+        chainIds.forEach((chainId) => { book = applyTextFlow(book, chainId); });
+        const filled = book.pages.reduce((count, page) => count + page.elements.filter((element) => Boolean(element.bindingKey) || /\{\{[a-z._]+\}\}/i.test(element.sourceText ?? "")).length, 0);
+        set({ book, dirty: true });
+        get().checkpoint();
+        return { filled, reflowed: chainIds.size };
+      },
+      generateBookStructure: (input) => {
+        const state = get();
+        const title = input.title.trim() || state.book.title || "Sách mới";
+        const chapters = input.chapters.map((chapter) => chapter.trim()).filter(Boolean).slice(0, 30);
+        if (!chapters.length) return;
+        const perChapter = Math.min(3, Math.max(1, Math.round(input.contentsPerChapter ?? 1)));
+        // A brand-new book (one empty page) is replaced outright; anything with real content gets
+        // the generated skeleton appended so existing work can never be destroyed by one click —
+        // and no second cover is appended to a book that already has one.
+        const blankStarter = state.book.pages.length === 1 && state.book.pages[0].elements.length === 0;
+        const pages: H2OPage[] = blankStarter ? [makePage("cover", { bookTitle: title })] : [];
+        if (input.includeIntro) {
+          const intro = makePage("content");
+          intro.name = "Lời mở đầu";
+          intro.elements = intro.elements.map((element) => element.name === "Nhãn chương" ? { ...element, text: "GIỚI THIỆU" } : element.name === "Tiêu đề lớn" ? { ...element, text: "LỜI MỞ ĐẦU" } : element);
+          pages.push(intro);
+        }
+        chapters.forEach((chapterTitle, index) => {
+          const opener = makePage("chapter", { chapterNumber: index + 1, chapterTitle });
+          opener.name = `Chương ${index + 1} — ${chapterTitle}`;
+          pages.push(opener);
+          for (let part = 0; part < perChapter; part += 1) {
+            const content = makePage("content", { chapterNumber: index + 1 });
+            content.name = perChapter > 1 ? `${chapterTitle} — phần ${part + 1}` : chapterTitle;
+            content.elements = content.elements.map((element) => element.name === "Tiêu đề lớn" ? { ...element, text: chapterTitle } : element);
+            pages.push(content);
+          }
+        });
+        if (input.includeChecklist) pages.push(makePage("checklist"));
+        set({ book: { ...state.book, title, pages: blankStarter ? pages : [...state.book.pages, ...pages], updatedAt: now() }, activePageId: pages[0].id, selectedIds: [], dirty: true });
+        get().checkpoint();
+      },
       linkSelectedTextFrames: () => {
         const state = get();
         const page = activePage(state);
@@ -356,12 +507,12 @@ export const useEditorStore = create<EditorState>()(
       },
       addPage: (type = "blank") => {
         const page = makePage(type);
-        set((state) => ({ activePageId: page.id, selectedIds: [], book: { ...state.book, pages: [...state.book.pages, page], updatedAt: now() }, dirty: true }));
+        set((state) => ({ activePageId: page.id, selectedIds: [], book: renumberChapterLabels({ ...state.book, pages: [...state.book.pages, page], updatedAt: now() }), dirty: true }));
         get().checkpoint();
       },
       applyPageTemplate: (type) => {
         const template = makePage(type);
-        set((state) => ({ selectedIds: [], book: { ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...template, id: page.id, name: page.name === "Trang mới" ? template.name : page.name } : page), updatedAt: now() }, dirty: true }));
+        set((state) => ({ selectedIds: [], book: renumberChapterLabels({ ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...template, id: page.id, name: page.name === "Trang mới" ? template.name : page.name } : page), updatedAt: now() }), dirty: true }));
         get().checkpoint();
       },
       addImportedPage: (page) => {
@@ -390,15 +541,15 @@ export const useEditorStore = create<EditorState>()(
         const source = get().book.pages.find((page) => page.id === id); if (!source) return;
         const page = structuredClone(source); page.id = uid("page"); page.name = `${source.name} bản sao`; page.elements = page.elements.map((element) => ({ ...element, id: uid(element.type) }));
         const state = get(); const index = state.book.pages.findIndex((item) => item.id === id); const pages = [...state.book.pages]; pages.splice(index + 1, 0, page);
-        set({ book: { ...state.book, pages, updatedAt: now() }, activePageId: page.id, selectedIds: [], dirty: true }); get().checkpoint();
+        set({ book: renumberChapterLabels({ ...state.book, pages, updatedAt: now() }), activePageId: page.id, selectedIds: [], dirty: true }); get().checkpoint();
       },
       deletePage: (id) => {
         const state = get(); if (state.book.pages.length <= 1) return;
         const index = state.book.pages.findIndex((page) => page.id === id); const pages = state.book.pages.filter((page) => page.id !== id);
-        const next = pages[Math.min(index, pages.length - 1)]; set({ book: { ...state.book, pages, updatedAt: now() }, activePageId: next.id, selectedIds: [], dirty: true }); get().checkpoint();
+        const next = pages[Math.min(index, pages.length - 1)]; set({ book: renumberChapterLabels({ ...state.book, pages, updatedAt: now() }), activePageId: next.id, selectedIds: [], dirty: true }); get().checkpoint();
       },
       reorderPage: (id, direction) => {
-        set((state) => { const pages = [...state.book.pages]; const index = pages.findIndex((page) => page.id === id); const next = direction === "up" ? index - 1 : index + 1; if (index < 0 || next < 0 || next >= pages.length) return state; [pages[index], pages[next]] = [pages[next], pages[index]]; return { book: { ...state.book, pages, updatedAt: now() }, dirty: true }; });
+        set((state) => { const pages = [...state.book.pages]; const index = pages.findIndex((page) => page.id === id); const next = direction === "up" ? index - 1 : index + 1; if (index < 0 || next < 0 || next >= pages.length) return state; [pages[index], pages[next]] = [pages[next], pages[index]]; return { book: renumberChapterLabels({ ...state.book, pages, updatedAt: now() }), dirty: true }; });
         get().checkpoint();
       },
       renamePage: (id, name) => { set((state) => ({ book: { ...state.book, pages: state.book.pages.map((page) => page.id === id ? { ...page, name } : page), updatedAt: now() }, dirty: true })); get().checkpoint(); },

@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
-  AlignCenter, AlignHorizontalJustifyCenter, AlignLeft, AlignRight, AlignVerticalJustifyCenter,
+  AlignCenter, AlignHorizontalDistributeCenter, AlignHorizontalJustifyCenter, AlignLeft, AlignRight,
+  AlignVerticalDistributeCenter, AlignVerticalJustifyCenter,
   ArrowDown, ArrowLeft, ArrowUp, Bold, BookOpen, Brain, Box, Check, ChevronDown, Circle, CirclePlus,
-  Copy, Download, Eye, EyeOff, FileJson, FileText, Grid3X3, Image as ImageIcon, Import,
-  FileCheck2, Italic, Layers3, LayoutTemplate, Link2, Lock, Maximize2, Minus, MoreHorizontal, Palette,
+  Copy, Download, Eye, EyeOff, FileJson, FileText, Grid3X3, HelpCircle, Image as ImageIcon, Import,
+  FileCheck2, Italic, Layers3, LayoutGrid, LayoutTemplate, Link2, Lock, Maximize2, Minus, MoreHorizontal, Palette,
   PanelLeftClose, PanelRightClose, Plus, QrCode, Redo2, Save, Settings2, Shapes, Sparkles,
-  Trash2, Type, Underline, Undo2, Unlock, Upload, WandSparkles, ZoomIn, ZoomOut
+  Trash2, Type, Underline, Undo2, Unlock, Upload, Wand2, WandSparkles, ZoomIn, ZoomOut
 } from "lucide-react";
 import { EditorCanvas } from "@/components/editor/editor-canvas";
 import { NeuralHeaderSignal } from "@/components/global-neural";
@@ -59,6 +60,8 @@ export function EditorWorkspace() {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
   const loadStateRef = useRef(loadState);
   loadStateRef.current = loadState;
+  const [autoNotice, setAutoNotice] = useState("");
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     const openImageImport = () => {
@@ -109,6 +112,34 @@ export function EditorWorkspace() {
     window.setTimeout(() => setSavedFeedback(false), 1500);
   }, [store]);
 
+  // Auto-save: every mutation bumps savedAt, so a single debounced timer on it fires 4s after the
+  // last edit and stays quiet while the user is actively working.
+  const lastEditAt = store.savedAt;
+  const isDirty = store.dirty;
+  useEffect(() => {
+    if (loadState !== "ready" || !isDirty) return;
+    const timer = window.setTimeout(() => {
+      if (loadStateRef.current === "ready" && useEditorStore.getState().dirty) save();
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [lastEditAt, isDirty, loadState, save]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!useEditorStore.getState().dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  const autoComplete = useCallback(() => {
+    const summary = store.autoCompleteBook();
+    setAutoNotice(`Đã hoàn thiện: điền ${summary.filled} trường dữ liệu, đánh số lại chương, dàn ${summary.reflowed} luồng text.`);
+    window.setTimeout(() => setAutoNotice(""), 4000);
+  }, [store]);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -116,7 +147,7 @@ export function EditorWorkspace() {
       const command = event.ctrlKey || event.metaKey;
       if (command && event.key.toLowerCase() === "s") { event.preventDefault(); save(); }
       if (typing) return;
-      if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? store.redo() : store.undo(); }
+      if (command && event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey) store.redo(); else store.undo(); }
       if (command && event.key.toLowerCase() === "y") { event.preventDefault(); store.redo(); }
       if (command && event.key.toLowerCase() === "a") { event.preventDefault(); store.selectAll(); }
       if (command && event.key.toLowerCase() === "d") { event.preventDefault(); store.duplicateElement(); }
@@ -183,6 +214,7 @@ export function EditorWorkspace() {
         <div className="editor-brand-mini"><strong>H2OBOOK</strong><span>Studio V4.3 Professional</span></div>
         <input className="editor-title-input" value={store.book.title} onChange={(event) => store.setBookTitle(event.target.value)} aria-label="Tên sách"/>
         <span className={`save-state ${store.dirty ? "saving" : "saved"}`}>{savedFeedback ? <><Check size={12}/>Đã lưu</> : store.dirty ? "Có thay đổi chưa lưu" : `Đã lưu ${new Date(store.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`}</span>
+        {autoNotice && <span className="auto-notice" role="status">{autoNotice}</span>}
       </div>
       <div className="editor-top-center">
         <button className="editor-icon" onClick={store.undo} disabled={store.historyIndex < 0} title="Hoàn tác"><Undo2 size={16}/></button>
@@ -191,10 +223,13 @@ export function EditorWorkspace() {
         <button className={`editor-icon ${store.showGrid ? "active" : ""}`} onClick={() => store.setShowGrid(!store.showGrid)} title="Lưới"><Grid3X3 size={16}/></button>
         <button className={`editor-icon ${store.snapToGrid ? "active" : ""}`} onClick={() => store.setSnapToGrid(!store.snapToGrid)} title="Bắt vào lưới"><WandSparkles size={17}/></button>
         <button className="editor-icon" onClick={store.reflowAllText} title="Dàn lại toàn bộ Text Flow"><FileText size={17}/></button>
+        <button className="editor-icon" onClick={autoComplete} title="Hoàn thiện 1 chạm: điền Smart Field, đánh số lại chương, dàn Text Flow"><Wand2 size={17}/></button>
         <span className="toolbar-separator"/>
         <button className="editor-icon" onClick={() => store.setZoom(store.zoom - 0.08)}><ZoomOut size={16}/></button>
         <span className="zoom-value">{Math.round(store.zoom * 100)}%</span>
         <button className="editor-icon" onClick={() => store.setZoom(store.zoom + 0.08)}><ZoomIn size={16}/></button>
+        <span className="toolbar-separator"/>
+        <button className="editor-icon" onClick={() => setShowShortcuts(true)} title="Phím tắt"><HelpCircle size={16}/></button>
       </div>
       <div className="editor-top-right">
         <NeuralHeaderSignal compact/>
@@ -240,6 +275,23 @@ export function EditorWorkspace() {
         </div>
       </section>
 
+      {showShortcuts && <div className="shortcut-overlay" onClick={() => setShowShortcuts(false)}>
+        <section className="shortcut-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-label="Phím tắt">
+          <div className="panel-heading"><div><strong>Phím tắt Studio</strong><span>Làm việc nhanh hơn không cần chuột</span></div><button className="editor-icon" onClick={() => setShowShortcuts(false)}><PanelRightClose size={15}/></button></div>
+          <div className="shortcut-list">
+            {[
+              ["Ctrl/⌘ + S", "Lưu sách lên thư viện & cloud"],
+              ["Ctrl/⌘ + Z", "Hoàn tác"],
+              ["Ctrl/⌘ + Shift + Z · Ctrl + Y", "Làm lại"],
+              ["Ctrl/⌘ + A", "Chọn tất cả thành phần"],
+              ["Ctrl/⌘ + D", "Nhân bản thành phần"],
+              ["Delete / Backspace", "Xóa thành phần đã chọn"],
+              ["Esc", "Bỏ chọn"],
+              ["← → ↑ ↓", "Di chuyển 1px (giữ Shift = 10px)"]
+            ].map(([keys, action]) => <div className="shortcut-row" key={keys}><kbd>{keys}</kbd><span>{action}</span></div>)}
+          </div>
+        </section>
+      </div>}
       {rightOpen ? <aside className="editor-right-panel">
         <div className="panel-heading"><div><strong>Thuộc tính</strong><span>{selected.length > 1 ? `${selected.length} lớp đang chọn` : selected[0]?.name ?? "Trang hiện tại"}</span></div><button className="editor-icon" onClick={() => setRightOpen(false)}><PanelRightClose size={15}/></button></div>
         <div className="panel-scroll">{selected.length ? <PropertiesPanel elements={selected}/> : <PageProperties/>}</div>
@@ -258,12 +310,38 @@ function panelDescription(panel: PanelId) {
 function PagesPanel() {
   const store = useEditorStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickChapters, setQuickChapters] = useState("");
+  const [quickIntro, setQuickIntro] = useState(true);
+  const [quickChecklist, setQuickChecklist] = useState(true);
+  const [quickPerChapter, setQuickPerChapter] = useState(1);
   const pageTypes: { type: PageType; label: string }[] = [
     { type: "blank", label: "Trang trắng" }, { type: "cover", label: "Bìa sách" }, { type: "chapter", label: "Mở chương" },
     { type: "content", label: "Nội dung" }, { type: "checklist", label: "Checklist" }, { type: "gallery", label: "Hình ảnh" }
   ];
+  const chapterList = quickChapters.split("\n").map((line) => line.trim()).filter(Boolean);
+  const blankStarter = store.book.pages.length === 1 && store.book.pages[0].elements.length === 0;
+  const quickPageCount = chapterList.length ? (blankStarter ? 1 : 0) + (quickIntro ? 1 : 0) + chapterList.length * (1 + quickPerChapter) + (quickChecklist ? 1 : 0) : 0;
+  const generate = () => {
+    if (!chapterList.length) return;
+    store.generateBookStructure({ title: quickTitle || store.book.title, chapters: chapterList, includeIntro: quickIntro, includeChecklist: quickChecklist, contentsPerChapter: quickPerChapter });
+    setQuickOpen(false);
+  };
   return <>
     <div className="split-button"><button className="btn btn-primary btn-sm" onClick={() => store.addPage("blank")}><Plus size={14}/>Thêm trang</button><button className="btn btn-primary btn-sm split-caret" onClick={() => setMenuOpen(!menuOpen)}><ChevronDown size={14}/></button></div>
+    <button className="btn btn-secondary btn-sm" style={{ marginTop: 6, width: "100%" }} onClick={() => setQuickOpen(!quickOpen)}><Wand2 size={14}/>Tạo nhanh cấu trúc sách</button>
+    {quickOpen && <div className="quick-create">
+      <label className="property-field">Tên sách<input value={quickTitle} onChange={(event) => setQuickTitle(event.target.value)} placeholder={store.book.title}/></label>
+      <label className="property-field">Danh sách chương <small>(mỗi dòng một chương)</small><textarea className="textarea" rows={5} value={quickChapters} onChange={(event) => setQuickChapters(event.target.value)} placeholder={"Chào mừng & định hướng\nKỹ thuật nền cơ bản\nTrang điểm dự tiệc"}/></label>
+      <div className="property-grid">
+        <label className="property-field">Trang nội dung / chương<select value={quickPerChapter} onChange={(event) => setQuickPerChapter(Number(event.target.value))}><option value={1}>1 trang</option><option value={2}>2 trang</option><option value={3}>3 trang</option></select></label>
+      </div>
+      <label className="quick-check"><input type="checkbox" checked={quickIntro} onChange={(event) => setQuickIntro(event.target.checked)}/>Trang Lời mở đầu</label>
+      <label className="quick-check"><input type="checkbox" checked={quickChecklist} onChange={(event) => setQuickChecklist(event.target.checked)}/>Trang Checklist cuối sách</label>
+      <button className="btn btn-primary btn-sm" style={{ width: "100%" }} disabled={!chapterList.length} onClick={generate}><Sparkles size={14}/>Sinh {quickPageCount || "…"} trang</button>
+      <small className="property-note">Sách mới trống sẽ được thay thế; sách đã có nội dung sẽ được nối thêm phía sau — không mất dữ liệu.</small>
+    </div>}
     {menuOpen && <div className="dropdown-menu page-type-menu">{pageTypes.map((item) => <button key={item.type} onClick={() => { store.addPage(item.type); setMenuOpen(false); }}>{item.label}</button>)}</div>}
     <div className="pages-list">{store.book.pages.map((page, index) => <article className={`page-thumb-v2 ${page.id === store.activePageId ? "active" : ""}`} key={page.id} onClick={() => store.setActivePage(page.id)}>
       <div className="page-index">{index + 1}</div>
@@ -513,6 +591,7 @@ function BrandPanel() {
     <div className="brand-switcher"><label>Brand Profile đang dùng</label><select value={store.brand.id} onChange={(event) => { const brand = app.brands.find((item) => item.id === event.target.value); if (brand) store.applyBrand(brand); }}>{app.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></div>
     <div className="brand-preview-mini" style={{ background: `linear-gradient(135deg,${store.brand.primaryColor},${store.brand.accentColor})` }}>{store.brand.logoUrl ? <img src={store.brand.logoUrl} alt="Logo"/> : <div className="brand-placeholder">H2O</div>}<small>{store.brand.name}</small><strong>{store.brand.expertName}</strong><span>{store.brand.website}</span></div>
     <div className="smart-field-list"><strong>Smart Fields có sẵn</strong>{["brand.name", "brand.logo", "brand.primary_color", "brand.website", "brand.phone", "expert.name", "expert.title", "expert.avatar"].map((field) => <button key={field} onClick={() => { store.addText("caption"); const selectedId = useEditorStore.getState().selectedIds[0]; if (selectedId) store.updateElement(selectedId, { text: `{{${field}}}`, bindingKey: field }); }}><code>{`{{${field}}}`}</code><Plus size={12}/></button>)}</div>
+    <button className="btn btn-primary" onClick={() => store.autoCompleteBook()}><Wand2 size={15}/>Hoàn thiện toàn sách 1 chạm</button>
     <Link href="/brand-kit" className="btn btn-secondary"><Palette size={15}/>Quản lý Brand Kit</Link>
   </>;
 }
@@ -531,6 +610,10 @@ function LayersPanel() {
 function FloatingSelectionToolbar({ selected }: { selected: H2OElement[] }) {
   const store = useEditorStore();
   const allText = selected.length > 1 && selected.every((element) => element.type === "text");
+  const [gridOpen, setGridOpen] = useState(false);
+  const [gridRows, setGridRows] = useState(2);
+  const [gridCols, setGridCols] = useState(2);
+  const [gridGap, setGridGap] = useState(24);
   return <div className="floating-selection-toolbar">
     <button onClick={() => store.alignSelected("left")} title="Căn trái"><AlignLeft size={17}/></button>
     <button onClick={() => store.alignSelected("center")} title="Căn giữa ngang"><AlignHorizontalJustifyCenter size={17}/></button>
@@ -539,11 +622,22 @@ function FloatingSelectionToolbar({ selected }: { selected: H2OElement[] }) {
     <button onClick={() => store.alignSelected("top")} title="Căn trên"><ArrowUp size={17}/></button>
     <button onClick={() => store.alignSelected("middle")} title="Căn giữa dọc"><AlignVerticalJustifyCenter size={17}/></button>
     <button onClick={() => store.alignSelected("bottom")} title="Căn dưới"><ArrowDown size={17}/></button>
+    {selected.length >= 3 && <>
+      <span/>
+      <button onClick={() => store.distributeSelected("horizontal")} title="Phân bổ đều theo chiều ngang"><AlignHorizontalDistributeCenter size={17}/></button>
+      <button onClick={() => store.distributeSelected("vertical")} title="Phân bổ đều theo chiều dọc"><AlignVerticalDistributeCenter size={17}/></button>
+    </>}
     {allText && <><span/><button className="flow-link-action" onClick={store.linkSelectedTextFrames} title="Nối các khung thành một luồng văn bản"><Link2 size={17}/></button></>}
     <span/>
     <button onClick={store.duplicateElement} title="Nhân bản"><Copy size={17}/></button>
+    <button className={gridOpen ? "active" : ""} onClick={() => setGridOpen(!gridOpen)} title="Nhân bản thành lưới"><LayoutGrid size={17}/></button>
+    <button onClick={store.applyBrandStyleToSelected} title="Áp style theo Brand"><Palette size={17}/></button>
     <button onClick={store.deleteElement} title="Xóa"><Trash2 size={17}/></button>
     <small>{selected.length} lớp</small>
+    {gridOpen && <div className="grid-popover" onClick={(event) => event.stopPropagation()}>
+      <div className="grid-popover-row"><label>Hàng<input type="number" min={1} max={6} value={gridRows} onChange={(event) => setGridRows(Number(event.target.value))}/></label><label>Cột<input type="number" min={1} max={6} value={gridCols} onChange={(event) => setGridCols(Number(event.target.value))}/></label><label>Khoảng<input type="number" min={0} max={200} value={gridGap} onChange={(event) => setGridGap(Number(event.target.value))}/></label></div>
+      <button className="btn btn-primary btn-sm" style={{ width: "100%" }} onClick={() => { store.duplicateSelectedGrid(gridRows, gridCols, gridGap); setGridOpen(false); }}>Tạo lưới {gridRows}×{gridCols}</button>
+    </div>}
   </div>;
 }
 
@@ -574,7 +668,9 @@ function PropertiesPanel({ elements }: { elements: H2OElement[] }) {
   return <>
     <PropertySection title="Vị trí & kích thước">
       <div className="property-grid">{(["x", "y", "width", "height"] as const).map((key) => <label className="property-field" key={key}>{({ x: "X", y: "Y", width: "Rộng", height: "Cao" })[key]}<input type="number" value={Math.round(element[key])} disabled={multiple} onChange={(event) => patch({ [key]: Number(event.target.value) }, false)} onBlur={store.checkpoint}/></label>)}</div>
-      <div className="alignment-buttons"><button onClick={() => store.alignSelected("left")}><AlignLeft size={14}/></button><button onClick={() => store.alignSelected("center")}><AlignHorizontalJustifyCenter size={14}/></button><button onClick={() => store.alignSelected("right")}><AlignRight size={14}/></button><button onClick={() => store.alignSelected("top")}><ArrowUp size={14}/></button><button onClick={() => store.alignSelected("middle")}><AlignVerticalJustifyCenter size={14}/></button><button onClick={() => store.alignSelected("bottom")}><ArrowDown size={14}/></button></div>
+      <div className="alignment-buttons"><button onClick={() => store.alignSelected("left")} title="Căn trái theo vùng chọn"><AlignLeft size={14}/></button><button onClick={() => store.alignSelected("center")} title="Căn giữa ngang theo vùng chọn"><AlignHorizontalJustifyCenter size={14}/></button><button onClick={() => store.alignSelected("right")} title="Căn phải theo vùng chọn"><AlignRight size={14}/></button><button onClick={() => store.alignSelected("top")} title="Căn trên theo vùng chọn"><ArrowUp size={14}/></button><button onClick={() => store.alignSelected("middle")} title="Căn giữa dọc theo vùng chọn"><AlignVerticalJustifyCenter size={14}/></button><button onClick={() => store.alignSelected("bottom")} title="Căn dưới theo vùng chọn"><ArrowDown size={14}/></button></div>
+      <p className="property-note" style={{ marginBottom: 4 }}>Căn theo mép trang</p>
+      <div className="alignment-buttons"><button onClick={() => store.alignToPage("left")} title="Sát mép trái trang"><AlignLeft size={14}/></button><button onClick={() => store.alignToPage("center")} title="Giữa trang (ngang)"><AlignHorizontalJustifyCenter size={14}/></button><button onClick={() => store.alignToPage("right")} title="Sát mép phải trang"><AlignRight size={14}/></button><button onClick={() => store.alignToPage("top")} title="Sát mép trên trang"><ArrowUp size={14}/></button><button onClick={() => store.alignToPage("middle")} title="Giữa trang (dọc)"><AlignVerticalJustifyCenter size={14}/></button><button onClick={() => store.alignToPage("bottom")} title="Sát mép dưới trang"><ArrowDown size={14}/></button></div>
     </PropertySection>
 
     {allText && <PropertySection title="Text Flow Engine">
