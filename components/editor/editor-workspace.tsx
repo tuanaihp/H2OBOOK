@@ -9,7 +9,7 @@ import {
   ArrowDown, ArrowLeft, ArrowUp, Bold, BookOpen, Brain, Box, Check, ChevronDown, Circle, CirclePlus,
   Copy, Download, Eye, EyeOff, FileJson, FileText, Grid3X3, HelpCircle, Image as ImageIcon, Import,
   FileCheck2, Italic, Layers3, LayoutGrid, LayoutTemplate, Link2, Lock, Maximize2, Minus, MoreHorizontal, Palette,
-  PanelLeftClose, PanelRightClose, Plus, QrCode, Redo2, Save, Settings2, Shapes, Sparkles,
+  PanelLeftClose, PanelRightClose, Plus, QrCode, Redo2, Save, Settings2, Shapes, Sparkles, Square,
   Trash2, Type, Underline, Undo2, Unlock, Upload, Wand2, WandSparkles, ZoomIn, ZoomOut
 } from "lucide-react";
 import { EditorCanvas } from "@/components/editor/editor-canvas";
@@ -44,7 +44,6 @@ export function EditorWorkspace() {
   const params = useParams<{ bookId: string }>();
   const router = useRouter();
   const store = useEditorStore();
-  const app = useAppStore();
   const [panel, setPanel] = useState<PanelId>("pages");
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
@@ -78,18 +77,21 @@ export function EditorWorkspace() {
       const foundLocally = store.loadBook(bookId);
       loadedBookId.current = bookId;
       if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
-        setLoadState(foundLocally ? "ready" : "loading");
+        // A cloud-list stub is a metadata-only record (0 pages): keep the loading gate so the
+        // editor waits for the real document instead of briefly showing an empty book.
+        const localHasPages = useEditorStore.getState().book.pages.length > 0;
+        setLoadState(foundLocally && localHasPages ? "ready" : "loading");
         const organizationId = useAppStore.getState().workspace.id;
         void fetch(`/api/books/cloud-load?clientKey=${encodeURIComponent(bookId)}&organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store" })
           .then((response) => response.ok ? response.json() : null)
           .then((payload) => {
             if (loadedBookId.current !== bookId) return;
             if (payload?.book) { store.replaceBook(payload.book); setLoadState("ready"); }
-            else if (!foundLocally) setLoadState("missing");
+            else setLoadState(foundLocally ? "ready" : "missing");
           })
           .catch((error) => {
             console.error("[H2OBOOK cloud load]", error);
-            if (loadedBookId.current === bookId && !foundLocally) setLoadState("missing");
+            if (loadedBookId.current === bookId) setLoadState(foundLocally ? "ready" : "missing");
           });
       } else {
         setLoadState(foundLocally ? "ready" : "missing");
@@ -187,13 +189,6 @@ export function EditorWorkspace() {
     } catch (error) {
       setImportStatus(error instanceof Error ? error.message : "Không thể nhập dự án.");
     }
-  };
-
-  const publish = () => {
-    if (loadStateRef.current !== "ready") return;
-    store.saveToLibrary();
-    app.publishBook(store.book.id);
-    setImportStatus("Đã xuất bản phiên bản mới và cập nhật quyền đọc.");
   };
 
   if (loadState !== "ready") {
@@ -614,14 +609,21 @@ function FloatingSelectionToolbar({ selected }: { selected: H2OElement[] }) {
   const [gridRows, setGridRows] = useState(2);
   const [gridCols, setGridCols] = useState(2);
   const [gridGap, setGridGap] = useState(24);
+  // Multi-select aligns within the selection box by default; flipping this aligns everything to
+  // the page edges/center instead — matching the two-scope align convention of design tools.
+  const [pageScope, setPageScope] = useState(false);
+  const align = (mode: "left" | "center" | "right" | "top" | "middle" | "bottom") =>
+    pageScope && selected.length > 1 ? store.alignToPage(mode) : store.alignSelected(mode);
+  const alignTitle = pageScope && selected.length > 1 ? "theo trang" : "vùng chọn";
   return <div className="floating-selection-toolbar">
-    <button onClick={() => store.alignSelected("left")} title="Căn trái"><AlignLeft size={17}/></button>
-    <button onClick={() => store.alignSelected("center")} title="Căn giữa ngang"><AlignHorizontalJustifyCenter size={17}/></button>
-    <button onClick={() => store.alignSelected("right")} title="Căn phải"><AlignRight size={17}/></button>
+    {selected.length > 1 && <button className={pageScope ? "active" : ""} onClick={() => setPageScope(!pageScope)} title={pageScope ? "Đang căn theo trang — bấm để căn theo vùng chọn" : "Căn theo trang thay vì vùng chọn"}><Square size={16}/></button>}
+    <button onClick={() => align("left")} title={`Căn trái ${alignTitle}`}><AlignLeft size={17}/></button>
+    <button onClick={() => align("center")} title={`Căn giữa ngang ${alignTitle}`}><AlignHorizontalJustifyCenter size={17}/></button>
+    <button onClick={() => align("right")} title={`Căn phải ${alignTitle}`}><AlignRight size={17}/></button>
     <span/>
-    <button onClick={() => store.alignSelected("top")} title="Căn trên"><ArrowUp size={17}/></button>
-    <button onClick={() => store.alignSelected("middle")} title="Căn giữa dọc"><AlignVerticalJustifyCenter size={17}/></button>
-    <button onClick={() => store.alignSelected("bottom")} title="Căn dưới"><ArrowDown size={17}/></button>
+    <button onClick={() => align("top")} title={`Căn trên ${alignTitle}`}><ArrowUp size={17}/></button>
+    <button onClick={() => align("middle")} title={`Căn giữa dọc ${alignTitle}`}><AlignVerticalJustifyCenter size={17}/></button>
+    <button onClick={() => align("bottom")} title={`Căn dưới ${alignTitle}`}><ArrowDown size={17}/></button>
     {selected.length >= 3 && <>
       <span/>
       <button onClick={() => store.distributeSelected("horizontal")} title="Phân bổ đều theo chiều ngang"><AlignHorizontalDistributeCenter size={17}/></button>

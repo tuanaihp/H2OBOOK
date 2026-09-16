@@ -10,7 +10,10 @@ export async function GET(request: Request) {
   const access = await resolveOrganizationAccess(auth.user!, url.searchParams.get("organizationId") ?? undefined);
   if (!access) return NextResponse.json({ error: "WORKSPACE_FORBIDDEN" }, { status: 403 });
   const supabase = await createSupabaseServerClient(); if (!supabase) return NextResponse.json({ mode: "demo", book: null });
-  const { data: book, error } = await supabase.from("books").select("id,client_key,title,subtitle,description,author,status,cover,updated_at").eq("organization_id", access.organizationId).eq("client_key", clientKey).is("deleted_at", null).maybeSingle();
+  const bookQuery = supabase.from("books").select("id,client_key,title,subtitle,description,author,status,cover,updated_at").eq("organization_id", access.organizationId).is("deleted_at", null);
+  // Try the stable client key first, then the public slug so /reader/<slug> links also resolve.
+  let { data: book, error } = await bookQuery.eq("client_key", clientKey).maybeSingle();
+  if (!error && !book) ({ data: book, error } = await bookQuery.eq("slug", clientKey).maybeSingle());
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!book) return NextResponse.json({ mode: "cloud", book: null });
   const { data: pages, error: pageError } = await supabase.from("book_pages").select("id,client_key,name,position,width,height,background,metadata,revision").eq("book_id", book.id).order("position", { ascending: true });

@@ -174,6 +174,20 @@ function refreshStaleSampleBooks(books: BookRecord[] | undefined): BookRecord[] 
   });
 }
 
+// Publish/archive used to flip local state only — the cloud copy stayed "draft" forever and a
+// published book never became visible to other devices or the reader. This mirrors the status to
+// PATCH /api/books/[id]/status (fire-and-forget like the editor's cloud save) in production only.
+function syncBookStatusToCloud(organizationId: string, bookId: string, status: "draft" | "published" | "archived") {
+  if (process.env.NEXT_PUBLIC_APP_MODE !== "production") return;
+  void fetch(`/api/books/${encodeURIComponent(bookId)}/status`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ organizationId, status })
+  })
+    .then(async (response) => { if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error ?? `HTTP_${response.status}`); })
+    .catch((error) => console.error("[H2OBOOK book status sync]", error));
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -205,8 +219,14 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ books: [copy, ...state.books] }));
         return copy;
       },
-      publishBook: (bookId) => set((state) => ({ books: state.books.map((book) => book.id === bookId ? { ...book, status: "published", visibility: "public", version: book.version + 1, publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : book) })),
-      archiveBook: (bookId) => set((state) => ({ books: state.books.map((book) => book.id === bookId ? { ...book, archivedAt: new Date().toISOString() } : book) })),
+      publishBook: (bookId) => {
+        set((state) => ({ books: state.books.map((book) => book.id === bookId ? { ...book, status: "published", visibility: "public", version: book.version + 1, publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : book) }));
+        syncBookStatusToCloud(get().workspace.id, bookId, "published");
+      },
+      archiveBook: (bookId) => {
+        set((state) => ({ books: state.books.map((book) => book.id === bookId ? { ...book, archivedAt: new Date().toISOString() } : book) }));
+        syncBookStatusToCloud(get().workspace.id, bookId, "archived");
+      },
       createBrand: (input) => {
         const brand: BrandProfile = { ...structuredClone(seedBrands[0]), ...input, id: uid("brand"), name: input.name ?? "Thương hiệu mới" };
         set((state) => ({ brands: [...state.brands, brand] }));

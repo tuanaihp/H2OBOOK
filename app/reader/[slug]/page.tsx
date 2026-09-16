@@ -8,7 +8,7 @@ import {
   Menu, MessageSquareText, MonitorPlay, Moon, PanelLeftClose, Printer, Search, Sun, X, ZoomIn, ZoomOut, Brain, ListChecks, Layers3, Sparkles, Accessibility, FilePenLine
 } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
-import type { H2OElement } from "@/types/editor";
+import type { H2OElement, H2OBook } from "@/types/editor";
 import { localFlashcards, localQuiz, localSummary } from "@/lib/local-smart-engine";
 import { resolveAssetUrl } from "@/lib/assets/asset-client";
 import { resolveElement } from "@/lib/brand-resolver";
@@ -21,7 +21,12 @@ export default function ReaderPage() {
   const params = useParams<{ slug: string }>();
   const store = useAppStore();
   const books = store.books;
-  const book = books.find((item) => item.id === params.slug || item.slug === params.slug) ?? books[0];
+  // Never fall back to books[0]: an unknown slug used to silently render the first book in the
+  // library under the wrong URL. Try the org's cloud copy first, then report "not found".
+  const localBook = books.find((item) => item.id === params.slug || item.slug === params.slug);
+  const [remoteBook, setRemoteBook] = useState<H2OBook | null>(null);
+  const [remoteState, setRemoteState] = useState<"idle" | "loading" | "missing">("idle");
+  const book = localBook ?? remoteBook;
   const [index, setIndex] = useState(0);
   // 0.68 of an A4 width is 540px of page plus the table of contents, which overflows any phone.
   // The starting scale and the sidebar now follow the viewport; both stay fully adjustable
@@ -63,6 +68,22 @@ export default function ReaderPage() {
   const storageKey = `h2obook-reader-${book?.id}`;
   const pageText = page?.elements.filter((element) => element.type === "text").map((element) => element.text ?? "").join("\n") ?? "";
   const localStudy = { summary: localSummary(pageText || page?.notes || page?.name || "Trang chưa có nội dung văn bản."), questions: localQuiz(pageText || page?.notes || page?.name || "Trang chưa có nội dung văn bản."), cards: localFlashcards(pageText || page?.notes || page?.name || "Trang chưa có nội dung văn bản.") };
+
+  // When the slug isn't in the local library, try the organization's cloud copy so a published
+  // book still opens on another device or after a fresh browser. Guests/demo stay local-only.
+  useEffect(() => {
+    if (localBook || remoteBook || remoteState !== "idle") return;
+    if (process.env.NEXT_PUBLIC_APP_MODE !== "production") { setRemoteState("missing"); return; }
+    setRemoteState("loading");
+    const organizationId = store.workspace.id;
+    void fetch(`/api/books/cloud-load?clientKey=${encodeURIComponent(params.slug)}&organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { book?: H2OBook | null } | null) => {
+        if (payload?.book?.pages?.length) setRemoteBook(payload.book);
+        else setRemoteState("missing");
+      })
+      .catch(() => setRemoteState("missing"));
+  }, [localBook, remoteBook, remoteState, params.slug, store.workspace.id]);
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 900px)");
@@ -168,11 +189,11 @@ export default function ReaderPage() {
   };
   const toggleBookmark = () => {
     const next = bookmarks.includes(index) ? bookmarks.filter((item) => item !== index) : [...bookmarks, index];
-    setBookmarks(next); persist(index, next); if (!bookmarks.includes(index)) track("bookmark_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } });
+    setBookmarks(next); persist(index, next); if (!bookmarks.includes(index) && book && page) track("bookmark_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } });
   };
   const saveNote = (value: string) => {
     setNote(value); persist(index, bookmarks, value);
-    if (value.trim().length === 1) track("note_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } });
+    if (value.trim().length === 1 && book && page) track("note_created", { resourceType: "book", resourceId: book.id, properties: { bookId: book.id, pageId: page.id, pageNumber: index + 1 } });
     if (!serverBookId) return;
     if (noteSyncTimer.current) clearTimeout(noteSyncTimer.current);
     const pageIndex = index;
@@ -187,9 +208,12 @@ export default function ReaderPage() {
   };
   const fullscreen = () => stageRef.current?.requestFullscreen?.();
   const pageGroups = useMemo(() => { const all = book?.pages.map((item, pageIndex) => ({ item, pageIndex })) ?? []; const value = search.trim().toLowerCase(); if (!value) return all; return all.filter(({ item }) => `${item.name} ${item.chapter ?? ""} ${item.elements.map((element) => element.text ?? "").join(" ")}`.toLowerCase().includes(value)); }, [book, search]);
-  const downloadProject = () => { const campaign=readCampaign(book.id); if(campaign.enabled && campaign.downloadRequiresLead && !hasReaderLead(book.id)){ go(Math.max(0,(campaign.leadGatePage ?? 1)-1)); return; } const payload = JSON.stringify({ format: "h2obook-reader-export", version: 4, exportedAt: new Date().toISOString(), book }, null, 2); const url = URL.createObjectURL(new Blob([payload], { type: "application/json" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${book.slug || book.id}.h2obook.json`; anchor.click(); URL.revokeObjectURL(url); };
+  const downloadProject = () => { if (!book) return; const campaign=readCampaign(book.id); if(campaign.enabled && campaign.downloadRequiresLead && !hasReaderLead(book.id)){ go(Math.max(0,(campaign.leadGatePage ?? 1)-1)); return; } const payload = JSON.stringify({ format: "h2obook-reader-export", version: 4, exportedAt: new Date().toISOString(), book }, null, 2); const url = URL.createObjectURL(new Blob([payload], { type: "application/json" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${"slug" in book && book.slug ? book.slug : book.id}.h2obook.json`; anchor.click(); URL.revokeObjectURL(url); };
 
-  if (!book || !page) return <main className="reader-not-found"><h1>Không tìm thấy sách</h1><Link href="/library">Quay lại thư viện</Link></main>;
+  if (!book || !page) {
+    const stillLoading = !localBook && remoteState !== "missing";
+    return <main className="reader-not-found">{stillLoading ? <h1>Đang mở sách…</h1> : <><h1>Không tìm thấy sách</h1><Link href="/library">Quay lại thư viện</Link></>}</main>;
+  }
   return <main className={`reader-shell-v2 ${dark ? "reader-dark" : "reader-light"} ${presenter ? "presenter-mode" : ""} ${highlightMode ? "reader-highlight-mode" : ""}`}>
     <header className="reader-bar-v2"><div className="reader-bar-left"><Link href="/library" className="reader-btn" aria-label="Quay lại thư viện"><ArrowLeft size={15} aria-hidden="true"/></Link><button className="reader-btn" aria-label="Mục lục" aria-expanded={tocOpen} onClick={() => setTocOpen(!tocOpen)}><Menu size={15} aria-hidden="true"/></button><div><strong>{book.title}</strong><span>{page.name}</span></div></div><div className="reader-bar-center"><button className={`reader-btn ${searchOpen ? "active" : ""}`} aria-label="Tìm trong sách" aria-pressed={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setTocOpen(true); }}><Search size={15} aria-hidden="true"/></button><button className={`reader-btn ${bookmarks.includes(index) ? "active" : ""}`} aria-label="Đánh dấu trang" aria-pressed={bookmarks.includes(index)} onClick={toggleBookmark}><Bookmark size={15} aria-hidden="true" fill={bookmarks.includes(index) ? "currentColor" : "none"}/></button><button className={`reader-btn ${notesOpen ? "active" : ""}`} aria-label="Ghi chú" aria-pressed={notesOpen} onClick={() => setNotesOpen(!notesOpen)}><MessageSquareText size={15} aria-hidden="true"/></button><button className={`reader-btn ${highlightMode ? "active" : ""}`} title="Làm nổi bật vùng văn bản" aria-label="Làm nổi bật vùng văn bản" aria-pressed={highlightMode} onClick={() => setHighlightMode(!highlightMode)}><Highlighter size={15} aria-hidden="true"/></button><button className={`reader-btn ${studyOpen ? "active" : ""}`} title="Smart Study local" aria-label="Smart Study" aria-pressed={studyOpen} onClick={() => setStudyOpen(!studyOpen)}><Brain size={15} aria-hidden="true"/><span>Học</span></button></div><div className="reader-bar-right"><button className="reader-btn" aria-label={dark ? "Chuyển sang nền sáng" : "Chuyển sang nền tối"} onClick={() => setDark(!dark)}>{dark ? <Sun size={15} aria-hidden="true"/> : <Moon size={15} aria-hidden="true"/>}</button><button className={`reader-btn ${presenter ? "active" : ""}`} aria-label="Chế độ trình chiếu" aria-pressed={presenter} onClick={() => setPresenter(!presenter)}><MonitorPlay size={15} aria-hidden="true"/><span>Trình chiếu</span></button><button className="reader-btn" aria-label="In sách" onClick={() => window.print()}><Printer size={15} aria-hidden="true"/></button><button className="reader-btn" aria-label="Toàn màn hình" onClick={fullscreen}><Maximize size={15} aria-hidden="true"/></button></div></header>
     <div className="reader-main-v2" data-narrow={narrow || undefined}>
