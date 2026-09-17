@@ -23,6 +23,10 @@ export type ImageImportContext = {
   bookId: string;
   title?: string;
   language?: string;
+  category?: string;
+  assetType?: string;
+  purpose?: string;
+  classSessionId?: string;
   onProgress?: (status: string, progress: number) => void;
   onJobCreated?: (jobId: string) => void | Promise<void>;
 };
@@ -197,7 +201,11 @@ export async function runImageOcr(inspection: ImageInspection, context: ImageImp
   if (process.env.NEXT_PUBLIC_APP_MODE !== "production") {
     throw new Error("IMAGE_OCR_REQUIRES_WORKER: OCR ảnh dùng Tesseract server trong Production Mode; không gọi AI API.");
   }
-  const source = await uploadInspectedImage(inspection, { organizationId: context.organizationId, category: "image-ocr-sources", assetType: "image-source" });
+  const source = await uploadInspectedImage(inspection, {
+    organizationId: context.organizationId,
+    category: context.category ?? "image-ocr-sources",
+    assetType: context.assetType ?? "image-source",
+  });
   if (!source.storageKey || source.assetId.startsWith("local:")) throw new Error("IMAGE_SOURCE_STORAGE_REQUIRED");
   if (source.scanStatus && source.scanStatus !== "clean") throw new Error(source.scanStatus === "blocked" ? "ASSET_SCAN_BLOCKED" : "ASSET_SCAN_PENDING");
   await saveRegions(source.assetId);
@@ -210,6 +218,8 @@ export async function runImageOcr(inspection: ImageInspection, context: ImageImp
         storageKey: source.storageKey, assetId: source.assetId, bookId: context.bookId,
         title: context.title || inspection.metadata.fileName.replace(/\.[^.]+$/, ""),
         sourceFileName: inspection.metadata.fileName, language: context.language ?? "vie+eng",
+        purpose: context.purpose,
+        classSessionId: context.classSessionId,
         regions: textRegions,
       },
     }),
