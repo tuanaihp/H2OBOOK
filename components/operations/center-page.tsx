@@ -66,14 +66,14 @@ export function OperationsCenterPage({ kind }: { kind: CenterKind }) {
   const config = {
     support: { title: "Support Center", description: "Quản lý yêu cầu tài khoản, thanh toán, bài học và chính sách.", icon: LifeBuoy },
     approvals: { title: "Approval Center", description: "Một hàng đợi duyệt chung cho nội dung, thiết kế, tốt nghiệp và marketplace.", icon: CheckCheck },
-    notifications: { title: "Notification Center", description: "Quản lý template và hiệu suất gửi email, Zalo, push, Telegram và in-app.", icon: BellRing },
-    import: { title: "Data Import Center", description: "Import, mapping, preview, validate, commit và rollback dữ liệu cũ.", icon: FileInput },
-    automation: { title: "Automation Center", description: "Kết nối sự kiện kinh doanh và đào tạo với hành động tự động.", icon: Workflow },
+    notifications: { title: "Notification Center", description: "Quản lý template và hiệu suất gửi email, Zalo, push, Telegram và in-app.", icon: BellRing, preview: true },
+    import: { title: "Data Import Center", description: "Import, mapping, preview, validate, commit và rollback dữ liệu cũ.", icon: FileInput, preview: true },
+    automation: { title: "Automation Center", description: "Kết nối sự kiện kinh doanh và đào tạo với hành động tự động.", icon: Workflow, preview: true },
     product: { title: "Product Configuration", description: "Quản trị nội dung public site, catalog, giá, CTA và feature flags mà không sửa code.", icon: Settings2 },
     health: { title: "System Health", description: "Trạng thái thật của database, storage, queue, workers, email và payment.", icon: CloudCog }
   }[kind];
 
-  return <><header className={styles.header}><div><span className={styles.eyebrow}>H2OBOOK OPERATIONS</span><h1>{config.title}</h1><p>{config.description}</p></div></header>
+  return <><header className={styles.header}><div><span className={styles.eyebrow}>H2OBOOK OPERATIONS</span><h1>{config.title}{"preview" in config && config.preview ? <span className={styles.badge} data-tone="warning" style={{ marginLeft: 10, verticalAlign: "middle" }}>Preview — dữ liệu demo</span> : null}</h1><p>{config.description}</p></div></header>
     {kind === "support" && <SupportTable/>}
     {kind === "approvals" && <ApprovalsTable/>}
     {kind === "notifications" && <><DemoNotice/><section className={styles.card}><div className={styles.cardBody}><div className={styles.list}>{store.notificationTemplates.map((item)=><div className={styles.listItem} key={item.id}><span className={styles.listItemIcon}><BellRing size={16}/></span><div><strong>{item.name}</strong><small>{item.eventKey} · {item.channels.join(" · ")}</small></div><div className={styles.listItemMeta}><StatusBadge value={item.enabled?"active":"paused"}/><em>{item.sentCount} gửi · {item.failureCount} lỗi</em></div><button className={`${styles.button} ${styles.buttonSecondary}`} onClick={()=>store.toggleNotificationTemplate(item.id)}>{item.enabled?"Tạm dừng":"Bật"}</button></div>)}</div></div></section></>}

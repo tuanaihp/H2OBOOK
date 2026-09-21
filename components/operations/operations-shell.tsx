@@ -17,7 +17,7 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
       </div>
       <Link href="/operations" className={styles.brand}><span className={styles.brandMark}>H₂</span><div><strong>H2OBOOK OPS</strong><small>Business Command</small></div></Link>
       <span className={styles.navTitle}>Operations Centers</span>
-      <nav className={styles.nav}>{operationsRoutes.map(({ href, label, icon: Icon }) => <Link key={href} href={href} data-active={pathname === href || (href !== "/operations" && pathname.startsWith(`${href}/`))}><Icon/><span>{label}</span></Link>)}</nav>
+      <nav className={styles.nav}>{operationsRoutes.map(({ href, label, icon: Icon, preview }) => <Link key={href} href={href} data-active={pathname === href || (href !== "/operations" && pathname.startsWith(`${href}/`))}><Icon/><span>{label}</span>{preview && <em className={styles.navPreview}>Preview</em>}</Link>)}</nav>
       <div className={styles.sidebarBottom}><strong>Neural Operations Core</strong><p>CRM, hỗ trợ, phê duyệt, thông báo và automation dùng chung một lớp vận hành.</p></div>
     </aside>
     <main className={styles.main}>

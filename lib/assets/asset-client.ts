@@ -1,6 +1,6 @@
 import { readLocalAsset, saveLocalAsset } from "./local-asset-store";
 
-export type UploadedAsset = { assetId: string; previewUrl: string; mode: "local" | "cloud"; storageKey?: string; mimeType?: string; fileName?: string; scanStatus?: string };
+export type UploadedAsset = { assetId: string; previewUrl: string; mode: "local" | "cloud"; storageKey?: string; mimeType?: string; fileName?: string; scanStatus?: string; scanReason?: string };
 
 function localId() { return `local:${crypto.randomUUID()}`; }
 
@@ -68,7 +68,7 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
     // usable while operators repair bucket CORS. Large files keep the direct-to-R2 path only.
   }
   if (!uploaded?.ok) {
-    if (file.size > PROXY_UPLOAD_MAX_BYTES) throw new Error("R2_UPLOAD_FAILED: Cần kiểm tra CORS của kho file.");
+    if (file.size > PROXY_UPLOAD_MAX_BYTES) throw new Error("R2_UPLOAD_FAILED: File cần kết nối trực tiếp R2 — CORS của bucket chưa mở cho tên miền này (chạy scripts/configure-r2-cors.mjs hoặc đặt AllowedOrigins trong Cloudflare Dashboard).");
     let proxied: Response;
     try {
       proxied = await fetch("/api/storage/upload-proxy", {
@@ -99,9 +99,12 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   } catch (error) {
     throw new Error(`COMPLETE_NETWORK: ${error instanceof Error ? error.message : "không kết nối được máy chủ"}`);
   }
-  if (!complete.ok) throw new Error(`COMPLETE_${complete.status}: Không thể xác nhận file đã tải lên.`);
-  const result = await complete.json() as { asset: { id: string; storage_key?: string; mime_type?: string; original_name?: string; quarantine_status?: string }; scan?: { status?: string } };
-  return { assetId: result.asset.id, previewUrl: URL.createObjectURL(file), mode: "cloud", storageKey: result.asset.storage_key ?? signed.key, mimeType: result.asset.mime_type ?? file.type, fileName: result.asset.original_name ?? file.name, scanStatus: result.scan?.status ?? result.asset.quarantine_status };
+  const result = await complete.json().catch(() => null) as { asset?: { id: string; storage_key?: string; mime_type?: string; original_name?: string; quarantine_status?: string }; scan?: { status?: string; reason?: string } } | null;
+  // /complete answers 422 with an asset row for a blocked file — surface the scan verdict instead of
+  // a bare status code so upload UIs can show why the file was rejected.
+  if (!result?.asset) throw new Error(`COMPLETE_${complete.status}: Không thể xác nhận file đã tải lên.`);
+  if (result.scan?.status === "blocked") throw new Error(`UPLOAD_BLOCKED: ${result.scan.reason ?? "file không đạt kiểm tra an toàn"}`);
+  return { assetId: result.asset.id, previewUrl: URL.createObjectURL(file), mode: "cloud", storageKey: result.asset.storage_key ?? signed.key, mimeType: result.asset.mime_type ?? file.type, fileName: result.asset.original_name ?? file.name, scanStatus: result.scan?.status ?? result.asset.quarantine_status, scanReason: result.scan?.reason };
 }
 
 export async function resolveAssetUrl(assetId: string) {

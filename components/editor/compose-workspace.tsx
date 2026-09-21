@@ -128,7 +128,9 @@ export function ComposeWorkspace() {
   useEffect(() => {
     if (!book || !editor) return;
     const fallback = legacyBookToDocument(book);
-    const local = safeParseDocument(localStorage.getItem(`h2obook-document:${book.id}`));
+    // h2obook-document: is this editor's own working copy; h2obook-semantic- is where the input
+    // engine (ingestion page, editor commit paths, unified gateway) stages freshly parsed imports.
+    const local = safeParseDocument(localStorage.getItem(`h2obook-document:${book.id}`)) ?? safeParseDocument(localStorage.getItem(`h2obook-semantic-${book.id}`));
     applyDocument(local ?? fallback, local ? "Đã tải bản biên soạn trên thiết bị" : "Đã chuyển sách cũ sang Semantic Document");
 
     if (process.env.NEXT_PUBLIC_APP_MODE === "production") {

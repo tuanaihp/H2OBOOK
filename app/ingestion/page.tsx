@@ -3,6 +3,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { localizeHtmlAssets, previewHtmlFile } from "@/lib/input/html-import";
 import { ingest, previewIngestion, type IngestionPreview, type IngestionSourceType } from "@h2obook/ingestion-core";
+import type { BookDocument } from "@h2obook/content-core";
 import type { ImportDocument } from "@h2obook/input-core";
 import { useAppStore } from "@/store/app-store";
 import { ArrowRight, BookPlus, FileAudio, FileCode2, FileText, Globe2, Loader2, Podcast, RotateCcw, Sparkles, Upload, Video } from "lucide-react";
@@ -76,16 +77,38 @@ export default function IngestionPage() {
     setLoading(true); setMessage("Đang tạo bản thảo...");
     try {
       const book = store.createBook({ title: preview.title, description: `Được tạo từ ${preview.sourceType}`, status: "draft" });
+      let semanticDocument: BookDocument;
       if (importResult) {
         const localized = await localizeHtmlAssets({ ...importResult, document: { ...importResult.document, bookId: book.id } }, {
           organizationId: store.workspace.id,
           progress: (done, total) => setMessage(`Đang lưu ảnh HTML ${done}/${total}...`),
         });
-        localStorage.setItem(`h2obook-semantic-${book.id}`, JSON.stringify({ ...localized.document, bookId: book.id }));
+        semanticDocument = { ...localized.document, bookId: book.id };
       } else {
         const result = ingest({ type: preview.sourceType, title: preview.title, content: value, metadata: preview.metadata }, { bookId: book.id });
         if (mode === "url") result.document.root = preview.nodes;
-        localStorage.setItem(`h2obook-semantic-${book.id}`, JSON.stringify(result.document));
+        semanticDocument = result.document;
+      }
+      // Compose Mode loads its working copy from h2obook-document: — mirroring the imported document
+      // there keeps the parsed content visible even before (or without) the cloud round-trip.
+      localStorage.setItem(`h2obook-semantic-${book.id}`, JSON.stringify(semanticDocument));
+      localStorage.setItem(`h2obook-document:${book.id}`, JSON.stringify(semanticDocument));
+      // Cloud-first draft: cloud-save creates the books row (client_key = book.id), then the document
+      // PUT stores the semantic tree — so /api/books/list and /api/books/[id]/document both see the
+      // import instead of the draft silently existing only in this browser.
+      if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
+        try {
+          setMessage("Đang đồng bộ bản thảo lên cloud...");
+          const saved = await fetch("/api/books/cloud-save", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId: store.workspace.id, book }) });
+          if (!saved.ok) {
+            console.error("[H2OBOOK ingestion] cloud-save failed", saved.status, await saved.text().catch(() => ""));
+          } else {
+            const synced = await fetch(`/api/books/${encodeURIComponent(book.id)}/document`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId: store.workspace.id, document: semanticDocument }) });
+            if (!synced.ok) console.error("[H2OBOOK ingestion] document sync failed", synced.status, await synced.text().catch(() => ""));
+          }
+        } catch (error) {
+          console.error("[H2OBOOK ingestion] cloud sync", error);
+        }
       }
       store.addKnowledgeSource({ title: preview.title, sourceType: mode === "url" ? "url" : "note", url: mode === "url" ? value : undefined, bookId: book.id, tags: ["ingestion", mode] });
       router.push(`/editor/${book.id}/compose`);

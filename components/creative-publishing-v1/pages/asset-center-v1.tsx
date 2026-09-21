@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, CloudUpload, File, FileImage, FileText, LoaderCircle, Search, ShieldCheck, Upload } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
+import { uploadAsset } from "@/lib/assets/asset-client";
 import { emitCreativeEvent } from "@/lib/creative-publishing-v1/events";
 import { CreativePageFrame, EmptyPanel, StatusPill, SurfaceCard, styles } from "../creative-shared";
 
@@ -61,26 +62,11 @@ export function AssetCenterV1() {
     try {
       for (const file of files) {
         setMessage(`Đang kiểm tra và tải ${file.name}...`);
-        const presignResponse = await fetch("/api/storage/presign-upload", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ organizationId: workspace.id, category: "library", fileName: file.name, mimeType: file.type || "application/octet-stream", sizeBytes: file.size }),
-        });
-        const presign = await presignResponse.json() as { error?: string; uploadUrl?: string; key?: string };
-        if (!presignResponse.ok || !presign.key) throw new Error(presign.error ?? `Không thể chuẩn bị upload ${file.name}`);
-        if (presign.uploadUrl) {
-          const upload = await fetch(presign.uploadUrl, { method: "PUT", headers: { "content-type": file.type || "application/octet-stream" }, body: file });
-          if (!upload.ok) throw new Error(`R2 upload thất bại: ${upload.status}`);
-        }
-        const completeResponse = await fetch("/api/storage/complete", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ organizationId: workspace.id, key: presign.key, fileName: file.name, mimeType: file.type, sizeBytes: file.size, assetType: file.type.startsWith("image/") ? "image" : "document" }),
-        });
-        const complete = await completeResponse.json() as { error?: string; scan?: { status?: string; reason?: string } };
-        if (!completeResponse.ok) throw new Error(complete.error ?? "Không thể ghi metadata file.");
-        if (complete.scan?.status === "blocked") setMessage(`${file.name} bị chặn: ${complete.scan.reason ?? "không đạt kiểm tra an toàn"}`);
-        else if (complete.scan?.status === "pending") setMessage(`${file.name} đã tải và đang chờ quét.`);
+        // Shared upload client: presign → direct R2 PUT → same-origin proxy fallback → complete, so
+        // an unconfigured bucket CORS rule no longer dead-ends the upload with "Failed to fetch".
+        const result = await uploadAsset(file, { organizationId: workspace.id, category: "library", assetType: file.type.startsWith("image/") ? "image" : "document" });
+        if (result.mode === "local") setMessage(`${file.name} đã lưu trên thiết bị (chế độ demo — R2 chưa cấu hình).`);
+        else if (result.scanStatus === "pending") setMessage(`${file.name} đã tải và đang chờ quét.`);
         else setMessage(`${file.name} đã sẵn sàng sử dụng.`);
       }
       await loadAssets();

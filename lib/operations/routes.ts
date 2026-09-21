@@ -24,9 +24,11 @@ export const operationsRoutes = [
   { href: "/operations/admissions", label: "CRM & Admissions", icon: GraduationCap },
   { href: "/operations/support", label: "Support Center", icon: LifeBuoy },
   { href: "/operations/approvals", label: "Approval Center", icon: CheckCheck },
-  { href: "/operations/notifications", label: "Notification Center", icon: BellRing },
-  { href: "/operations/import-center", label: "Data Import Center", icon: FileInput },
-  { href: "/operations/automation-center", label: "Automation Center", icon: Workflow },
+  // preview: true marks seed-only surfaces — they render demo data and never touch the real
+  // database, so the sidebar badges them instead of letting them read as live operations.
+  { href: "/operations/notifications", label: "Notification Center", icon: BellRing, preview: true },
+  { href: "/operations/import-center", label: "Data Import Center", icon: FileInput, preview: true },
+  { href: "/operations/automation-center", label: "Automation Center", icon: Workflow, preview: true },
   { href: "/operations/product-config", label: "Product Configuration", icon: Settings2 },
   { href: "/operations/system-health", label: "System Health", icon: CloudCog }
 ];

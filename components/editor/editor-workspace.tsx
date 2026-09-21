@@ -418,9 +418,14 @@ function UploadPanel({ fileRef, status, setStatus }: { fileRef: RefObject<HTMLIn
       localStorage.setItem(`h2obook-semantic-${store.book.id}`, JSON.stringify(document));
       store.setBookTitle(preview.title);
       if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
+        const organizationId = useAppStore.getState().workspace.id;
+        // The document PUT resolves books by client_key, which 404s when the book was never
+        // cloud-saved — upsert the row first so an import into a local-only draft still syncs.
+        await fetch("/api/books/cloud-save", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId, book: useEditorStore.getState().book }) })
+          .catch((error) => console.error("[H2OBOOK cloud save]", error));
         const response = await fetch(`/api/books/${encodeURIComponent(store.book.id)}/document`, {
           method: "PUT", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ organizationId: useAppStore.getState().workspace.id, document }),
+          body: JSON.stringify({ organizationId, document }),
         });
         if (!response.ok) throw new Error(`Không thể lưu ${label} lên cloud; bản local vẫn được giữ.`);
       }
