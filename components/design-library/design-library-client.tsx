@@ -98,6 +98,11 @@ export function DesignLibraryClient({ variant = "workspace" }: { variant?: "work
       targetFormat: payload.targetFormat,
       useBrandKit: payload.useBrandKit
     });
+    if (payload.targetBookId && store.appendPagesToBook(payload.targetBookId, book.pages)) {
+      setSelected(null);
+      window.location.href = `/editor/${payload.targetBookId}`;
+      return;
+    }
     store.upsertBook(book);
     window.location.href = `/editor/${book.id}`;
   };
@@ -145,7 +150,7 @@ export function DesignLibraryClient({ variant = "workspace" }: { variant?: "work
         </div>
       </article>)}</section>
 
-      {selected && <DesignConfigurator template={selected} brands={store.brands} activeBrandId={store.activeBrandId} onClose={() => setSelected(null)} onCreate={createDesign} allowBulk={!isStudent}/>}
+      {selected && <DesignConfigurator template={selected} brands={store.brands} activeBrandId={store.activeBrandId} books={store.books} onClose={() => setSelected(null)} onCreate={createDesign} allowBulk={!isStudent}/>}
     </div>
   </Shell>;
 }

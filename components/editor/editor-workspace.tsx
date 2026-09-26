@@ -9,7 +9,7 @@ import {
   ArrowDown, ArrowLeft, ArrowUp, Bold, BookOpen, Brain, Box, Check, ChevronDown, Circle, CirclePlus,
   Copy, Download, Eye, EyeOff, FileJson, FileText, Grid3X3, HelpCircle, Image as ImageIcon, Import,
   FileCheck2, Italic, Layers3, LayoutGrid, LayoutTemplate, Link2, Lock, Maximize2, Minus, MoreHorizontal, Palette,
-  PanelLeftClose, PanelRightClose, Plus, QrCode, Redo2, Save, Settings2, Shapes, Sparkles, Square,
+  PanelLeftClose, PanelRightClose, Plus, Printer, QrCode, Redo2, Save, Settings2, Shapes, Sparkles, Square,
   Trash2, Type, Underline, Undo2, Unlock, Upload, Wand2, WandSparkles, ZoomIn, ZoomOut
 } from "lucide-react";
 import { EditorCanvas } from "@/components/editor/editor-canvas";
@@ -27,6 +27,7 @@ import { inspectImage, type ImageInspection } from "@/lib/input/image-import";
 import { ImageSmartImport } from "@/components/editor/image-smart-import";
 import { localizeHtmlAssets, previewHtmlFile } from "@/lib/input/html-import";
 import { EditorCreativeHandoffBridge } from "@/components/creative-publishing-v1";
+import { exportBookPdf } from "@/lib/editor/export-pdf";
 
 const panels = [
   { id: "pages", label: "Trang", icon: Layers3 },
@@ -229,6 +230,7 @@ export function EditorWorkspace() {
       <div className="editor-top-right">
         <NeuralHeaderSignal compact/>
         <button className="btn btn-secondary btn-sm" onClick={() => window.dispatchEvent(new Event("h2obook:export-page"))}><Download size={14}/>PNG</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => { const mode = exportBookPdf(store.book); setAutoNotice(mode === "download" ? "Trình duyệt chặn cửa sổ mới — đã tải file HTML thay thế." : "Đã mở tài liệu in toàn sách — chọn Save as PDF để lưu."); window.setTimeout(() => setAutoNotice(""), 4000); }} title="Xuất PDF toàn sách"><Printer size={14}/>PDF</button>
         <button className="btn btn-secondary btn-sm" onClick={exportProject}><FileJson size={14}/>Dự án</button>
         <button className="btn btn-secondary btn-sm" onClick={() => projectRef.current?.click()}><Import size={14}/>Nhập</button>
         <input ref={projectRef} hidden type="file" accept=".json,.h2obook.json" onChange={(event) => importProject(event.target.files)}/>

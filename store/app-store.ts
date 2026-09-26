@@ -17,7 +17,7 @@ import { uid } from "@/lib/utils";
 import { runLocalSmart, localFlashcards } from "@/lib/local-smart-engine";
 import { buildBlockElements } from "@/lib/blocks/block-layouts";
 import { seedFlashcards, seedKnowledgeSources, seedLearningGoals, seedLearningNotes, seedReusableBlocks, seedSmartSettings, seedStudySessions } from "@/lib/v4-seed";
-import type { BrandProfile, H2OBook } from "@/types/editor";
+import type { BrandProfile, H2OBook, H2OPage } from "@/types/editor";
 import type {
   Activity, AnalyticsSnapshot, AppDataExport, AppUser, Assignment, BookRecord, CloneMode,
   CloneRecord, CourseClass, Membership, Notification, Order, Product, Quiz, Student,
@@ -90,6 +90,9 @@ type AppState = {
   saveBlockFromPage: (input: { bookId: string; pageId: string; name?: string; category?: ReusableBlock["category"] }) => ReusableBlock | null;
   /** Append a page built from a block (snapshot or preset) to a book. Returns the new page id. */
   applyBlockToBook: (blockId: string, bookId: string) => string | null;
+  /** Append pre-built pages to an existing book and cloud-save in production. Shared by Block
+   *  Library and Design Library "insert into book" flows. Returns true when the book was found. */
+  appendPagesToBook: (bookId: string, pages: H2OPage[]) => boolean;
   createProduct: (input: Partial<Product> & Pick<Product, "name" | "type" | "referenceId">) => Product;
   updateProduct: (productId: string, patch: Partial<Product>) => void;
   createOrder: (input: Partial<Order> & Pick<Order, "customerName" | "customerEmail" | "productId">) => Order | null;
@@ -323,12 +326,18 @@ export const useAppStore = create<AppState>()(
           width: block.pageWidth ?? book.pages[0]?.width ?? 794, height: block.pageHeight ?? book.pages[0]?.height ?? 1123,
           background: block.pageBackground ?? "#fffdfb", elements: buildBlockElements(block)
         };
-        const updated = { ...book, pages: [...book.pages, page], updatedAt: new Date().toISOString() };
+        get().appendPagesToBook(bookId, [page]);
+        return page.id;
+      },
+      appendPagesToBook: (bookId, pages) => {
+        const book = get().books.find((item) => item.id === bookId);
+        if (!book || !pages.length) return false;
+        const updated = { ...book, pages: [...book.pages, ...pages], updatedAt: new Date().toISOString() };
         set((state) => ({ books: state.books.map((item) => item.id === bookId ? updated : item) }));
         if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
           void fetch("/api/books/cloud-save", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId: get().workspace.id, book: updated }) }).catch(() => {});
         }
-        return page.id;
+        return true;
       },
       createProduct: (input) => {
         const product: Product = { id: uid("product"), type: input.type, referenceId: input.referenceId, name: input.name, description: input.description ?? "", cover: input.cover ?? "linear-gradient(135deg,#4b1835,#ad5d7d)", price: input.price ?? 0, compareAtPrice: input.compareAtPrice, billingInterval: input.billingInterval, status: input.status ?? "draft", sales: 0, revenue: 0 };

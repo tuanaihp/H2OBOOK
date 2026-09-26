@@ -16,6 +16,8 @@ export type DesignCreatePayload = {
   brand: BrandProfile;
   useBrandKit: boolean;
   bulkRows?: Record<string, string>[];
+  /** When set, the design's pages are appended to this existing book instead of creating a new one. */
+  targetBookId?: string;
 };
 
 export function DesignConfigurator({
@@ -24,7 +26,8 @@ export function DesignConfigurator({
   activeBrandId,
   onClose,
   onCreate,
-  allowBulk = true
+  allowBulk = true,
+  books = []
 }: {
   template: DesignTemplateDefinition;
   brands: BrandProfile[];
@@ -32,6 +35,7 @@ export function DesignConfigurator({
   onClose: () => void;
   onCreate: (payload: DesignCreatePayload) => void;
   allowBulk?: boolean;
+  books?: Array<{ id: string; title: string; pages: unknown[] }>;
 }) {
   const initialBrand = brands.find((item) => item.id === activeBrandId) ?? brands[0];
   const [brandId, setBrandId] = useState(initialBrand?.id ?? "");
@@ -41,6 +45,7 @@ export function DesignConfigurator({
   const [useBrandKit, setUseBrandKit] = useState(true);
   const [bulkMode, setBulkMode] = useState(false);
   const [csv, setCsv] = useState("studentName,certificateNo,issueDate\nNguyễn Minh Anh,H2O-001,28.07.2026\nTrần Thu Hà,H2O-002,28.07.2026");
+  const [targetBookId, setTargetBookId] = useState("");
 
   useEffect(() => {
     if (brand) setValues(createDefaultFieldValues(template.fields, brand));
@@ -72,6 +77,7 @@ export function DesignConfigurator({
           <div className={styles.formGrid}>
             <label><span>Brand Profile</span><select value={brandId} onChange={(event) => setBrandId(event.target.value)}>{brands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <label><span>Kích thước đầu ra</span><select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value as DesignFormatKey)}>{template.supportedFormats.map((key) => <option key={key} value={key}>{DESIGN_FORMATS[key].label}</option>)}</select></label>
+            {!bulkMode && books.length > 0 && <label className={styles.fieldFull}><span>Đích đến</span><select value={targetBookId} onChange={(event) => setTargetBookId(event.target.value)}><option value="">Sách mới (mặc định)</option>{books.map((item) => <option key={item.id} value={item.id}>Thêm vào: {item.title} · {item.pages.length} trang</option>)}</select></label>}
           </div>
           <label className={styles.switchRow}><input type="checkbox" checked={useBrandKit} onChange={(event) => setUseBrandKit(event.target.checked)}/><span><Palette size={17}/>Áp dụng màu và font từ Brand Kit</span></label>
           <div className={styles.fieldsList}>{template.fields.map((item) => <label key={item.key}><span>{item.label}{item.required ? " *" : ""}</span>{item.type === "textarea" ? <textarea value={values[item.key] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} placeholder={item.placeholder}/> : <input type={item.type === "date" ? "text" : item.type} value={values[item.key] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} placeholder={item.placeholder}/>}</label>)}</div>
@@ -85,8 +91,8 @@ export function DesignConfigurator({
       </div>
       <footer className={styles.modalFooter}>
         <button className={styles.secondaryButton} onClick={onClose}>Hủy</button>
-        <button className={styles.primaryButton} onClick={() => onCreate({ values, targetFormat, brand, useBrandKit, bulkRows: bulkMode ? rows : undefined })} disabled={missingRequired.length > 0 || (bulkMode && rows.length === 0)}>
-          {bulkMode ? <CopyPlus size={18}/> : <Sparkles size={18}/>}{bulkMode ? `Tạo ${rows.length} thiết kế` : "Tạo thiết kế và mở Editor"}
+        <button className={styles.primaryButton} onClick={() => onCreate({ values, targetFormat, brand, useBrandKit, bulkRows: bulkMode ? rows : undefined, targetBookId: targetBookId || undefined })} disabled={missingRequired.length > 0 || (bulkMode && rows.length === 0)}>
+          {bulkMode ? <CopyPlus size={18}/> : <Sparkles size={18}/>}{bulkMode ? `Tạo ${rows.length} thiết kế` : targetBookId ? "Chèn vào sách và mở Editor" : "Tạo thiết kế và mở Editor"}
         </button>
       </footer>
     </section>
