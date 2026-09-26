@@ -16,6 +16,7 @@ import {
 import { uid } from "@/lib/utils";
 import { runLocalSmart, localFlashcards } from "@/lib/local-smart-engine";
 import { buildBlockElements } from "@/lib/blocks/block-layouts";
+import type { DesignTemplateDefinition } from "@/types/design-library";
 import { seedFlashcards, seedKnowledgeSources, seedLearningGoals, seedLearningNotes, seedReusableBlocks, seedSmartSettings, seedStudySessions } from "@/lib/v4-seed";
 import type { BrandProfile, H2OBook, H2OPage } from "@/types/editor";
 import type {
@@ -60,6 +61,8 @@ type AppState = {
   studySessions: StudySession[];
   knowledgeSources: KnowledgeSource[];
   reusableBlocks: ReusableBlock[];
+  /** Design templates imported from packs or external sources (Polotno JSON, Studio page exports). */
+  customDesignTemplates: DesignTemplateDefinition[];
   activeBrandId: string;
   updateWorkspace: (patch: Partial<Workspace>) => void;
   createBook: (input?: Partial<BookRecord>) => BookRecord;
@@ -93,6 +96,9 @@ type AppState = {
   /** Append pre-built pages to an existing book and cloud-save in production. Shared by Block
    *  Library and Design Library "insert into book" flows. Returns true when the book was found. */
   appendPagesToBook: (bookId: string, pages: H2OPage[]) => boolean;
+  /** Merge imported design templates into the library; duplicates by id are replaced. */
+  importDesignTemplates: (templates: DesignTemplateDefinition[]) => number;
+  removeCustomDesignTemplate: (templateId: string) => void;
   createProduct: (input: Partial<Product> & Pick<Product, "name" | "type" | "referenceId">) => Product;
   updateProduct: (productId: string, patch: Partial<Product>) => void;
   createOrder: (input: Partial<Order> & Pick<Order, "customerName" | "customerEmail" | "productId">) => Order | null;
@@ -163,7 +169,7 @@ const resetState = () => ({
   smartSettings: structuredClone(seedSmartSettings), learningGoals: structuredClone(seedLearningGoals),
   learningNotes: structuredClone(seedLearningNotes), flashcards: structuredClone(seedFlashcards),
   studySessions: structuredClone(seedStudySessions), knowledgeSources: structuredClone(seedKnowledgeSources),
-  reusableBlocks: structuredClone(seedReusableBlocks), activeBrandId: "brand_thuyh2o"
+  reusableBlocks: structuredClone(seedReusableBlocks), customDesignTemplates: [], activeBrandId: "brand_thuyh2o"
 });
 
 /**
@@ -339,6 +345,16 @@ export const useAppStore = create<AppState>()(
         }
         return true;
       },
+      importDesignTemplates: (templates) => {
+        if (!templates.length) return 0;
+        set((state) => {
+          const incoming = new Map(templates.map((item) => [item.id, { ...item, source: "imported" as const }]));
+          const kept = state.customDesignTemplates.filter((item) => !incoming.has(item.id));
+          return { customDesignTemplates: [...kept, ...incoming.values()] };
+        });
+        return templates.length;
+      },
+      removeCustomDesignTemplate: (templateId) => set((state) => ({ customDesignTemplates: state.customDesignTemplates.filter((item) => item.id !== templateId) })),
       createProduct: (input) => {
         const product: Product = { id: uid("product"), type: input.type, referenceId: input.referenceId, name: input.name, description: input.description ?? "", cover: input.cover ?? "linear-gradient(135deg,#4b1835,#ad5d7d)", price: input.price ?? 0, compareAtPrice: input.compareAtPrice, billingInterval: input.billingInterval, status: input.status ?? "draft", sales: 0, revenue: 0 };
         set((state) => ({ products: [product, ...state.products] }));
@@ -471,13 +487,13 @@ export const useAppStore = create<AppState>()(
       },
       exportData: () => {
         const state = get();
-        return { version: 4, exportedAt: new Date().toISOString(), workspace: state.workspace, brands: state.brands, books: state.books, templates: state.templates, clones: state.clones, students: state.students, classes: state.classes, assignments: state.assignments, quizzes: state.quizzes, products: state.products, orders: state.orders, memberships: state.memberships, reviews: state.reviews, reviewComments: state.reviewComments, collaborationSessions: state.collaborationSessions, aiJobs: state.aiJobs, automations: state.automations, licenses: state.licenses, royaltyPayouts: state.royaltyPayouts, whiteLabelPortals: state.whiteLabelPortals, contentHealthReports: state.contentHealthReports, smartSettings: state.smartSettings, learningGoals: state.learningGoals, learningNotes: state.learningNotes, flashcards: state.flashcards, studySessions: state.studySessions, knowledgeSources: state.knowledgeSources, reusableBlocks: state.reusableBlocks };
+        return { version: 4, exportedAt: new Date().toISOString(), workspace: state.workspace, brands: state.brands, books: state.books, templates: state.templates, clones: state.clones, students: state.students, classes: state.classes, assignments: state.assignments, quizzes: state.quizzes, products: state.products, orders: state.orders, memberships: state.memberships, reviews: state.reviews, reviewComments: state.reviewComments, collaborationSessions: state.collaborationSessions, aiJobs: state.aiJobs, automations: state.automations, licenses: state.licenses, royaltyPayouts: state.royaltyPayouts, whiteLabelPortals: state.whiteLabelPortals, contentHealthReports: state.contentHealthReports, smartSettings: state.smartSettings, learningGoals: state.learningGoals, learningNotes: state.learningNotes, flashcards: state.flashcards, studySessions: state.studySessions, knowledgeSources: state.knowledgeSources, reusableBlocks: state.reusableBlocks, customDesignTemplates: state.customDesignTemplates };
       },
       importData: (data) => {
         if (data.version !== 2 && data.version !== 3 && data.version !== 4) throw new Error("Định dạng backup không được hỗ trợ.");
         const v3 = data as AppDataExportV3;
         const v4 = data as AppDataExportV4;
-        set({ workspace: data.workspace, brands: data.brands, books: data.books, templates: data.templates, clones: data.clones, students: data.students, classes: data.classes, assignments: data.assignments, quizzes: data.quizzes, products: data.products, orders: data.orders, memberships: data.memberships, reviews: v3.reviews ?? structuredClone(seedReviews), reviewComments: v3.reviewComments ?? structuredClone(seedReviewComments), collaborationSessions: v3.collaborationSessions ?? structuredClone(seedCollaborationSessions), aiJobs: v3.aiJobs ?? [], automations: v3.automations ?? structuredClone(seedAutomations), licenses: v3.licenses ?? [], royaltyPayouts: v3.royaltyPayouts ?? [], whiteLabelPortals: v3.whiteLabelPortals ?? [], contentHealthReports: v3.contentHealthReports ?? [], smartSettings: v4.smartSettings ?? structuredClone(seedSmartSettings), learningGoals: v4.learningGoals ?? structuredClone(seedLearningGoals), learningNotes: v4.learningNotes ?? structuredClone(seedLearningNotes), flashcards: v4.flashcards ?? structuredClone(seedFlashcards), studySessions: v4.studySessions ?? structuredClone(seedStudySessions), knowledgeSources: v4.knowledgeSources ?? structuredClone(seedKnowledgeSources), reusableBlocks: v4.reusableBlocks ?? structuredClone(seedReusableBlocks) });
+        set({ workspace: data.workspace, brands: data.brands, books: data.books, templates: data.templates, clones: data.clones, students: data.students, classes: data.classes, assignments: data.assignments, quizzes: data.quizzes, products: data.products, orders: data.orders, memberships: data.memberships, reviews: v3.reviews ?? structuredClone(seedReviews), reviewComments: v3.reviewComments ?? structuredClone(seedReviewComments), collaborationSessions: v3.collaborationSessions ?? structuredClone(seedCollaborationSessions), aiJobs: v3.aiJobs ?? [], automations: v3.automations ?? structuredClone(seedAutomations), licenses: v3.licenses ?? [], royaltyPayouts: v3.royaltyPayouts ?? [], whiteLabelPortals: v3.whiteLabelPortals ?? [], contentHealthReports: v3.contentHealthReports ?? [], smartSettings: v4.smartSettings ?? structuredClone(seedSmartSettings), learningGoals: v4.learningGoals ?? structuredClone(seedLearningGoals), learningNotes: v4.learningNotes ?? structuredClone(seedLearningNotes), flashcards: v4.flashcards ?? structuredClone(seedFlashcards), studySessions: v4.studySessions ?? structuredClone(seedStudySessions), knowledgeSources: v4.knowledgeSources ?? structuredClone(seedKnowledgeSources), reusableBlocks: v4.reusableBlocks ?? structuredClone(seedReusableBlocks), customDesignTemplates: (v4 as Record<string, unknown>).customDesignTemplates as DesignTemplateDefinition[] ?? [] });
       },
       resetDemoData: () => set(resetState())
     }),

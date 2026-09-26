@@ -1,4 +1,4 @@
-import type { BrandProfile, H2OBook } from "@/types/editor";
+import type { BrandProfile, H2OBook, H2OElement } from "@/types/editor";
 
 export type DesignCategory =
   | "fanpage-cover"
@@ -46,6 +46,14 @@ export type DesignPalette = {
   muted: string;
 };
 
+export type DesignSnapshotPage = {
+  name?: string;
+  width: number;
+  height: number;
+  background?: string;
+  elements: H2OElement[];
+};
+
 export type DesignTemplateDefinition = {
   id: string;
   name: string;
@@ -65,6 +73,17 @@ export type DesignTemplateDefinition = {
     | "certificate-frame"
     | "promotion-burst";
   fields: DesignSmartField[];
+  /**
+   * Element snapshots for imported/external templates. When present, buildDesignBook
+   * renders these pages (with {{field}} placeholder substitution and fresh element ids)
+   * instead of the procedural `layout` builders. Lets any external template source
+   * (Polotno JSON, saved editor pages, hand-authored packs) plug into the same wizard.
+   */
+  snapshot?: DesignSnapshotPage[];
+  /** "imported" marks templates loaded from packs or external converters. */
+  source?: "builtin" | "imported";
+  /** Font families referenced by snapshot elements — surfaced as warnings when missing. */
+  fontsUsed?: string[];
   bulkCapable?: boolean;
   approvalRequired?: boolean;
   featured?: boolean;

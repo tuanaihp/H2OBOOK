@@ -28,6 +28,7 @@ import { ImageSmartImport } from "@/components/editor/image-smart-import";
 import { localizeHtmlAssets, previewHtmlFile } from "@/lib/input/html-import";
 import { EditorCreativeHandoffBridge } from "@/components/creative-publishing-v1";
 import { exportBookPdf } from "@/lib/editor/export-pdf";
+import { pagesToDesignPack } from "@/lib/design-library/external-templates";
 
 const panels = [
   { id: "pages", label: "Trang", icon: Layers3 },
@@ -397,6 +398,16 @@ function TemplatePanel() {
       <Link className="btn btn-secondary btn-sm" href="/templates" onClick={() => store.saveToLibrary()}><LayoutTemplate size={13}/>Kho template</Link>
       <Link className="btn btn-secondary btn-sm" href="/design-library" onClick={() => store.saveToLibrary()}><Palette size={13}/>Thư viện thiết kế</Link>
     </div>
+    <button className="btn btn-secondary btn-sm" style={{ width: "100%", marginBottom: 10 }} onClick={() => {
+      const page = store.book.pages.find((item) => item.id === store.activePageId);
+      if (!page) return;
+      const pack = pagesToDesignPack([page], { name: `${store.book.title} — ${page.name}`, description: `Trích từ sách "${store.book.title}"` });
+      const blob = new Blob([JSON.stringify(pack, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = `${slug(`${store.book.title}-${page.name}`)}.h2odesign.json`;
+      anchor.click(); URL.revokeObjectURL(url);
+    }} title="Tải trang này thành mẫu .h2odesign.json — nhập lại ở Thư viện thiết kế"><Download size={13}/>Lưu trang thành mẫu thiết kế</button>
     <div className="layout-grid">{templates.map((template) => <button className="layout-card" key={template.type} onClick={() => apply(template)}><div className="layout-preview" style={{ background: template.background }}/><strong>{template.name}</strong><span>{template.description}</span></button>)}</div>
   </>;
 }

@@ -1,0 +1,35 @@
+{
+  "format": "h2odesign-pack",
+  "version": 1,
+  "templates": [
+    {
+      "id": "pack_flash_sale_1080",
+      "name": "Flash Sale — Social Post",
+      "description": "Mẫu khuyến mãi mạng xã hội với Smart Fields — thay nội dung nhanh bằng wizard.",
+      "category": "makeup-promotion",
+      "subcategory": "Social post",
+      "tags": ["flash-sale", "social", "pack"],
+      "baseFormat": "square-post",
+      "fields": [
+        { "key": "headline", "label": "Tiêu đề", "type": "text", "defaultValue": "FLASH SALE", "required": true },
+        { "key": "discount", "label": "Mức giảm", "type": "text", "defaultValue": "-50%" },
+        { "key": "cta", "label": "Nút kêu gọi", "type": "text", "defaultValue": "ĐẶT LỊCH NGAY" }
+      ],
+      "pages": [
+        {
+          "name": "Post vuông",
+          "width": 1080,
+          "height": 1080,
+          "background": "#1d1030",
+          "elements": [
+            { "type": "shape", "x": 120, "y": 120, "width": 840, "height": 840, "cornerRadius": 420, "fill": "transparent", "stroke": "#d8b36a", "strokeWidth": 4 },
+            { "type": "text", "x": 140, "y": 300, "width": 800, "height": 140, "text": "{{headline}}", "fontSize": 110, "fontWeight": 700, "fontFamily": "Arial", "fill": "#ffffff", "align": "center", "lineHeight": 1.1 },
+            { "type": "text", "x": 240, "y": 470, "width": 600, "height": 120, "text": "{{discount}}", "fontSize": 90, "fontWeight": 700, "fontFamily": "Georgia", "fill": "#49d7e8", "align": "center", "lineHeight": 1.1 },
+            { "type": "shape", "x": 340, "y": 720, "width": 400, "height": 90, "cornerRadius": 45, "fill": "#8f174d" },
+            { "type": "text", "x": 340, "y": 740, "width": 400, "height": 50, "text": "{{cta}}", "fontSize": 34, "fontWeight": 700, "fontFamily": "Arial", "fill": "#ffffff", "align": "center", "lineHeight": 1.2 }
+          ]
+        }
+      ]
+    }
+  ]
+}

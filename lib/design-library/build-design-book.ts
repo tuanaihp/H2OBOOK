@@ -1,5 +1,5 @@
 import type { BrandProfile, H2OBook, H2OElement, H2OPage } from "@/types/editor";
-import type { DesignBuildInput, DesignBuildResult, DesignPalette, DesignTemplateDefinition } from "@/types/design-library";
+import type { DesignBuildInput, DesignBuildResult, DesignPalette, DesignSnapshotPage, DesignTemplateDefinition } from "@/types/design-library";
 import { DESIGN_FORMATS } from "@/lib/design-library/formats";
 import { interpolateDesignText } from "@/lib/design-library/smart-fields";
 import { uid } from "@/lib/utils";
@@ -308,6 +308,29 @@ function smartResizePage(page: H2OPage, targetWidth: number, targetHeight: numbe
   };
 }
 
+function snapshotPageToPage(
+  snap: DesignSnapshotPage,
+  template: DesignTemplateDefinition,
+  index: number,
+  values: Record<string, string>,
+  brand: BrandProfile
+): H2OPage {
+  return {
+    id: uid("page"),
+    name: snap.name ?? `${template.name} ${index + 1}`,
+    pageType: index === 0 ? "cover" : "content",
+    width: snap.width,
+    height: snap.height,
+    background: snap.background ?? "#ffffff",
+    elements: snap.elements.map((element) => ({
+      ...structuredClone(element),
+      id: uid(element.type),
+      text: element.text ? interpolateDesignText(element.text, values, brand) : element.text,
+      sourceText: element.sourceText ? interpolateDesignText(element.sourceText, values, brand) : element.sourceText
+    }))
+  };
+}
+
 export function buildDesignBook(input: DesignBuildInput): DesignBuildResult {
   const { template, brand, values, targetFormat, useBrandKit } = input;
   const palette = resolvePalette(template, brand, useBrandKit);
@@ -319,9 +342,10 @@ export function buildDesignBook(input: DesignBuildInput): DesignBuildResult {
     "certificate-frame": buildCertificateFrame,
     "promotion-burst": buildPromotionBurst
   } as const;
-  const basePage = builders[template.layout](template, brand, values, palette);
   const target = DESIGN_FORMATS[targetFormat];
-  const page = smartResizePage(basePage, target.width, target.height);
+  const pages = template.snapshot?.length
+    ? template.snapshot.map((snap, index) => smartResizePage(snapshotPageToPage(snap, template, index, values, brand), target.width, target.height))
+    : [smartResizePage(builders[template.layout](template, brand, values, palette), target.width, target.height)];
   const warnings: string[] = [];
   if (targetFormat !== template.baseFormat) warnings.push("Thiết kế đã được Smart Resize. Nên kiểm tra lại vị trí chữ và ảnh trước khi xuất bản.");
   if (template.approvalRequired) warnings.push("Mẫu này yêu cầu duyệt trước khi phát hành chính thức.");
@@ -340,7 +364,7 @@ export function buildDesignBook(input: DesignBuildInput): DesignBuildResult {
     author: brand.expertName,
     cover: `linear-gradient(135deg,${palette.background},${palette.primary},${palette.accent})`,
     status: "draft",
-    pages: [page],
+    pages,
     updatedAt: new Date().toISOString(),
     description: template.description,
     language: "vi",
