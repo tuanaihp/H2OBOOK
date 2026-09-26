@@ -206,8 +206,8 @@ export function EditorWorkspace() {
     <header className="editor-topbar">
       <div className="editor-top-left">
         <button className="editor-icon" title="Quay lại" onClick={() => router.push("/books")}><ArrowLeft size={17}/></button>
-        <div className="editor-brand-mini"><strong>H2OBOOK</strong><span>Studio V4.3 Professional</span></div>
-        <input className="editor-title-input" value={store.book.title} onChange={(event) => store.setBookTitle(event.target.value)} aria-label="Tên sách"/>
+        <div className="editor-brand-mini"><strong>H2OBOOK</strong><span>Studio 4.21 Professional</span></div>
+        <input className="editor-title-input" value={store.book.title} onChange={(event) => store.setBookTitle(event.target.value)} onBlur={store.checkpoint} aria-label="Tên sách"/>
         <span className={`save-state ${store.dirty ? "saving" : "saved"}`}>{savedFeedback ? <><Check size={12}/>Đã lưu</> : store.dirty ? "Có thay đổi chưa lưu" : `Đã lưu ${new Date(store.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`}</span>
         {autoNotice && <span className="auto-notice" role="status">{autoNotice}</span>}
       </div>
@@ -385,7 +385,18 @@ function TemplatePanel() {
     { type: "gallery", name: "Hình ảnh", description: "Hai ảnh minh họa và mô tả", background: "#edf2f0" },
     { type: "blank", name: "Trang trắng", description: "Tự do sáng tạo từ đầu", background: "#ffffff" }
   ];
-  return <div className="layout-grid">{templates.map((template) => <button className="layout-card" key={template.type} onClick={() => store.applyPageTemplate(template.type)}><div className="layout-preview" style={{ background: template.background }}/><strong>{template.name}</strong><span>{template.description}</span></button>)}</div>;
+  const apply = (template: (typeof templates)[number]) => {
+    const page = store.book.pages.find((item) => item.id === store.activePageId);
+    if (page && page.elements.length > 0 && !window.confirm(`Áp dụng "${template.name}" sẽ thay toàn bộ ${page.elements.length} thành phần trên trang hiện tại. Có thể hoàn tác bằng Ctrl+Z sau khi áp dụng.`)) return;
+    store.applyPageTemplate(template.type);
+  };
+  return <>
+    <div className="property-action-grid" style={{ marginBottom: 10 }}>
+      <Link className="btn btn-secondary btn-sm" href="/templates" onClick={() => store.saveToLibrary()}><LayoutTemplate size={13}/>Kho template</Link>
+      <Link className="btn btn-secondary btn-sm" href="/design-library" onClick={() => store.saveToLibrary()}><Palette size={13}/>Thư viện thiết kế</Link>
+    </div>
+    <div className="layout-grid">{templates.map((template) => <button className="layout-card" key={template.type} onClick={() => apply(template)}><div className="layout-preview" style={{ background: template.background }}/><strong>{template.name}</strong><span>{template.description}</span></button>)}</div>
+  </>;
 }
 
 function UploadPanel({ fileRef, status, setStatus }: { fileRef: RefObject<HTMLInputElement | null>; status: string; setStatus: (value: string) => void }) {
@@ -488,45 +499,49 @@ function UploadPanel({ fileRef, status, setStatus }: { fileRef: RefObject<HTMLIn
   const importFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     const list = Array.from(files);
+    // Preview-driven formats (image/PDF/DOCX/HTML) share a single preview slot — only the first
+    // one opens it; the rest are skipped with an explicit note instead of silently dropped.
+    let previewBusy = false;
+    let imported = 0;
+    const skipForPreview = (name: string) => { previewBusy = true; setStatus(`Bỏ qua ${name}: chỉ preview được một tệp mỗi lần — hãy chọn lại sau.`); };
     for (let index = 0; index < list.length; index += 1) {
       const file = list[index];
       setStatus(`Đang phân tích ${index + 1}/${list.length}: ${file.name}`);
       try {
         if (file.type.startsWith("image/") || /\.(?:png|jpe?g)$/i.test(file.name)) {
+          if (previewBusy) { skipForPreview(file.name); continue; }
           const inspection = await inspectImage(file);
-          setImageSource(inspection);
+          setImageSource(inspection); previewBusy = true;
           setStatus(`Ảnh ${inspection.metadata.pixelWidth}×${inspection.metadata.pixelHeight}px đã sẵn sàng. Chọn chế độ nhập trước khi commit.`);
-          return;
         }
         else if (file.name.toLowerCase().endsWith(".pdf")) {
+          if (previewBusy) { skipForPreview(file.name); continue; }
           const inspection = await inspectPdf(file);
-          setPdfSource({ file, inspection }); setPdfMode(inspection.recommendedMode); setPdfResult(null);
+          setPdfSource({ file, inspection }); setPdfMode(inspection.recommendedMode); setPdfResult(null); previewBusy = true;
           setStatus(`PDF có ${inspection.pageCount} trang; ${inspection.nativeTextPages} trang có text layer, ${inspection.scannedPages} trang có thể cần OCR.`);
-          return;
         } else if (file.name.toLowerCase().endsWith(".docx")) {
+          if (previewBusy) { skipForPreview(file.name); continue; }
           try {
             const preview = await importDocxToBookDocument(file, { bookId: store.book.id, organizationId: useAppStore.getState().workspace.id });
-            setWordPreview(preview);
+            setWordPreview(preview); previewBusy = true;
             setStatus(`Đã dựng preview Word: ${preview.statistics.headings} tiêu đề, ${preview.statistics.paragraphs} đoạn, ${preview.statistics.tables} bảng, ${preview.statistics.images} ảnh.`);
           } catch (clientError) {
             if (process.env.NEXT_PUBLIC_APP_MODE !== "production") throw clientError;
             const job = await queueDocxFallback(file, { bookId: store.book.id, organizationId: useAppStore.getState().workspace.id });
             setStatus(`Mammoth không đọc được file. Đã chuyển sang python-docx fallback${job?.id ? ` — Job ${job.id}` : ""}.`);
           }
-          return;
         } else if (/\.(?:x?html?|htm)$/i.test(file.name)) {
+          if (previewBusy) { skipForPreview(file.name); continue; }
           const preview = await previewHtmlFile(file, { bookId: store.book.id, organizationId: useAppStore.getState().workspace.id });
-          setHtmlPreview(preview);
+          setHtmlPreview(preview); previewBusy = true;
           setStatus(`Đã dựng preview HTML: ${preview.statistics.headings} tiêu đề, ${preview.statistics.paragraphs} đoạn, ${preview.statistics.tables} bảng, ${preview.statistics.images} ảnh.`);
-          return;
-        } else if (file.name.toLowerCase().endsWith(".txt")) store.importTextDocument(file.name.replace(/\.txt$/i, ""), await file.text());
+        } else if (/\.(?:txt|md|markdown)$/i.test(file.name)) { store.importTextDocument(file.name.replace(/\.(?:txt|md|markdown)$/i, ""), await file.text()); imported += 1; }
         else throw new Error("Định dạng chưa được hỗ trợ.");
       } catch (error) {
         setStatus(`Lỗi ${file.name}: ${error instanceof Error ? error.message : "Không xác định"}`);
-        return;
       }
     }
-    setStatus(`Hoàn tất nhập ${list.length} tệp. Hãy kiểm tra các trang vừa tạo.`);
+    if (!previewBusy && imported > 0) setStatus(`Hoàn tất nhập ${imported}/${list.length} tệp. Hãy kiểm tra các trang vừa tạo.`);
   };
   return <>
     {unifiedInputEnabled && <button className="upload-zone upload-zone-large unified-input-launch" onClick={() => router.push(`/input?bookId=${encodeURIComponent(store.book.id)}`)}><Upload size={31}/><strong>Mở Unified Input Gateway</strong><span>DOCX, PDF, Image, HTML, Markdown, TXT và URL trong một luồng duy nhất</span><small>Có session, preview, retry, recovery và atomic commit. Đây là luồng nhập mặc định từ 4.13.7.</small></button>}
@@ -655,7 +670,7 @@ function PageProperties() {
   return <>
     <PropertySection title="Trang hiện tại">
       <label className="property-field">Tên trang<input value={page.name} onChange={(event) => store.renamePage(page.id, event.target.value)}/></label>
-      <label className="property-field">Loại trang<select value={page.pageType ?? "blank"} onChange={(event) => store.applyPageTemplate(event.target.value as PageType)}><option value="blank">Trang trắng</option><option value="cover">Bìa</option><option value="chapter">Mở chương</option><option value="content">Nội dung</option><option value="checklist">Checklist</option><option value="gallery">Hình ảnh</option></select></label>
+      <label className="property-field">Loại trang<select value={page.pageType ?? "blank"} onChange={(event) => store.setPageType(page.id, event.target.value as PageType)}><option value="blank">Trang trắng</option><option value="cover">Bìa</option><option value="chapter">Mở chương</option><option value="content">Nội dung</option><option value="checklist">Checklist</option><option value="gallery">Hình ảnh</option></select></label>
       <label className="property-field">Màu nền<div className="color-control"><input type="color" value={safeColor(page.background)} onChange={(event) => store.setPageBackground(event.target.value)}/><input value={page.background} onChange={(event) => store.setPageBackground(event.target.value)}/></div></label>
     </PropertySection>
     <PropertySection title="Kích thước"><div className="property-grid"><label className="property-field">Rộng<input value={page.width} disabled/></label><label className="property-field">Cao<input value={page.height} disabled/></label></div><p className="property-note">Khổ A4 dọc chuẩn 794 × 1123 px. Bleed và vùng an toàn sẽ được bổ sung khi xuất file in.</p></PropertySection>

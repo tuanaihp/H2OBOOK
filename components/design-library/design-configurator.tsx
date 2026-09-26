@@ -48,6 +48,11 @@ export function DesignConfigurator({
 
   if (!brand) return null;
   const rows = bulkMode ? parseDesignCsv(csv) : [];
+  const missingRequired = template.fields.filter((item) => item.required && !(values[item.key] ?? "").trim());
+  const notices: string[] = [
+    ...(targetFormat !== template.baseFormat ? ["Thiết kế sẽ được Smart Resize sang kích thước mới — nên kiểm tra lại vị trí chữ và ảnh trước khi xuất bản."] : []),
+    ...(template.approvalRequired ? ["Mẫu này yêu cầu duyệt trước khi phát hành chính thức."] : [])
+  ];
   return <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className={styles.modal} role="dialog" aria-modal="true" aria-label={`Cấu hình ${template.name}`}>
       <header className={styles.modalHeader}>
@@ -70,6 +75,8 @@ export function DesignConfigurator({
           </div>
           <label className={styles.switchRow}><input type="checkbox" checked={useBrandKit} onChange={(event) => setUseBrandKit(event.target.checked)}/><span><Palette size={17}/>Áp dụng màu và font từ Brand Kit</span></label>
           <div className={styles.fieldsList}>{template.fields.map((item) => <label key={item.key}><span>{item.label}{item.required ? " *" : ""}</span>{item.type === "textarea" ? <textarea value={values[item.key] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} placeholder={item.placeholder}/> : <input type={item.type === "date" ? "text" : item.type} value={values[item.key] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} placeholder={item.placeholder}/>}</label>)}</div>
+          {notices.length > 0 && <div className={styles.bulkBox}>{notices.map((notice) => <p key={notice}>⚠ {notice}</p>)}</div>}
+          {missingRequired.length > 0 && <p style={{ color: "#b3261e", fontSize: 13, fontWeight: 600, margin: "0 0 10px" }}>Chưa điền trường bắt buộc: {missingRequired.map((item) => item.label).join(", ")}</p>}
           {allowBulk && template.bulkCapable && <div className={styles.bulkBox}>
             <button className={styles.bulkToggle} onClick={() => setBulkMode((current) => !current)}><FileSpreadsheet size={17}/>{bulkMode ? "Tắt tạo hàng loạt" : "Tạo hàng loạt bằng CSV"}</button>
             {bulkMode && <><p>Dòng đầu là tên Smart Field. Mỗi dòng tiếp theo tạo một thiết kế riêng.</p><textarea value={csv} onChange={(event) => setCsv(event.target.value)}/><strong>{rows.length} thiết kế sẽ được tạo</strong></>}
@@ -78,7 +85,7 @@ export function DesignConfigurator({
       </div>
       <footer className={styles.modalFooter}>
         <button className={styles.secondaryButton} onClick={onClose}>Hủy</button>
-        <button className={styles.primaryButton} onClick={() => onCreate({ values, targetFormat, brand, useBrandKit, bulkRows: bulkMode ? rows : undefined })} disabled={bulkMode && rows.length === 0}>
+        <button className={styles.primaryButton} onClick={() => onCreate({ values, targetFormat, brand, useBrandKit, bulkRows: bulkMode ? rows : undefined })} disabled={missingRequired.length > 0 || (bulkMode && rows.length === 0)}>
           {bulkMode ? <CopyPlus size={18}/> : <Sparkles size={18}/>}{bulkMode ? `Tạo ${rows.length} thiết kế` : "Tạo thiết kế và mở Editor"}
         </button>
       </footer>

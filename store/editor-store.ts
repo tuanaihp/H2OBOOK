@@ -76,6 +76,8 @@ type EditorState = {
   appendFlowContinuation: (chainId: string) => void;
   addPage: (type?: PageType) => void;
   applyPageTemplate: (type: PageType) => void;
+  /** Only relabels a page's type — does NOT replace its elements (use applyPageTemplate for that). */
+  setPageType: (id: string, type: PageType) => void;
   addImportedPage: (page: H2OPage) => void;
   importTextDocument: (title: string, text: string) => void;
   duplicatePage: (id: string) => void;
@@ -278,21 +280,27 @@ export const useEditorStore = create<EditorState>()(
       },
       addText: (preset = "body") => {
         const element = makeText(preset);
+        const offset = Math.min(5, activePage(get())?.elements.length ?? 0) * 26;
+        element.x += offset; element.y += offset;
         set((state) => ({ selectedIds: [element.id], book: { ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...page, elements: [...page.elements, element] } : page) }, dirty: true }));
         get().checkpoint();
       },
       addShape: (preset = "rectangle") => {
         const element = makeShape(preset);
+        const offset = Math.min(5, activePage(get())?.elements.length ?? 0) * 26;
+        element.x += offset; element.y += offset;
         set((state) => ({ selectedIds: [element.id], book: { ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...page, elements: [...page.elements, element] } : page) }, dirty: true }));
         get().checkpoint();
       },
       addLine: () => {
-        const element: H2OElement = { id: uid("line"), type: "line", name: "Đường phân cách", x: 150, y: 350, width: 490, height: 4, rotation: 0, opacity: 1, locked: false, hidden: false, fill: "#a44e73", stroke: "#a44e73", strokeWidth: 4, cornerRadius: 4, permissions: permissions({ canEditContent: false }) };
+        const offset = Math.min(5, activePage(get())?.elements.length ?? 0) * 26;
+        const element: H2OElement = { id: uid("line"), type: "line", name: "Đường phân cách", x: 150 + offset, y: 350 + offset, width: 490, height: 4, rotation: 0, opacity: 1, locked: false, hidden: false, fill: "#a44e73", stroke: "#a44e73", strokeWidth: 4, cornerRadius: 4, permissions: permissions({ canEditContent: false }) };
         set((state) => ({ selectedIds: [element.id], book: { ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...page, elements: [...page.elements, element] } : page) }, dirty: true }));
         get().checkpoint();
       },
       addQr: (value = "https://h2obook.vn") => {
-        const element: H2OElement = { id: uid("qr"), type: "qr", name: "QR Code", x: 285, y: 340, width: 220, height: 220, rotation: 0, opacity: 1, locked: false, hidden: false, fill: "#3f2531", qrValue: value, text: value, cornerRadius: 10, permissions: permissions({ canChangeColor: true }) };
+        const offset = Math.min(5, activePage(get())?.elements.length ?? 0) * 26;
+        const element: H2OElement = { id: uid("qr"), type: "qr", name: "QR Code", x: 285 + offset, y: 340 + offset, width: 220, height: 220, rotation: 0, opacity: 1, locked: false, hidden: false, fill: "#3f2531", qrValue: value, text: value, cornerRadius: 10, permissions: permissions({ canChangeColor: true }) };
         set((state) => ({ selectedIds: [element.id], book: { ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...page, elements: [...page.elements, element] } : page) }, dirty: true }));
         get().checkpoint();
       },
@@ -513,6 +521,10 @@ export const useEditorStore = create<EditorState>()(
       applyPageTemplate: (type) => {
         const template = makePage(type);
         set((state) => ({ selectedIds: [], book: renumberChapterLabels({ ...state.book, pages: state.book.pages.map((page) => page.id === state.activePageId ? { ...template, id: page.id, name: page.name === "Trang mới" ? template.name : page.name } : page), updatedAt: now() }), dirty: true }));
+        get().checkpoint();
+      },
+      setPageType: (id, type) => {
+        set((state) => ({ book: renumberChapterLabels({ ...state.book, pages: state.book.pages.map((page) => page.id === id ? { ...page, pageType: type } : page), updatedAt: now() }), dirty: true }));
         get().checkpoint();
       },
       addImportedPage: (page) => {

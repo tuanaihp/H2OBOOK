@@ -198,7 +198,7 @@ export const useAppStore = create<AppState>()(
         const base: H2OBook = {
           id: uid("book"), title: input.title ?? "Sách mới chưa đặt tên", subtitle: input.subtitle ?? "Bắt đầu xây dựng nội dung của bạn",
           author: input.author ?? get().workspace.ownerName, cover: input.cover ?? "linear-gradient(135deg,#4d1735,#9f5274,#f0c5d5)",
-          status: "draft", updatedAt: new Date().toISOString(), pages: [{ id: pageId, name: "Trang bìa", width: 794, height: 1123, background: "#fffaf7", elements: [] }]
+          status: "draft", updatedAt: new Date().toISOString(), pages: [{ id: pageId, name: "Trang bìa", pageType: "cover", width: 794, height: 1123, background: "#fffaf7", elements: [] }]
         };
         const record = toBookRecord({ ...base, ...input } as BookRecord);
         set((state) => ({ books: [record, ...state.books] }));

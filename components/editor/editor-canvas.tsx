@@ -163,7 +163,8 @@ export function EditorCanvas() {
   useEffect(() => {
     const exportHandler = () => {
       const url = stageRef.current?.toDataURL({ pixelRatio: 2 }); if (!url || !page) return;
-      const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${store.book.title}-${page.name}.png`; anchor.click();
+      const fileName = `${store.book.title}-${page.name}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "h2obook-page";
+      const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${fileName}.png`; anchor.click();
     };
     window.addEventListener("h2obook:export-page", exportHandler);
     return () => window.removeEventListener("h2obook:export-page", exportHandler);
