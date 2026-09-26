@@ -22,8 +22,8 @@ export default function LearningControlCenterPage() {
     { icon: LibraryBig, title: l("Kho tri thức & thư viện", "Knowledge & library"), purpose: l("Quản lý học liệu và gắn tài liệu vào lộ trình.", "Manage learning materials and link them to journeys."), href: "/academy-admin/content", stat: count(data?.documents) + l(" tài liệu", " documents") },
     { icon: School, title: l("Lớp học & nhóm", "Classes & cohorts"), purpose: l("Quản lý lớp, lịch học, học viên và giảng viên.", "Manage classes, schedules, students and instructors."), href: "/instructor/classes", stat: count(data?.classes) + l(" lớp", " classes") },
     { icon: BookOpenCheck, title: l("Bài tập & chấm bài", "Assignments & review"), purpose: l("Xem bài nộp và đánh giá theo tiêu chí chấm điểm.", "Review submissions and grade against rubric criteria."), href: "/instructor/assessments", stat: l("Mở danh sách cần chấm", "Open assessment queue") },
-    { icon: Brain, title: l("Ôn tập thông minh", "Smart review"), purpose: l("Thẻ ghi nhớ, lặp lại ngắt quãng và quy tắc ôn tập.", "Flashcards, spaced repetition and review rules."), href: null, stat: count(data?.flashcards) + l(" thẻ ghi nhớ", " flashcards") },
-    { icon: FileQuestion, title: l("Trắc nghiệm & đánh giá", "Quizzes & assessment"), purpose: l("Ngân hàng câu hỏi, bài trắc nghiệm và kiểm tra.", "Question banks, quizzes and tests."), href: null, stat: count(data?.quizzes) + l(" bài trắc nghiệm", " quizzes") }
+    { icon: Brain, title: l("Ôn tập thông minh", "Smart review"), purpose: l("Thẻ ghi nhớ, lặp lại ngắt quãng và quy tắc ôn tập.", "Flashcards, spaced repetition and review rules."), href: "/study", stat: count(data?.flashcards) + l(" thẻ ghi nhớ", " flashcards") },
+    { icon: FileQuestion, title: l("Trắc nghiệm & đánh giá", "Quizzes & assessment"), purpose: l("Ngân hàng câu hỏi, bài trắc nghiệm và kiểm tra.", "Question banks, quizzes and tests."), href: "/quizzes", stat: count(data?.quizzes) + l(" bài trắc nghiệm", " quizzes") }
   ];
   const filtered = modules.filter(item=>normalizeNavigationText(item.title+" "+item.purpose).includes(normalizeNavigationText(query)));
   const metrics = [

@@ -15,6 +15,7 @@ import {
 } from "@/lib/v3-seed";
 import { uid } from "@/lib/utils";
 import { runLocalSmart, localFlashcards } from "@/lib/local-smart-engine";
+import { buildBlockElements } from "@/lib/blocks/block-layouts";
 import { seedFlashcards, seedKnowledgeSources, seedLearningGoals, seedLearningNotes, seedReusableBlocks, seedSmartSettings, seedStudySessions } from "@/lib/v4-seed";
 import type { BrandProfile, H2OBook } from "@/types/editor";
 import type {
@@ -84,6 +85,11 @@ type AppState = {
   updateAssignment: (assignmentId: string, patch: Partial<Assignment>) => void;
   createQuiz: (input: Partial<Quiz> & Pick<Quiz, "title" | "bookId">) => Quiz;
   updateQuiz: (quizId: string, patch: Partial<Quiz>) => void;
+  deleteQuiz: (quizId: string) => void;
+  /** Snapshot a book page into the Block Library so its layout can be reused in other books. */
+  saveBlockFromPage: (input: { bookId: string; pageId: string; name?: string; category?: ReusableBlock["category"] }) => ReusableBlock | null;
+  /** Append a page built from a block (snapshot or preset) to a book. Returns the new page id. */
+  applyBlockToBook: (blockId: string, bookId: string) => string | null;
   createProduct: (input: Partial<Product> & Pick<Product, "name" | "type" | "referenceId">) => Product;
   updateProduct: (productId: string, patch: Partial<Product>) => void;
   createOrder: (input: Partial<Order> & Pick<Order, "customerName" | "customerEmail" | "productId">) => Order | null;
@@ -294,6 +300,36 @@ export const useAppStore = create<AppState>()(
         return quiz;
       },
       updateQuiz: (quizId, patch) => set((state) => ({ quizzes: state.quizzes.map((quiz) => quiz.id === quizId ? { ...quiz, ...patch } : quiz) })),
+      deleteQuiz: (quizId) => set((state) => ({ quizzes: state.quizzes.filter((quiz) => quiz.id !== quizId) })),
+      saveBlockFromPage: (input) => {
+        const book = get().books.find((item) => item.id === input.bookId);
+        const page = book?.pages.find((item) => item.id === input.pageId);
+        if (!book || !page) return null;
+        const block: ReusableBlock = {
+          id: uid("block"), name: input.name?.trim() || page.name || "Block mới", category: input.category ?? "lesson",
+          description: `Trích từ "${book.title}" · trang "${page.name}"`, preview: "⧉",
+          elementCount: page.elements.length, isSystem: false,
+          elements: structuredClone(page.elements), pageWidth: page.width, pageHeight: page.height, pageBackground: page.background
+        };
+        set((state) => ({ reusableBlocks: [block, ...state.reusableBlocks] }));
+        return block;
+      },
+      applyBlockToBook: (blockId, bookId) => {
+        const block = get().reusableBlocks.find((item) => item.id === blockId);
+        const book = get().books.find((item) => item.id === bookId);
+        if (!block || !book) return null;
+        const page = {
+          id: uid("page"), name: block.name, pageType: "content" as const,
+          width: block.pageWidth ?? book.pages[0]?.width ?? 794, height: block.pageHeight ?? book.pages[0]?.height ?? 1123,
+          background: block.pageBackground ?? "#fffdfb", elements: buildBlockElements(block)
+        };
+        const updated = { ...book, pages: [...book.pages, page], updatedAt: new Date().toISOString() };
+        set((state) => ({ books: state.books.map((item) => item.id === bookId ? updated : item) }));
+        if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
+          void fetch("/api/books/cloud-save", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId: get().workspace.id, book: updated }) }).catch(() => {});
+        }
+        return page.id;
+      },
       createProduct: (input) => {
         const product: Product = { id: uid("product"), type: input.type, referenceId: input.referenceId, name: input.name, description: input.description ?? "", cover: input.cover ?? "linear-gradient(135deg,#4b1835,#ad5d7d)", price: input.price ?? 0, compareAtPrice: input.compareAtPrice, billingInterval: input.billingInterval, status: input.status ?? "draft", sales: 0, revenue: 0 };
         set((state) => ({ products: [product, ...state.products] }));

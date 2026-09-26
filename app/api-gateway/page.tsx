@@ -81,6 +81,7 @@ export default function ApiGatewayPage() {
   }
 
   async function removeCredential(id: string) {
+    if (!confirm("Xoá kết nối API này? Key đã lưu sẽ bị xoá vĩnh viễn.")) return;
     setBusy(true);
     await api(`/api/enterprise/ai-providers/${id}?organizationId=${organizationId}`, { method: "DELETE" });
     setBusy(false);

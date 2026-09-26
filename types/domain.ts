@@ -1,4 +1,4 @@
-import type { BrandProfile, H2OBook } from "@/types/editor";
+import type { BrandProfile, H2OBook, H2OElement } from "@/types/editor";
 
 export type UserRole = "owner" | "admin" | "designer" | "partner" | "teacher" | "student";
 export type BookVisibility = "private" | "workspace" | "public";
@@ -450,6 +450,11 @@ export type ReusableBlock = {
   preview: string;
   elementCount: number;
   isSystem: boolean;
+  // Snapshot of the source page (present for user-saved blocks; system presets build one on demand).
+  elements?: H2OElement[];
+  pageWidth?: number;
+  pageHeight?: number;
+  pageBackground?: string;
 };
 
 export type AppDataExportV4 = Omit<AppDataExportV3, "version"> & {
