@@ -49,6 +49,10 @@ async function patchStage(session: OrchestratedInputSession, organizationId: str
   return body.session as OrchestratedInputSession;
 }
 
+const prettyInputError = (message: string) => message.startsWith("INPUT_INVALID_TRANSITION")
+  ? `Phiên nhập đã ở trạng thái khác (${message.split(":")[1] ?? "?"}) — bấm Recovery để đồng bộ lại.`
+  : message;
+
 export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string }) {
   const organizationId = useAppStore((state) => state.workspace.id);
   const libraryBooks = useAppStore((state) => state.books);
@@ -116,6 +120,29 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     finally { setBusy(false); }
   };
 
+  // A resumed session (same idempotency key) can come back in ANY status — including
+  // terminal `completed`. Walking it forward stage-by-stage only via legal transitions
+  // prevents INPUT_INVALID_TRANSITION when the user re-runs the same source.
+  const gateTerminal = (current: OrchestratedInputSession) => {
+    if (current.status === "completed") {
+      setSession(current);
+      if (current.preview) setPreview(current.preview);
+      setMessage("Nguồn này đã được nhập thành công — mở editor từ kết quả commit hoặc chọn nguồn/đích khác.");
+      return true;
+    }
+    if (current.status === "committing") { setSession(current); setMessage("Phiên đang ở bước commit — nếu bị kẹt hãy bấm Recovery."); return true; }
+    return false;
+  };
+
+  const advanceToProcessing = async (current: OrchestratedInputSession) => {
+    let next = current;
+    if (next.status === "created") next = await patchStage(next, organizationId, "detected", 8, "Đã nhận dạng nguồn nhập.");
+    if (["detected", "failed", "cancelled"].includes(next.status)) next = await patchStage(next, organizationId, "validating", 12, "Đang kiểm tra nguồn nhập.");
+    if (next.status === "correcting") next = await patchStage(next, organizationId, "preview", 85, "Khôi phục preview trước đó.");
+    if (next.status !== "processing") next = await patchStage(next, organizationId, "processing", 35, "Đang xử lý nội dung.");
+    return next;
+  };
+
   const processImageBatch = async () => {
     if (!source || source.kind !== "images") return;
     setBusy(true); setError("");
@@ -123,8 +150,8 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       const sourceDescriptor = { kind: "file" as const, fileName: `${source.files.length}-trang.png`, mimeType: "image/png", sizeBytes: source.files.reduce((sum, file) => sum + file.size, 0) };
       const result = await createOrResumeInputSession({ organizationId, sourceName: `Nhiều ảnh (${source.files.length} trang)`, mimeType: "image/png", format: "png", mode: "full_page", source: sourceDescriptor, destination: destination(true) });
       let current = result.session; setSession(current);
-      current = await patchStage(current, organizationId, "validating", 12, "Đang kiểm tra ảnh."); setSession(current);
-      current = await patchStage(current, organizationId, "processing", 35, "Đang tải và dựng trang."); setSession(current);
+      if (gateTerminal(current)) return;
+      current = await advanceToProcessing(current); setSession(current);
       const { pages, failures } = await buildPagesFromImages({ files: source.files, organizationId, onProgress: (done, total, fileName) => setMessage(`Đang xử lý ${done}/${total}: ${fileName}`) });
       if (!pages.length) throw new Error("IMAGE_BATCH_ALL_FAILED: không tạo được trang nào.");
       const title = destinationChoice === "new_book" ? `Sách từ ${pages.length} ảnh` : editor.book.title;
@@ -175,8 +202,8 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     setBusy(true); setError("");
     try {
       let current = await ensureSession(mode, mode === "fixed_layout" || mode === "asset" || mode === "full_page");
-      current = await patchStage(current, organizationId, "validating", 12, "Đang kiểm tra nguồn nhập."); setSession(current);
-      current = await patchStage(current, organizationId, "processing", 35, "Đang xử lý nội dung."); setSession(current);
+      if (gateTerminal(current)) return;
+      current = await advanceToProcessing(current); setSession(current);
       const bookId = destinationChoice === "new_book" ? `import-${crypto.randomUUID()}` : targetBookId || editor.book.id;
       let result: ImportDocument;
       let design: H2OBook | undefined;
@@ -218,7 +245,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
 
   const saveImageSemanticPreview = async (result: ImportDocument) => {
     setBusy(true); setError("");
-    try { let current = session ?? await ensureSession(mode); if (current.status === "detected") current = await patchStage(current, organizationId, "validating", 12, "Đang kiểm tra ảnh."); if (current.status === "validating") current = await patchStage(current, organizationId, "processing", 35, "Đang chuẩn hóa kết quả ảnh."); await stagePreview(current, result); setImageInspection(null); }
+    try { let current = session ?? await ensureSession(mode); if (gateTerminal(current)) return; current = await advanceToProcessing(current); await stagePreview(current, result); setImageInspection(null); }
     catch (nextError) { setError(nextError instanceof Error ? nextError.message : "IMAGE_PREVIEW_FAILED"); }
     finally { setBusy(false); }
   };
@@ -228,8 +255,8 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     setBusy(true); setError("");
     try {
       let current = session ?? await ensureSession(kind === "asset" ? "asset" : "full_page", true);
-      if (current.status === "detected") current = await patchStage(current, organizationId, "validating", 12, "Đang kiểm tra ảnh.");
-      if (current.status === "validating") current = await patchStage(current, organizationId, "processing", 35, "Đang tạo design payload.");
+      if (gateTerminal(current)) return;
+      current = await advanceToProcessing(current);
       let nextBook: H2OBook;
       if (kind === "full_page" && value.page) nextBook = makeDesignBook(editor.book, [value.page], destinationChoice, source.file.name.replace(/\.[^.]+$/, ""));
       else {
@@ -248,6 +275,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
 
   const commit = async () => {
     if (!session || !preview) return;
+    if (session.status === "completed" && session.commitResult) { setMessage("Phiên này đã commit — mở editor từ đường dẫn kết quả."); return; }
     setBusy(true); setError("");
     try {
       const result = await commitOrchestratedInput({ organizationId, session, destination: destination(Boolean(designPayload)) });
@@ -310,7 +338,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
 
     {!imageInspection && source && <div className="input-action-row"><button className="btn btn-primary" disabled={busy} onClick={() => void (isImageBatch ? processImageBatch() : process())}>{busy ? <Loader2 className="spin"/> : <Play/>} Xử lý & tạo preview</button><button className="btn btn-secondary" disabled={busy} onClick={() => void cancel()}><XCircle/> Hủy</button>{session && ["failed","cancelled","recovery_required"].includes(session.status) && <button className="btn btn-secondary" onClick={() => void retry()}><RefreshCw/> Retry</button>}{session && <button className="btn btn-secondary" onClick={() => void recover()}><RotateCcw/> Recovery</button>}</div>}
 
-    <div className="input-stage-message">{error ? <AlertTriangle/> : session?.status === "completed" ? <CheckCircle2/> : <FileText/>}<span>{error || message}</span></div>
+    <div className="input-stage-message">{error ? <AlertTriangle/> : session?.status === "completed" ? <CheckCircle2/> : <FileText/>}<span>{error ? prettyInputError(error) : message}</span></div>
     {session && <div className="input-progress"><div style={{ width: `${session.progress}%` }}/></div>}
 
     {preview && <section className="unified-preview">
