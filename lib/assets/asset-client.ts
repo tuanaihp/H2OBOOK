@@ -1,6 +1,6 @@
 import { readLocalAsset, saveLocalAsset } from "./local-asset-store";
 
-export type UploadedAsset = { assetId: string; previewUrl: string; mode: "local" | "cloud"; storageKey?: string; mimeType?: string; fileName?: string; scanStatus?: string; scanReason?: string };
+export type UploadedAsset = { assetId: string; previewUrl: string; mode: "local" | "cloud"; storageKey?: string; mimeType?: string; fileName?: string; scanStatus?: string; scanReason?: string; degradedReason?: string };
 
 function localId() { return `local:${crypto.randomUUID()}`; }
 
@@ -44,6 +44,7 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   }
   // Step-tagged errors: a bare "Failed to fetch" tells nobody which of the four network hops
   // (presign → R2 PUT → proxy fallback → complete) actually died on production.
+  try {
   let presign: Response;
   try {
     presign = await fetch("/api/storage/presign-upload", {
@@ -105,6 +106,18 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   if (!result?.asset) throw new Error(`COMPLETE_${complete.status}: Không thể xác nhận file đã tải lên.`);
   if (result.scan?.status === "blocked") throw new Error(`UPLOAD_BLOCKED: ${result.scan.reason ?? "file không đạt kiểm tra an toàn"}`);
   return { assetId: result.asset.id, previewUrl: URL.createObjectURL(file), mode: "cloud", storageKey: result.asset.storage_key ?? signed.key, mimeType: result.asset.mime_type ?? file.type, fileName: result.asset.original_name ?? file.name, scanStatus: result.scan?.status ?? result.asset.quarantine_status, scanReason: result.scan?.reason };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "UPLOAD_FAILED";
+    // Content rejections must not silently downgrade to local — the caller needs the verdict.
+    if (/^(UPLOAD_BLOCKED|PRESIGN_400|COMPLETE_400)/.test(reason)) throw error;
+    // Infrastructure failures (auth expired, workspace missing, presign/proxy/complete down,
+    // R2 unreachable or misconfigured) keep the import usable: the asset persists in
+    // IndexedDB as local:<id> and resolves via resolveAssetUrl like any demo-mode asset.
+    console.warn("[H2OBOOK upload] cloud path failed, storing locally:", reason);
+    const assetId = localId();
+    await saveLocalAsset(assetId, file);
+    return { assetId, previewUrl: URL.createObjectURL(file), mode: "local", mimeType: file.type, fileName: file.name, degradedReason: reason };
+  }
 }
 
 export async function resolveAssetUrl(assetId: string) {

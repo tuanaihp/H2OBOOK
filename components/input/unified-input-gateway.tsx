@@ -180,6 +180,8 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       placeholder.metadata.designImport = true; placeholder.metadata.pageCount = pages.length;
       if (failures.length) placeholder.warnings = [...placeholder.warnings, ...failures.map((f) => ({ code: "IMAGE_BATCH_FILE_FAILED", message: `${f.fileName}: ${f.reason}`, severity: "warning" as const }))];
       if (source.zipWarnings?.length) placeholder.warnings = [...placeholder.warnings, ...source.zipWarnings.map((w) => ({ code: "ZIP_ENTRY_SKIPPED", message: `${w.entryName}: ${w.reason}`, severity: "info" as const }))];
+      const localOnlyPages = pages.filter((page) => String(page.elements[0]?.assetId ?? "").startsWith("local:")).length;
+      if (localOnlyPages) placeholder.warnings = [...placeholder.warnings, { code: "ASSETS_LOCAL_ONLY", message: `${localOnlyPages} trang lưu cục bộ trên thiết bị này — cloud upload không khả dụng (chưa đăng nhập hoặc storage chưa cấu hình). Sách vẫn đọc/chỉnh được trong trình duyệt này.`, severity: "warning" as const }];
       await stagePreview(current, placeholder, design);
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "IMAGE_BATCH_PROCESS_FAILED"); setMessage("Xử lý chưa hoàn thành."); }
     finally { setBusy(false); }
@@ -257,6 +259,8 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
           design = makeDesignBook(editor.book, pages, destinationChoice, source.file.name.replace(/\.pdf$/i, ""));
           result = plainTextToImportDocument({ sourceFileName: source.file.name, text: `PDF fixed-layout gồm ${pages.length} trang. Nội dung được lưu trong design payload.`, format: "txt", bookId: design.id, organizationId });
           result.metadata.designImport = true; result.metadata.pageCount = pages.length;
+          const localPages = pages.filter((page) => String(page.elements[0]?.assetId ?? "").startsWith("local:")).length;
+          if (localPages) result.warnings = [...result.warnings, { code: "ASSETS_LOCAL_ONLY", message: `${localPages} trang lưu cục bộ trên thiết bị này — cloud upload không khả dụng (chưa đăng nhập hoặc storage chưa cấu hình). Sách vẫn đọc/chỉnh được trong trình duyệt này.`, severity: "warning" as const }];
         } else if (mode === "ocr") result = await reconstructPdfWithWorker(source.file, { bookId, organizationId, mode: "ocr", onProgress: (status, progress) => setMessage(`OCR PDF: ${status} ${Math.round(progress)}%`), onJobCreated: (jobId) => linkWorkerJob(current, jobId) });
         else {
           try { result = await reconstructPdfWithWorker(source.file, { bookId, organizationId, mode: "editable_content", onProgress: (status, progress) => setMessage(`PDF: ${status} ${Math.round(progress)}%`), onJobCreated: (jobId) => linkWorkerJob(current, jobId) }); }
