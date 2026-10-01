@@ -64,7 +64,9 @@ function CanvasImage({ element, selected, onSelect, onChange, snapToGrid, gridSi
     let cancelled = false;
     let resolvedUrl: string | null = null;
     const load = async () => {
-      resolvedUrl = element.imageUrl ?? (element.assetId ? await resolveAssetUrl(element.assetId) : null);
+      resolvedUrl = element.imageUrl && !element.imageUrl.startsWith("blob:")
+        ? element.imageUrl
+        : (element.assetId ? await resolveAssetUrl(element.assetId) : null) ?? element.imageUrl ?? null;
       if (!resolvedUrl || cancelled) { if (!cancelled) setImage(null); return; }
       const img = new window.Image();
       img.crossOrigin = "anonymous";

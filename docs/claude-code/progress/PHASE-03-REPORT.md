@@ -36,3 +36,17 @@ The source has passed structural, import, transpile, Python compile and pure sem
 ## Next phase
 
 Phase 4 — Image Smart Import.
+
+## Addendum — server-side fixed-layout + persistent image URLs (post-acceptance fix)
+
+Production findings: browser `renderPdfFixedLayout` froze in background tabs (canvas/timers throttled) and persisted `blob:` preview URLs into `imageUrl`, which died after reload → blank pages in editor and reader.
+
+Changes:
+
+- `renderPdfFixedLayoutWithWorker()` in `lib/input/pdf-import.ts`: uploads the PDF source once, enqueues the existing `pdf_import` PyMuPDF job, polls `/api/jobs/:id`, then materializes rendered page PNGs into real asset rows via `/api/input/pdf/materialize-assets` (durable signed `previewUrl` + `assetId` per page). Page dimensions reused from `inspectPdf` viewport sizes.
+- Gateway `fixed_layout` branch tries the worker first in production, falls back to browser rasterization with an explicit message.
+- `imageUrl` writes now omit `blob:` URLs (ephemeral); `assetId` is the canonical reference.
+- `CanvasImage` and `ReaderImage` resolve `assetId` when `imageUrl` is a dead `blob:` — repairs books committed before this fix.
+- `visibilitychange` notice during processing explains background-tab throttling.
+
+Tests: `pnpm typecheck` ✓, eslint touched files 0 errors, `pnpm test` 308/308 ✓, `validate:input-phase2`/`input-phase3`/`imports`/`editor412` ✓. `validate:input-phase4` blocked by missing Tesseract binary on this machine (environment, not a regression). Production worker/R2 path not exercised locally — requires deployed stack.

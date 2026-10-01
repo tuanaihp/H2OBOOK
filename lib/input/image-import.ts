@@ -127,7 +127,7 @@ export function buildImageElement(asset: UploadedAsset, metadata: ImageMetadata,
     id: uid("image"), type: "image", name: metadata.fileName,
     x: (pageWidth - width) / 2, y: (pageHeight - height) / 2,
     width, height, rotation: 0, opacity: 1, locked: false, hidden: false,
-    assetId: asset.assetId, imageUrl: asset.previewUrl, imageFit: "contain", cornerRadius: 0,
+    assetId: asset.assetId, imageUrl: asset.previewUrl?.startsWith("blob:") ? undefined : asset.previewUrl, imageFit: "contain", cornerRadius: 0,
     altText: metadata.fileName.replace(/\.[^.]+$/, ""), caption: "",
     imageMetadata: {
       pixelWidth: metadata.pixelWidth, pixelHeight: metadata.pixelHeight,
@@ -147,7 +147,7 @@ export function buildFullPageImage(asset: UploadedAsset, metadata: ImageMetadata
     elements: [{
       id: uid("image"), type: "image", name: `Nền ${metadata.fileName}`,
       x: 0, y: 0, width, height, rotation: 0, opacity: 1, locked: true, hidden: false,
-      assetId: asset.assetId, imageUrl: asset.previewUrl, imageFit: "fill", cornerRadius: 0,
+      assetId: asset.assetId, imageUrl: asset.previewUrl?.startsWith("blob:") ? undefined : asset.previewUrl, imageFit: "fill", cornerRadius: 0,
       altText: metadata.fileName.replace(/\.[^.]+$/, ""), caption: "",
       imageMetadata: {
         pixelWidth: metadata.pixelWidth, pixelHeight: metadata.pixelHeight,

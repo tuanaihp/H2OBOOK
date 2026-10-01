@@ -340,14 +340,16 @@ function ReaderElement({ element }: { element: H2OElement }) {
 }
 
 function ReaderImage({ element, style }: { element: H2OElement; style: React.CSSProperties }) {
-  const [source, setSource] = useState<string | null>(element.imageUrl ?? null);
+  const durableUrl = element.imageUrl && !element.imageUrl.startsWith("blob:") ? element.imageUrl : null;
+  const [source, setSource] = useState<string | null>(durableUrl);
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
-    if (!element.assetId || element.imageUrl) { setSource(element.imageUrl ?? null); return; }
-    void resolveAssetUrl(element.assetId).then((url) => { objectUrl = url; if (!cancelled) setSource(url); });
+    if (durableUrl) { setSource(durableUrl); return; }
+    if (!element.assetId) { setSource(element.imageUrl ?? null); return; }
+    void resolveAssetUrl(element.assetId).then((url) => { objectUrl = url; if (!cancelled) setSource(url ?? element.imageUrl ?? null); });
     return () => { cancelled = true; if (objectUrl?.startsWith("blob:")) URL.revokeObjectURL(objectUrl); };
-  }, [element.assetId, element.imageUrl]);
+  }, [element.assetId, element.imageUrl, durableUrl]);
   return source ? <img alt={element.altText ?? element.name} src={source} loading="lazy" decoding="async" style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/> : <div aria-label={element.altText ?? element.name} style={{ ...style, background: "#eef1f4", borderRadius: element.cornerRadius }}/>;
 }
 

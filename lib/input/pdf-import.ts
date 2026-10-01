@@ -206,7 +206,7 @@ export async function renderPdfFixedLayout(file: File, input: { organizationId?:
         id: uid("page"), name: `${file.name} — ${pageNumber}`, pageType: "imported", width: targetWidth, height: targetHeight, background: "#ffffff",
         elements: [{
           id: uid("image"), type: "image", name: "Trang PDF gốc", x: 0, y: 0, width: targetWidth, height: targetHeight, rotation: 0, opacity: 1,
-          locked: true, hidden: false, assetId: asset.assetId, imageUrl: asset.previewUrl, altText: `Trang ${pageNumber} của ${file.name}`,
+          locked: true, hidden: false, assetId: asset.assetId, imageUrl: asset.previewUrl?.startsWith("blob:") ? undefined : asset.previewUrl, altText: `Trang ${pageNumber} của ${file.name}`,
           caption: "", imageFit: "fill", permissions: { canEditContent: false, canMove: false, canResize: false, canDelete: false, canChangeColor: false, canReplaceAsset: false, canChangeFont: false, canRotate: false },
         }],
       });
@@ -230,6 +230,50 @@ async function pollJob(id: string, onProgress?: (status: string, progress: numbe
     await new Promise((resolve) => window.setTimeout(resolve, 1100));
   }
   throw new Error("IMPORT_JOB_TIMEOUT");
+}
+
+export async function renderPdfFixedLayoutWithWorker(file: File, input: { organizationId?: string; pageSizes?: Array<{ width: number; height: number }>; onProgress?: (status: string, progress: number) => void; onJobCreated?: (jobId: string) => void | Promise<void> }): Promise<H2OPage[]> {
+  const source = await uploadAsset(file, { organizationId: input.organizationId, category: "pdf-sources", assetType: "pdf-source" });
+  if (!source.storageKey || source.assetId.startsWith("local:")) throw new Error("PDF_SOURCE_STORAGE_REQUIRED");
+  if (source.scanStatus && source.scanStatus !== "clean") throw new Error(source.scanStatus === "blocked" ? "ASSET_SCAN_BLOCKED" : "ASSET_SCAN_PENDING");
+  const response = await fetch("/api/jobs", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ organizationId: input.organizationId, type: "pdf_import", input: { storageKey: source.storageKey, assetId: source.assetId, dpi: 160 } }),
+  });
+  const payload = await response.json().catch(() => null) as { job?: QueueJob; error?: string } | null;
+  if (!response.ok || !payload?.job?.id) throw new Error(payload?.error || "PDF_JOB_QUEUE_FAILED");
+  await input.onJobCreated?.(payload.job.id);
+  const output = await pollJob(payload.job.id, input.onProgress);
+  const rendered = Array.isArray(output.pages) ? output.pages as Array<{ key?: string; contentType?: string }> : [];
+  if (!rendered.length) throw new Error("PDF_RENDER_EMPTY");
+  const materializedResponse = await fetch("/api/input/pdf/materialize-assets", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      organizationId: input.organizationId,
+      sourceAssetId: source.assetId,
+      assets: rendered.map((item, index) => ({ storageKey: item.key, fileName: `${file.name.replace(/\.pdf$/i, "")}-page-${index + 1}.png`, mimeType: item.contentType ?? "image/png" })),
+    }),
+  });
+  const materializedPayload = await materializedResponse.json().catch(() => null) as { assets?: Array<{ assetId: string; previewUrl: string }>; error?: string } | null;
+  if (!materializedResponse.ok) throw new Error(materializedPayload?.error || "PDF_ASSET_MATERIALIZATION_FAILED");
+  const assets = materializedPayload?.assets ?? [];
+  if (assets.length !== rendered.length) throw new Error("PDF_ASSET_MATERIALIZATION_INCOMPLETE");
+  const lockedPermissions = { canEditContent: false, canMove: false, canResize: false, canDelete: false, canChangeColor: false, canReplaceAsset: false, canChangeFont: false, canRotate: false };
+  const pages: H2OPage[] = rendered.map((item, index) => {
+    const asset = assets[index];
+    const sourceSize = input.pageSizes?.[index];
+    const targetWidth = 794;
+    const targetHeight = sourceSize ? Math.max(300, Math.round(targetWidth * sourceSize.height / Math.max(1, sourceSize.width))) : 1123;
+    return {
+      id: uid("page"), name: `${file.name} — ${index + 1}`, pageType: "imported", width: targetWidth, height: targetHeight, background: "#ffffff",
+      elements: [{
+        id: uid("image"), type: "image", name: "Trang PDF gốc", x: 0, y: 0, width: targetWidth, height: targetHeight, rotation: 0, opacity: 1,
+        locked: true, hidden: false, assetId: asset.assetId, imageUrl: asset.previewUrl, altText: `Trang ${index + 1} của ${file.name}`,
+        caption: "", imageFit: "fill", permissions: lockedPermissions,
+      }],
+    };
+  });
+  return pages;
 }
 
 export async function reconstructPdfWithWorker(file: File, input: { bookId: string; organizationId?: string; title?: string; mode: "editable_content" | "ocr"; onProgress?: (status: string, progress: number) => void; onJobCreated?: (jobId: string) => void | Promise<void> }): Promise<ImportDocument> {

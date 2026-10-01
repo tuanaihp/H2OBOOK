@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileArchive, FileImage, FileStack, FileText, Globe2, Loader2, Play, RefreshCw, RotateCcw, Save, Upload, XCircle } from "lucide-react";
 import type { H2OBook, H2OElement, H2OPage } from "@/types/editor";
 import type { ImportDocument, InputDestinationConfig, InputMode, InputSessionStatus, OrchestratedInputSession } from "@h2obook/input-core";
@@ -8,7 +8,7 @@ import { detectInputFormat, extractSessionOutline, inputModeMatrix, isHttpUrl, p
 import { useAppStore } from "@/store/app-store";
 import { useEditorStore } from "@/store/editor-store";
 import { importDocxToBookDocument } from "@/lib/input/word-import";
-import { inspectPdf, reconstructPdfInBrowser, reconstructPdfWithWorker, renderPdfFixedLayout, type PdfInspection } from "@/lib/input/pdf-import";
+import { inspectPdf, reconstructPdfInBrowser, reconstructPdfWithWorker, renderPdfFixedLayout, renderPdfFixedLayoutWithWorker, type PdfInspection } from "@/lib/input/pdf-import";
 import { inspectImage, type ImageInspection } from "@/lib/input/image-import";
 import { buildPagesFromImages, naturalSortImageFiles } from "@/lib/input/image-batch-import";
 import { extractImagesFromZip } from "@/lib/input/zip-import";
@@ -35,6 +35,8 @@ const MODE_LABELS: Record<InputMode, string> = {
   manual_regions: "Chọn vùng thủ công",
 };
 const IMAGE_BOOK_IMPORT_ENABLED = process.env.NEXT_PUBLIC_IMAGE_BOOK_IMPORT_V1 !== "false";
+// Module-scope so the local `process()` function inside the component cannot shadow `process.env`.
+const IS_PRODUCTION_MODE = process.env.NEXT_PUBLIC_APP_MODE === "production";
 type DestinationChoice = "new_book" | "append_chapter" | "replace_document";
 
 type SourceState = { kind: "file"; file: File } | { kind: "url"; url: string } | { kind: "images"; files: File[]; zipWarnings?: { entryName: string; reason: string }[] } | null;
@@ -82,6 +84,15 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
   const [error, setError] = useState("");
 
   const format = useMemo(() => source?.kind === "url" ? "url" : source?.kind === "file" ? detectInputFormat({ fileName: source.file.name, mimeType: source.file.type }) : null, [source]);
+
+  useEffect(() => {
+    if (!busy) return;
+    const onVisibility = () => {
+      if (document.hidden) setMessage("Tab đang bị ẩn — trình duyệt làm chậm xử lý nền. Giữ tab này mở để nhanh nhất; job trên server vẫn chạy tiếp.");
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [busy]);
   const isImageBatch = source?.kind === "images";
   const modes = format ? inputModeMatrix[format] : [];
   const warningSummary = preview ? summarizeWarnings(preview.warnings) : null;
@@ -162,7 +173,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       if (gateTerminal(current)) return;
       current = await advanceToProcessing(current); setSession(current);
       const { pages, failures } = await buildPagesFromImages({ files: source.files, organizationId, onProgress: (done, total, fileName) => setMessage(`Đang xử lý ${done}/${total}: ${fileName}`) });
-      if (!pages.length) throw new Error("IMAGE_BATCH_ALL_FAILED: không tạo được trang nào.");
+      if (!pages.length) throw new Error(`IMAGE_BATCH_ALL_FAILED: không tạo được trang nào. ${failures.slice(0, 4).map((f) => `${f.fileName}: ${f.reason}`).join(" | ") || ""}`.trim());
       const title = destinationChoice === "new_book" ? `Sách từ ${pages.length} ảnh` : editor.book.title;
       const design = makeDesignBook(editor.book, pages, destinationChoice, title);
       const placeholder = plainTextToImportDocument({ sourceFileName: sourceDescriptor.fileName, text: `Đã tạo ${pages.length} trang từ ảnh.${failures.length ? ` ${failures.length} ảnh lỗi: ${failures.map((f) => f.fileName).join(", ")}.` : ""}`, format: "txt", bookId: design.id, organizationId });
@@ -227,7 +238,22 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       } else if (format === "markdown" || format === "txt") result = plainTextToImportDocument({ sourceFileName: source.file.name, text: await source.file.text(), format, bookId, organizationId });
       else if (format === "pdf") {
         if (mode === "fixed_layout") {
-          const pages = await renderPdfFixedLayout(source.file, { organizationId, progress: (currentPage, total) => setMessage(`Đang dựng trang PDF ${currentPage}/${total}...`) });
+          let pages: H2OPage[] | null = null;
+          if (IS_PRODUCTION_MODE) {
+            // Server-side PyMuPDF rasterization keeps running even when this tab is
+            // backgrounded — browser canvas rendering is throttled to ~1fps there.
+            try {
+              pages = await renderPdfFixedLayoutWithWorker(source.file, {
+                organizationId,
+                pageSizes: pdfInspection?.pages,
+                onProgress: (status, progress) => setMessage(`Server đang dựng trang PDF: ${status} ${Math.round(progress)}%`),
+                onJobCreated: (jobId) => linkWorkerJob(current, jobId),
+              });
+            } catch (workerError) {
+              setMessage(`Render trên server không khả dụng (${workerError instanceof Error ? workerError.message : "lỗi không rõ"}) — chuyển sang dựng trong trình duyệt, hãy giữ tab này mở.`);
+            }
+          }
+          pages ??= await renderPdfFixedLayout(source.file, { organizationId, progress: (currentPage, total) => setMessage(`Đang dựng trang PDF ${currentPage}/${total} — giữ tab này mở để nhanh nhất...`) });
           design = makeDesignBook(editor.book, pages, destinationChoice, source.file.name.replace(/\.pdf$/i, ""));
           result = plainTextToImportDocument({ sourceFileName: source.file.name, text: `PDF fixed-layout gồm ${pages.length} trang. Nội dung được lưu trong design payload.`, format: "txt", bookId: design.id, organizationId });
           result.metadata.designImport = true; result.metadata.pageCount = pages.length;

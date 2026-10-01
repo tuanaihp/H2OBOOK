@@ -41,3 +41,11 @@ The source has passed structural, import, TypeScript transpile, Python compile, 
 ## Next phase
 
 Phase 5 — HTML Import 2.0.
+
+## Addendum — image batch diagnostics + durable page URLs (post-acceptance fix)
+
+- `IMAGE_BATCH_ALL_FAILED` now surfaces per-file failure reasons (first 4) instead of a bare code.
+- `buildFullPageImage`/`buildImageElement` no longer persist `blob:` preview URLs into `imageUrl`; readers/canvas resolve `assetId` → fresh URL (IndexedDB blob locally, `/api/assets/:id/url` signed URL in production).
+- Partial batch failures were already surfaced as `IMAGE_BATCH_FILE_FAILED` warnings in preview — unchanged.
+
+Same validation results as the PHASE-03 addendum. Root cause of a full batch failure is systemic (presign/complete/R2 CORS or network) and is now visible in the error text.
