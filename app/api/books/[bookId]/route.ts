@@ -13,10 +13,10 @@ import { isR2Configured } from "@/lib/runtime-config";
  * time objects are removed, so a failed delete is reported in `r2ObjectsFailed` for follow-up
  * sweeping rather than pretending the book still exists.
  */
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;
-  const { id } = await params;
+  const { bookId } = await params;
   const organizationId = new URL(request.url).searchParams.get("organizationId") ?? undefined;
   // Same role set the save path uses — anyone who can write a book may delete one.
   const access = await resolveOrganizationAccess(auth.user!, organizationId, ["owner", "admin", "designer", "partner", "teacher"]);
@@ -29,7 +29,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   const { data, error } = await supabase.rpc("delete_book_permanently", {
     p_organization_id: access.organizationId,
-    p_client_key: id
+    p_client_key: bookId
   });
   if (error) {
     return NextResponse.json({ error: "BOOK_DELETE_FAILED", message: "Không xóa được sách. Thử lại sau.", retryable: true }, { status: 500 });
