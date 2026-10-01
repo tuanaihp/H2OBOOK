@@ -28,14 +28,22 @@ const demoUser: CurrentUser = {
 // caller reuses the first result instead of repeating ~3 network round trips.
 export const getCurrentUser = cache(async function getCurrentUser(): Promise<CurrentUser | null> {
   if (getAppMode() === "demo") return demoUser;
-  const supabase = await createSupabaseServerClient();
+  let supabase;
+  try { supabase = await createSupabaseServerClient(); }
+  catch (error) { console.error("[H2OBOOK auth] createSupabaseServerClient threw:", error instanceof Error ? error.message : error); return null; }
   if (!supabase) return null;
-  const { data: { user } } = await supabase.auth.getUser();
+  // Auth or profile lookups must never throw: an upstream auth failure used to escape the
+  // route try/catch and render the whole API as a non-JSON 500 page. Returning null keeps the
+  // honest answer — UNAUTHENTICATED — without taking down every endpoint at once.
+  let user;
+  try {
+    ({ data: { user } } = await supabase.auth.getUser());
+  } catch (error) { console.error("[H2OBOOK auth] getUser threw:", error instanceof Error ? error.message : error); return null; }
   if (!user) return null;
 
   const [{ data: profile }, { data: membership }] = await Promise.all([
-    supabase.from("profiles").select("full_name,phone").eq("id", user.id).maybeSingle(),
-    supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle()
+    supabase.from("profiles").select("full_name,phone").eq("id", user.id).maybeSingle().then((res) => res, () => ({ data: null })),
+    supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle().then((res) => res, () => ({ data: null }))
   ]);
   const metadata = user.user_metadata ?? {};
   const dbRole = membership?.role;

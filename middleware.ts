@@ -117,11 +117,21 @@ export async function middleware(request: NextRequest) {
   // rules keep their original conditions, each of which implies needsRole.
   const needsRole = mayRedirectStudent || isAdminOnlyRoute || isAuthEntryRoute;
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Auth failure must never take the whole request down — previously a Supabase hiccup here
+  // turned every /api/* and page call into a non-JSON 500. Let the request through instead:
+  // route-level requireApiUser still enforces authentication and answers with JSON.
+  let user = null;
   let memberRole: string | null = null;
-  if (user && needsRole) {
-    const { data: membership } = await supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle();
-    memberRole = membership?.role ?? null;
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    user = authUser;
+    if (user && needsRole) {
+      const { data: membership } = await supabase.from("organization_members").select("role").eq("user_id", user.id).eq("status", "active").order("created_at", { ascending: true }).limit(1).maybeSingle();
+      memberRole = membership?.role ?? null;
+    }
+  } catch (error) {
+    console.error("[H2OBOOK middleware] auth check threw — passing request through:", error instanceof Error ? error.message : error);
+    return response;
   }
   if (!user && !isPublic) {
     const login = request.nextUrl.clone();

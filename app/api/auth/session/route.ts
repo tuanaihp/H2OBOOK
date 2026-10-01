@@ -8,7 +8,9 @@ function deviceLabel(userAgent: string) {
 }
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  let user = null;
+  try { user = await getCurrentUser(); }
+  catch { return NextResponse.json({ error: "SESSION_UNAVAILABLE", message: "Dịch vụ xác thực tạm lỗi — thử lại sau.", retryable: true }, { status: 503 }); }
   const userAgent = request.headers.get("user-agent") ?? "";
   return NextResponse.json({
     user,
