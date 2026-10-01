@@ -126,7 +126,13 @@ export async function resolveAssetUrl(assetId: string) {
     return blob ? URL.createObjectURL(blob) : null;
   }
   const response = await fetch(`/api/assets/${encodeURIComponent(assetId)}/url`, { cache: "no-store" });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    // Surface the real failure (401 auth, 403 workspace, 404 missing, 503 no DB) — a bare
+    // null leaves blank pages with no diagnosable reason.
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    console.warn(`[H2OBOOK] asset url resolve failed: ${assetId} → ${response.status} ${body?.error ?? ""}`.trim());
+    return null;
+  }
   const payload = await response.json() as { url?: string | null };
   return payload.url ?? null;
 }
