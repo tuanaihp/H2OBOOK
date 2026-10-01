@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiUser, resolveOrganizationAccess } from "@/lib/auth/api";
 import { enqueueDocumentJob, listDocumentJobs, type DocumentJobType } from "@/lib/queue/document-queue";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { readJsonBody } from "@/lib/security/request-limits";
 import { rateLimit, requestIdentity } from "@/lib/security/rate-limit";
 import { inputErrorResponse } from "@/lib/input/api-errors";
@@ -38,8 +39,32 @@ export async function POST(request: Request) {
   try {
     const body = await readJsonBody<{ organizationId?: string; type?: DocumentJobType; input?: Record<string, unknown> }>(request, 3 * 1024 * 1024);
     if (!body.type) throw new Error("TYPE_REQUIRED");
-    const access = await resolveOrganizationAccess(auth.user!, body.organizationId, ["owner", "admin", "designer", "partner", "teacher"]);
+    const studentNoteOcr = body.type === "ocr" && body.input?.purpose === "student_note_ocr";
+    const access = await resolveOrganizationAccess(auth.user!, body.organizationId, studentNoteOcr
+      ? ["owner", "admin", "designer", "partner", "teacher", "student"]
+      : ["owner", "admin", "designer", "partner", "teacher"]);
     if (!access) throw new Error("WORKSPACE_FORBIDDEN");
+    if (access.role === "student") {
+      const classSessionId = typeof body.input?.classSessionId === "string" ? body.input.classSessionId : "";
+      const assetId = typeof body.input?.assetId === "string" ? body.input.assetId : "";
+      if (!studentNoteOcr || !classSessionId || !assetId) throw new Error("WORKSPACE_FORBIDDEN");
+      const studentLimit = await rateLimit(`student-note-ocr:${auth.user!.id}`, 10, 10 * 60_000);
+      if (!studentLimit.allowed) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+      const admin = createSupabaseAdminClient();
+      if (!admin) throw new Error("SUPABASE_NOT_CONFIGURED");
+      const [{ data: session }, { data: asset }] = await Promise.all([
+        admin.from("class_sessions").select("id,class_id,organization_id").eq("id", classSessionId).eq("organization_id", access.organizationId).maybeSingle(),
+        admin.from("assets").select("id,uploaded_by,mime_type,asset_type").eq("id", assetId).eq("organization_id", access.organizationId).is("deleted_at", null).maybeSingle(),
+      ]);
+      if (!session) throw new Error("SESSION_NOT_FOUND");
+      const { data: membership } = await admin.from("class_members").select("user_id")
+        .eq("class_id", String(session.class_id)).eq("user_id", auth.user!.id).eq("role", "student")
+        .in("status", ["active", "completed"]).maybeSingle();
+      if (!membership) throw new Error("STUDENT_NOT_IN_CLASS");
+      if (!asset || asset.uploaded_by !== auth.user!.id || asset.asset_type !== "student-note-ocr" || !["image/jpeg", "image/png"].includes(String(asset.mime_type))) {
+        throw new Error("INVALID_NOTE_OCR_ASSET");
+      }
+    }
     const scopedKeys = [body.input?.storageKey, body.input?.sourceKey, body.input?.assetKey].filter((value): value is string => typeof value === "string");
     if (scopedKeys.some((key) => !key.startsWith(`${access.organizationId}/`) || key.includes("..") || key.includes("\\"))) throw new Error("INVALID_STORAGE_SCOPE");
 
