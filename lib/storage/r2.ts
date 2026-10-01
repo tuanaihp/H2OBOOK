@@ -1,4 +1,4 @@
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { isR2Configured } from "@/lib/runtime-config";
 
@@ -49,6 +49,12 @@ export async function createDownloadUrl(key: string, fileName?: string) {
 export async function headStoredObject(key: string) {
   const result = await client().send(new HeadObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }));
   return { sizeBytes: Number(result.ContentLength ?? 0), contentType: result.ContentType ?? "application/octet-stream", metadata: result.Metadata ?? {} };
+}
+
+// S3/R2 deletes are idempotent — deleting a missing key succeeds silently, so callers can retry
+// cleanup without tracking which objects already went away.
+export async function deleteStoredObject(key: string) {
+  await client().send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }));
 }
 
 export async function readStoredObjectPrefix(key: string, length = 4096) {

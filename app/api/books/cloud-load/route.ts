@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       return {
         id: element.client_key ?? element.id, type: element.element_type as H2OElement["type"], name: element.name,
         x: Number(transform.x ?? 0), y: Number(transform.y ?? 0), width: Number(transform.width ?? 100), height: Number(transform.height ?? 100), rotation: Number(transform.rotation ?? 0), opacity: Number(transform.opacity ?? 1),
-        locked: Boolean(element.locked), hidden: Boolean(element.hidden), text: content.text, sourceText: content.sourceText, imageUrl: content.imageUrl, qrValue: content.qrValue, sourceQrValue: content.sourceQrValue,
+        locked: Boolean(element.locked), hidden: Boolean(element.hidden), text: content.text, sourceText: content.sourceText, imageUrl: content.imageUrl, assetId: content.assetId, altText: content.altText, caption: content.caption, qrValue: content.qrValue, sourceQrValue: content.sourceQrValue,
         fill: style.fill as string | undefined, stroke: style.stroke as string | undefined, strokeWidth: style.strokeWidth as number | undefined, dash: style.dash as number[] | undefined,
         fontSize: style.fontSize as number | undefined, fontFamily: style.fontFamily as string | undefined, fontWeight: style.fontWeight as number | undefined,
         fontStyle: style.fontStyle as H2OElement["fontStyle"], textDecoration: style.textDecoration as H2OElement["textDecoration"], lineHeight: style.lineHeight as number | undefined, letterSpacing: style.letterSpacing as number | undefined,

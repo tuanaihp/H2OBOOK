@@ -14,6 +14,7 @@ import {
   seedReviewComments, seedReviews, seedRoyaltyPayouts, seedWhiteLabelPortals
 } from "@/lib/v3-seed";
 import { uid } from "@/lib/utils";
+import { deleteLocalAsset } from "@/lib/assets/local-asset-store";
 import { runLocalSmart, localFlashcards } from "@/lib/local-smart-engine";
 import { buildBlockElements } from "@/lib/blocks/block-layouts";
 import type { DesignTemplateDefinition } from "@/types/design-library";
@@ -70,6 +71,11 @@ type AppState = {
   duplicateBook: (bookId: string) => BookRecord | null;
   publishBook: (bookId: string) => void;
   archiveBook: (bookId: string) => void;
+  /** Permanent delete (no trash). Removes the cloud book + its unshared R2 assets via
+   *  DELETE /api/books/[id], then drops the local record, its localStorage keys and any
+   *  local:<id> IndexedDB assets only that book referenced. Resolves false when the cloud
+   *  delete failed and the record was kept. */
+  removeBook: (bookId: string) => Promise<{ ok: boolean; error?: string }>;
   createBrand: (input: Partial<BrandProfile>) => BrandProfile;
   updateBrand: (brandId: string, patch: Partial<BrandProfile>) => void;
   deleteBrand: (brandId: string) => void;
@@ -241,6 +247,41 @@ export const useAppStore = create<AppState>()(
       archiveBook: (bookId) => {
         set((state) => ({ books: state.books.map((book) => book.id === bookId ? { ...book, archivedAt: new Date().toISOString() } : book) }));
         syncBookStatusToCloud(get().workspace.id, bookId, "archived");
+      },
+      removeBook: async (bookId) => {
+        const book = get().books.find((item) => item.id === bookId);
+        const localAssetIds = new Set<string>();
+        for (const page of book?.pages ?? []) {
+          for (const element of page.elements ?? []) {
+            if (element.assetId?.startsWith("local:")) localAssetIds.add(element.assetId);
+          }
+        }
+        if (process.env.NEXT_PUBLIC_APP_MODE === "production") {
+          const response = await fetch(`/api/books/${encodeURIComponent(bookId)}?organizationId=${encodeURIComponent(get().workspace.id)}`, { method: "DELETE" }).catch(() => null);
+          // 404 = the book never reached the cloud — local-only delete still proceeds.
+          if (response && !response.ok && response.status !== 404) {
+            const body = await response.json().catch(() => null) as { error?: string } | null;
+            return { ok: false, error: body?.error ?? `HTTP_${response.status}` };
+          }
+        }
+        set((state) => ({ books: state.books.filter((item) => item.id !== bookId) }));
+        for (const prefix of ["h2obook-document:", "h2obook-semantic-", "h2obook-reader-", "h2obook-remix-"]) {
+          try { localStorage.removeItem(`${prefix}${bookId}`); } catch { /* storage may be unavailable */ }
+        }
+        // Only delete local assets no remaining book still references — the same image can be
+        // reused by another book in this browser.
+        const stillUsed = new Set<string>();
+        for (const remaining of get().books) {
+          for (const page of remaining.pages ?? []) {
+            for (const element of page.elements ?? []) {
+              if (element.assetId?.startsWith("local:")) stillUsed.add(element.assetId);
+            }
+          }
+        }
+        for (const assetId of localAssetIds) {
+          if (!stillUsed.has(assetId)) void deleteLocalAsset(assetId).catch(() => {});
+        }
+        return { ok: true };
       },
       createBrand: (input) => {
         const brand: BrandProfile = { ...structuredClone(seedBrands[0]), ...input, id: uid("brand"), name: input.name ?? "Thương hiệu mới" };
