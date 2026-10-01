@@ -11,6 +11,9 @@ const MAX_PAGES_PER_BATCH = 300;
 export interface BuildPagesFromImagesInput {
   files: File[];
   organizationId?: string;
+  /** Re-encode each page as WebP (~82%, max 2000px) before upload — lighter storage and faster
+   *  page loads on phones. Off keeps the original pixels untouched. */
+  compress?: boolean;
   onProgress?: (done: number, total: number, fileName: string) => void;
 }
 
@@ -33,7 +36,7 @@ export async function buildPagesFromImages(input: BuildPagesFromImagesInput): Pr
     input.onProgress?.(index, input.files.length, file.name);
     try {
       const inspection = await inspectImage(file);
-      const asset = await uploadInspectedImage(inspection, { organizationId: input.organizationId, category: "book-pages-from-images", assetType: "full-page-image" });
+      const asset = await uploadInspectedImage(inspection, { organizationId: input.organizationId, category: "book-pages-from-images", assetType: "full-page-image", compress: input.compress });
       pages.push(buildFullPageImage(asset, inspection.metadata));
     } catch (error) {
       failures.push({ fileName: file.name, reason: error instanceof Error ? error.message : "Không xác định" });

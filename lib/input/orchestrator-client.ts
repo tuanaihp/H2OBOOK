@@ -5,7 +5,18 @@ import { createOrchestratedSession, detectInputFormat, inputFingerprint, inputMo
 const KEY = "h2obook-input-sessions-v1";
 function localSessions(): OrchestratedInputSession[] { if (typeof localStorage === "undefined") return []; try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") as OrchestratedInputSession[]; } catch { return []; } }
 function saveLocal(session: OrchestratedInputSession) { if (typeof localStorage === "undefined") return; const sessions = localSessions().filter((item) => item.id !== session.id); localStorage.setItem(KEY, JSON.stringify([session, ...sessions].slice(0, 50))); }
-async function json<T>(response: Response): Promise<T> { const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(String(body.error ?? `HTTP_${response.status}`)); return body as T; }
+async function json<T>(response: Response): Promise<T> {
+  const text = await response.text().catch(() => "");
+  let body: { error?: string } = {};
+  try { body = JSON.parse(text) as { error?: string }; } catch { /* non-JSON platform error page */ }
+  // A bare 5xx with no JSON body means the route crashed outside its try/catch (or the platform
+  // failed it) — tag it distinctly so support can tell "app returned INPUT_*" from "platform 500".
+  if (!response.ok) {
+    if (!body.error && text) console.warn(`[H2OBOOK input] HTTP ${response.status} non-JSON body:`, text.slice(0, 300));
+    throw new Error(String(body.error ?? `HTTP_${response.status}_SERVER`));
+  }
+  return body as T;
+}
 
 export async function createOrResumeInputSession(input: {
   organizationId?: string; sourceName: string; mimeType?: string; format?: ReturnType<typeof detectInputFormat>; mode?: InputMode;

@@ -7,10 +7,10 @@ import { readJsonBody } from "@/lib/security/request-limits";
 import { inputErrorResponse } from "@/lib/input/api-errors";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(); if (auth.response) return auth.response;
-  const limited = await rateLimit(requestIdentity(request, "input-session-commit"), 20, 60_000);
-  if (!limited.allowed) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
   try {
+    const auth = await requireApiUser(); if (auth.response) return auth.response;
+    const limited = await rateLimit(requestIdentity(request, "input-session-commit"), 20, 60_000);
+    if (!limited.allowed) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     const body = await readJsonBody<{ organizationId?: string; corrections?: InputCorrection[]; destination?: InputDestinationConfig }>(request, 6 * 1024 * 1024);
     const access = await resolveOrganizationAccess(auth.user!, body?.organizationId, ["owner", "admin", "designer"]);
     if (!access) throw new Error("WORKSPACE_FORBIDDEN");

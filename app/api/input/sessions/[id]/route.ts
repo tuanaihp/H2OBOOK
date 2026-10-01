@@ -17,8 +17,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(); if (auth.response) return auth.response;
   try {
+    const auth = await requireApiUser(); if (auth.response) return auth.response;
     const body = await readJsonBody<{ organizationId?: string; status?: InputSessionStatus; progress?: number; stageMessage?: string; metadata?: Record<string, unknown>; externalJobId?: string; eventName?: string }>(request, 3 * 1024 * 1024);
     const access = await resolveOrganizationAccess(auth.user!, body?.organizationId, ["owner", "admin", "designer", "partner", "teacher"]);
     if (!access) throw new Error("WORKSPACE_FORBIDDEN");

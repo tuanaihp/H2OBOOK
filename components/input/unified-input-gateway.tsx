@@ -82,6 +82,9 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("Chọn file hoặc nhập URL để bắt đầu.");
   const [error, setError] = useState("");
+  // Image-book pages default to WebP ~82% (max 2000px) — a 65-page PNG book would otherwise
+  // store hundreds of MB on R2 and crawl on phones. Off keeps original pixels for archival.
+  const [compressPages, setCompressPages] = useState(true);
 
   const format = useMemo(() => source?.kind === "url" ? "url" : source?.kind === "file" ? detectInputFormat({ fileName: source.file.name, mimeType: source.file.type }) : null, [source]);
 
@@ -172,7 +175,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       let current = result.session; setSession(current);
       if (gateTerminal(current)) return;
       current = await advanceToProcessing(current); setSession(current);
-      const { pages, failures } = await buildPagesFromImages({ files: source.files, organizationId, onProgress: (done, total, fileName) => setMessage(`Đang xử lý ${done}/${total}: ${fileName}`) });
+      const { pages, failures } = await buildPagesFromImages({ files: source.files, organizationId, compress: compressPages, onProgress: (done, total, fileName) => setMessage(`Đang xử lý ${done}/${total}: ${fileName}`) });
       if (!pages.length) throw new Error(`IMAGE_BATCH_ALL_FAILED: không tạo được trang nào. ${failures.slice(0, 4).map((f) => `${f.fileName}: ${f.reason}`).join(" | ") || ""}`.trim());
       const title = destinationChoice === "new_book" ? `Sách từ ${pages.length} ảnh` : editor.book.title;
       const design = makeDesignBook(editor.book, pages, destinationChoice, title);
@@ -382,6 +385,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       <div><label>Nguồn</label><strong>{source.files.length} trang ảnh</strong></div>
       <label>Đích nhập<select value={destinationChoice} onChange={(event) => setDestinationChoice(event.target.value as DestinationChoice)}><option value="new_book">Tạo sách mới</option><option value="append_chapter">Nối vào sách hiện tại</option><option value="replace_document">Thay nội dung sách</option></select></label>
       {destinationChoice !== "new_book" && <label>Sách đích<select value={targetBookId} onChange={(event) => setTargetBookId(event.target.value)}><option value={editor.book.id}>{editor.book.title} — đang mở</option>{libraryBooks.filter((book) => book.id !== editor.book.id).map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></label>}
+      <label className="input-check"><input type="checkbox" checked={compressPages} onChange={(event) => setCompressPages(event.target.checked)}/> Nén ảnh về WebP ~82% (tối đa 2000px) — file nhẹ hơn, đọc trên điện thoại nhanh hơn. Bỏ chọn để giữ nguyên pixel gốc.</label>
       {source.zipWarnings && source.zipWarnings.length > 0 && <div className="word-import-warnings">{source.zipWarnings.slice(0, 10).map((warning, index) => <p key={`${warning.entryName}-${index}`} data-severity="info"><strong>{warning.entryName}</strong>{warning.reason}</p>)}</div>}
     </section>}
 

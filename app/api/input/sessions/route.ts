@@ -20,10 +20,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiUser(); if (auth.response) return auth.response;
-  const limited = await rateLimit(requestIdentity(request, "input-session-create"), 30, 60_000);
-  if (!limited.allowed) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
   try {
+    const auth = await requireApiUser(); if (auth.response) return auth.response;
+    const limited = await rateLimit(requestIdentity(request, "input-session-create"), 30, 60_000);
+    if (!limited.allowed) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     const body = await readJsonBody<{
       organizationId?: string; sourceName?: string; mimeType?: string; format?: InputFormat; mode?: InputMode;
       source?: InputSourceDescriptor; destination?: InputDestinationConfig; idempotencyKey?: string;

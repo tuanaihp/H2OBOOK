@@ -62,11 +62,12 @@ export async function inspectImage(file: File): Promise<ImageInspection> {
   return { file, previewUrl: URL.createObjectURL(file), metadata, warnings: imageMetadataWarnings(metadata) };
 }
 
-export async function uploadInspectedImage(inspection: ImageInspection, input: { organizationId?: string; category?: string; assetType?: string }) {
+export async function uploadInspectedImage(inspection: ImageInspection, input: { organizationId?: string; category?: string; assetType?: string; compress?: boolean }) {
   const normalizedFile = inspection.file.type === inspection.metadata.mimeType
     ? inspection.file
     : new File([inspection.file], inspection.file.name, { type: inspection.metadata.mimeType, lastModified: inspection.file.lastModified });
   const asset = await uploadAsset(normalizedFile, {
+    compress: input.compress,
     organizationId: input.organizationId,
     category: input.category ?? "image-imports",
     assetType: input.assetType ?? "image",
