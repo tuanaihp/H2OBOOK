@@ -352,7 +352,9 @@ function ReaderImage({ element, style }: { element: H2OElement; style: React.CSS
   }, [element.assetId, element.imageUrl, durableUrl]);
   if (source) return <img alt={element.altText ?? element.name} src={source} loading="lazy" decoding="async" style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/>;
   return <div aria-label={element.altText ?? element.name} style={{ ...style, background: "#eef1f4", borderRadius: element.cornerRadius, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
-    {element.assetId ? <span style={{ color: "#8a5b6e", fontSize: 13, lineHeight: 1.5 }}>Không tải được ảnh trang này.<br/>Thử đăng nhập lại hoặc kiểm tra kết nối storage.</span> : null}
+    {element.assetId ? <span style={{ color: "#8a5b6e", fontSize: 13, lineHeight: 1.5 }}>{element.assetId.startsWith("local:")
+      ? <>Ảnh lưu cục bộ không còn đọc được.<br/>Dữ liệu IndexedDB đã bị xóa hoặc sách mở ở trình duyệt khác.</>
+      : <>Không tải được ảnh trang này.<br/>Thử đăng nhập lại hoặc kiểm tra kết nối storage.</>}</span> : null}
   </div>;
 }
 
