@@ -312,7 +312,15 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     <header className="input-gateway-hero"><div><span className="eyebrow">H2OBOOK 4.13.7</span><h1>Unified Input Orchestrator</h1><p>Một luồng duy nhất cho DOCX, PDF, ảnh, HTML, Markdown, TXT và URL. AI không bắt buộc.</p></div>{session && <div className="input-session-badge" data-status={session.status}><strong>{sessionDisplayStage(session.status)}{session.status === "preview" ? " — chờ commit" : ""}</strong><span>{session.progress}%</span></div>}</header>
 
     <section className="input-source-grid">
-      <label className="input-source-card"><Upload/><strong>Chọn file</strong><span>DOCX, PDF, PNG, JPEG/JPE, HTML/HTM, Markdown, TXT</span><input type="file" accept={ACCEPT} onChange={(event) => void selectFile(event.target.files?.[0])}/></label>
+      <label className="input-source-card"><Upload/><strong>Chọn file</strong><span>DOCX, PDF, HTML/HTM, Markdown, TXT — hoặc chọn nhiều ảnh PNG/JPEG/JPE cùng lúc</span><input type="file" accept={ACCEPT} multiple onChange={(event) => {
+        const picked = Array.from(event.target.files ?? []);
+        if (!picked.length) return;
+        if (picked.length > 1) {
+          if (picked.every((file) => /\.(png|jpe?g)$/i.test(file.name) || file.type === "image/png" || file.type === "image/jpeg")) { void selectImageBatch(event.target.files); return; }
+          setError("Chỉ ảnh PNG/JPEG mới chọn nhiều file cùng lúc — tài liệu chọn 1 file."); void selectFile(picked[0]); return;
+        }
+        void selectFile(picked[0]);
+      }}/></label>
       <div className="input-source-card"><Globe2/><strong>Nhập URL</strong><span>Website hoặc Google Docs công khai</span><div className="input-url-row"><input value={urlValue} onChange={(event) => setUrlValue(event.target.value)} placeholder="https://..."/><button onClick={selectUrl}>Dùng URL</button></div></div>
       {IMAGE_BOOK_IMPORT_ENABLED && <label className="input-source-card"><FileStack/><strong>Nhiều ảnh / ZIP trang sách</strong><span>Chọn nhiều PNG/JPEG hoặc 1 file ZIP — mỗi ảnh thành 1 trang</span><input type="file" multiple accept=".png,.jpg,.jpeg,.jpe,.zip" onChange={(event) => void selectImageBatch(event.target.files)}/></label>}
     </section>
