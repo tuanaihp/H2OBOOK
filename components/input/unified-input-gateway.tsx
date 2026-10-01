@@ -25,6 +25,15 @@ import {
 import { uid } from "@/lib/utils";
 
 const ACCEPT = ".docx,.pdf,.png,.jpg,.jpeg,.jpe,.html,.htm,.xhtml,.md,.markdown,.txt";
+// User-facing mode labels — raw enum values like "fixed_layout" meant nothing in the picker.
+const MODE_LABELS: Record<InputMode, string> = {
+  fixed_layout: "Giữ nguyên bản gốc — mỗi trang như ảnh, lật đọc",
+  editable_content: "Chuyển thành văn bản có thể chỉnh sửa",
+  ocr: "OCR — nhận dạng chữ từ trang scan",
+  asset: "Lưu làm tài nguyên ảnh",
+  full_page: "Trang ảnh toàn trang",
+  manual_regions: "Chọn vùng thủ công",
+};
 const IMAGE_BOOK_IMPORT_ENABLED = process.env.NEXT_PUBLIC_IMAGE_BOOK_IMPORT_V1 !== "false";
 type DestinationChoice = "new_book" | "append_chapter" | "replace_document";
 
@@ -86,7 +95,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     const defaultMode = inputModeMatrix[detected][0]; setMode(defaultMode); setSource({ kind: "file", file });
     setMessage(`Đã nhận dạng ${detected.toUpperCase()}: ${file.name}`);
     if (detected === "pdf") {
-      setBusy(true); try { const inspection = await inspectPdf(file); setPdfInspection(inspection); setMode(inspection.recommendedMode); setMessage(`PDF ${inspection.pageCount} trang; đề xuất ${inspection.recommendedMode}.`); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "PDF_INSPECTION_FAILED"); } finally { setBusy(false); }
+      setBusy(true); try { const inspection = await inspectPdf(file); setPdfInspection(inspection); setMode("fixed_layout"); setMessage(`PDF ${inspection.pageCount} trang — mặc định giữ nguyên bản gốc. Muốn sửa được chữ thì đổi chế độ bên dưới.`); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "PDF_INSPECTION_FAILED"); } finally { setBusy(false); }
     }
     if (detected === "png" || detected === "jpeg") {
       setBusy(true); try { const inspection = await inspectImage(file); setImageInspection(inspection); setMessage(`Ảnh ${inspection.metadata.pixelWidth}×${inspection.metadata.pixelHeight}px đã sẵn sàng.`); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "IMAGE_INSPECTION_FAILED"); } finally { setBusy(false); }
@@ -279,7 +288,13 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     setBusy(true); setError("");
     try {
       const result = await commitOrchestratedInput({ organizationId, session, destination: destination(Boolean(designPayload)) });
-      if (designPayload) editor.replaceBook(designPayload);
+      if (designPayload) {
+        editor.replaceBook(designPayload);
+        // Register the design book in the local library too — otherwise a new_book design
+        // commit existed only inside the editor store and never showed up in /books or the
+        // reader's local lookup.
+        if (destinationChoice === "new_book" && !useAppStore.getState().books.some((book) => book.id === designPayload.id)) useAppStore.getState().upsertBook(designPayload);
+      }
       else {
         const key = result?.clientKey ?? result?.bookId ?? preview.document.bookId;
         // The semantic document is staged under the committed client key — and under the
@@ -327,7 +342,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
 
     {source && format && <section className="input-configuration">
       <div><label>Định dạng</label><strong>{format.toUpperCase()}</strong></div>
-      <label>Chế độ<select value={mode} onChange={(event) => setMode(event.target.value as InputMode)}>{modes.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label>Chế độ<select value={mode} onChange={(event) => setMode(event.target.value as InputMode)}>{modes.map((item) => <option key={item} value={item}>{MODE_LABELS[item] ?? item}</option>)}</select></label>
       <label>Đích nhập<select value={destinationChoice} onChange={(event) => setDestinationChoice(event.target.value as DestinationChoice)}><option value="new_book">Tạo sách mới</option><option value="append_chapter">Nối vào sách hiện tại</option><option value="replace_document">Thay nội dung sách</option></select></label>
       {destinationChoice !== "new_book" && <label>Sách đích<select value={targetBookId} onChange={(event) => setTargetBookId(event.target.value)}><option value={editor.book.id}>{editor.book.title} — đang mở</option>{libraryBooks.filter((book) => book.id !== editor.book.id).map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></label>}
       {destinationChoice === "append_chapter" && <label>Tên chương<input value={chapterTitle} onChange={(event) => setChapterTitle(event.target.value)}/></label>}
@@ -354,7 +369,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       <div className="word-import-stats"><span><strong>{preview.statistics.headings}</strong> tiêu đề</span><span><strong>{preview.statistics.paragraphs}</strong> đoạn</span><span><strong>{preview.statistics.lists}</strong> danh sách</span><span><strong>{preview.statistics.tables}</strong> bảng</span><span><strong>{preview.statistics.images}</strong> ảnh</span><span><strong>{preview.statistics.words}</strong> từ</span></div>
       {outline.length > 0 && <details open className="input-outline"><summary>Outline ({outline.length})</summary>{outline.slice(0, 80).map((item) => <div key={item.id} style={{ paddingLeft: `${item.depth * 14}px` }}><b>{item.type}</b><span>{item.label}</span></div>)}</details>}
       {preview.warnings.length > 0 && <div className="word-import-warnings">{preview.warnings.slice(0, 20).map((warning, index) => <p key={`${warning.code}-${index}`} data-severity={warning.severity}><strong>{warning.code}</strong>{warning.message}</p>)}</div>}
-      <div className="input-action-row"><button className="btn btn-primary" disabled={busy || (warningSummary?.error ?? 0) > 0} onClick={() => void commit()}><Save/> {busy ? "Đang commit…" : "Commit vào H2OBOOK"}</button><button className="btn btn-secondary" onClick={() => { setPreview(null); setDesignPayload(null); }}>Quay lại cấu hình</button>{session?.commitResult?.openPath && <a className="btn btn-secondary" href={session.commitResult.openPath}>Mở editor</a>}</div>
+      <div className="input-action-row"><button className="btn btn-primary" disabled={busy || (warningSummary?.error ?? 0) > 0} onClick={() => void commit()}><Save/> {busy ? "Đang commit…" : "Commit vào H2OBOOK"}</button><button className="btn btn-secondary" onClick={() => { setPreview(null); setDesignPayload(null); }}>Quay lại cấu hình</button>{session?.commitResult?.openPath && <a className="btn btn-secondary" href={session.commitResult.openPath}>Mở editor</a>}{session?.commitResult?.clientKey && session.destination.openMode === "design" && <a className="btn btn-primary" href={`/reader/${session.commitResult.clientKey}`}><Play/> Đọc sách (lật trang)</a>}</div>
     </section>}
   </div>;
 }
