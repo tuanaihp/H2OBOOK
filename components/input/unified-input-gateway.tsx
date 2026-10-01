@@ -198,7 +198,17 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
         } else if (mode === "ocr") result = await reconstructPdfWithWorker(source.file, { bookId, organizationId, mode: "ocr", onProgress: (status, progress) => setMessage(`OCR PDF: ${status} ${Math.round(progress)}%`), onJobCreated: (jobId) => linkWorkerJob(current, jobId) });
         else {
           try { result = await reconstructPdfWithWorker(source.file, { bookId, organizationId, mode: "editable_content", onProgress: (status, progress) => setMessage(`PDF: ${status} ${Math.round(progress)}%`), onJobCreated: (jobId) => linkWorkerJob(current, jobId) }); }
-          catch { result = await reconstructPdfInBrowser(source.file, { bookId, organizationId }); }
+          catch {
+            // Browser fallback reports per-page progress — without it a large PDF sat at
+            // the 35% stage for the whole reconstruction and looked stalled.
+            result = await reconstructPdfInBrowser(source.file, {
+              bookId, organizationId,
+              onProgress: (done, total) => {
+                setMessage(`Đang dựng nội dung từ PDF: ${done}/${total} trang…`);
+                setSession((currentSession) => currentSession ? { ...currentSession, progress: Math.min(80, 35 + Math.round((done / total) * 45)) } : currentSession);
+              }
+            });
+          }
         }
       } else throw new Error("IMAGE_USE_SMART_IMPORT_PANEL");
       await stagePreview(current, result, design);
@@ -242,7 +252,24 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
     try {
       const result = await commitOrchestratedInput({ organizationId, session, destination: destination(Boolean(designPayload)) });
       if (designPayload) editor.replaceBook(designPayload);
-      else localStorage.setItem(`h2obook-semantic-${result?.clientKey ?? result?.bookId ?? preview.document.bookId}`, JSON.stringify(preview.document));
+      else {
+        const key = result?.clientKey ?? result?.bookId ?? preview.document.bookId;
+        // The semantic document is staged under the committed client key — and under the
+        // client-side bookId too when they differ — so Compose finds it regardless of which
+        // identifier the openPath ended up with.
+        localStorage.setItem(`h2obook-semantic-${key}`, JSON.stringify(preview.document));
+        if (key !== preview.document.bookId) localStorage.setItem(`h2obook-semantic-${preview.document.bookId}`, JSON.stringify(preview.document));
+        // Register the imported book in the local library: a semantic commit only writes
+        // book_documents/content_nodes, so without this the book was invisible in /books
+        // and the design editor could not resolve it at all.
+        if (key && destinationChoice === "new_book" && !useAppStore.getState().books.some((book) => book.id === key)) {
+          useAppStore.getState().upsertBook({
+            id: key, title: preview.title || "Tài liệu nhập", subtitle: `Nhập từ ${preview.sourceFileName}`, author: useAppStore.getState().workspace.ownerName,
+            cover: "linear-gradient(135deg,#4d1735,#9f5274,#f0c5d5)", status: "draft", pages: [], updatedAt: new Date().toISOString(),
+            description: preview.sourceFileName, language: preview.document.language ?? "vi", pageSize: "A4"
+          });
+        }
+      }
       setSession((current) => current ? { ...current, status: "completed", progress: 100, commitResult: result, retryable: false } : current);
       setMessage("Đã commit an toàn. Có thể mở editor từ đường dẫn kết quả.");
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "INPUT_COMMIT_FAILED"); setMessage("Commit cần recovery; preview vẫn được giữ."); }
@@ -254,7 +281,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
   const recover = async () => { if (!session) return; setBusy(true); try { const result = await recoverOrchestratedInput(organizationId, session.id); setSession(result.session); setPreview(result.session.preview ?? null); setMessage("Đã khôi phục session từ cloud/local cache."); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "INPUT_RECOVERY_FAILED"); } finally { setBusy(false); } };
 
   return <div className="unified-input-gateway">
-    <header className="input-gateway-hero"><div><span className="eyebrow">H2OBOOK 4.13.7</span><h1>Unified Input Orchestrator</h1><p>Một luồng duy nhất cho DOCX, PDF, ảnh, HTML, Markdown, TXT và URL. AI không bắt buộc.</p></div>{session && <div className="input-session-badge" data-status={session.status}><strong>{sessionDisplayStage(session.status)}</strong><span>{session.progress}%</span></div>}</header>
+    <header className="input-gateway-hero"><div><span className="eyebrow">H2OBOOK 4.13.7</span><h1>Unified Input Orchestrator</h1><p>Một luồng duy nhất cho DOCX, PDF, ảnh, HTML, Markdown, TXT và URL. AI không bắt buộc.</p></div>{session && <div className="input-session-badge" data-status={session.status}><strong>{sessionDisplayStage(session.status)}{session.status === "preview" ? " — chờ commit" : ""}</strong><span>{session.progress}%</span></div>}</header>
 
     <section className="input-source-grid">
       <label className="input-source-card"><Upload/><strong>Chọn file</strong><span>DOCX, PDF, PNG, JPEG/JPE, HTML/HTM, Markdown, TXT</span><input type="file" accept={ACCEPT} onChange={(event) => void selectFile(event.target.files?.[0])}/></label>

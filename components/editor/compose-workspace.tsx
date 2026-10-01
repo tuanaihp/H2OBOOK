@@ -63,7 +63,28 @@ function ToolbarButton({ active, disabled, title, onClick, children }: {
 export function ComposeWorkspace() {
   const params = useParams<{ bookId: string }>();
   const app = useAppStore();
-  const book = app.books.find((item) => item.id === params.bookId) ?? app.books[0];
+  // A just-committed import_* book may only exist as a semantic document (no local record
+  // yet). Falling back to app.books[0] would silently edit a DIFFERENT book — instead use a
+  // minimal shell keyed on the route id so the semantic doc (localStorage + document API,
+  // which both resolve client_key) still loads under the right identity.
+  const book = useMemo(() => {
+    const found = app.books.find((item) => item.id === params.bookId);
+    if (found) return found;
+    if (!params.bookId) return app.books[0];
+    return {
+      id: params.bookId,
+      title: "Tài liệu nhập",
+      subtitle: "",
+      author: app.workspace.ownerName,
+      cover: "linear-gradient(135deg,#4d1735,#9f5274)",
+      status: "draft" as const,
+      pages: [],
+      updatedAt: new Date().toISOString(),
+      description: "",
+      language: "vi",
+      pageSize: "A4" as const
+    };
+  }, [app.books, app.workspace.ownerName, params.bookId]);
   const [documentModel, setDocumentModel] = useState<BookDocument | null>(null);
   const [status, setStatus] = useState("Đang khởi tạo Compose Engine…");
   const [changed, setChanged] = useState(false);

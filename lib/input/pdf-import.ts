@@ -144,15 +144,30 @@ export async function inspectPdf(file: File): Promise<PdfInspection> {
   } finally { await pdf.destroy?.().catch(() => undefined); }
 }
 
-export async function reconstructPdfInBrowser(file: File, input: { bookId: string; organizationId?: string; title?: string }): Promise<ImportDocument> {
+// PowerPoint→PDF exports often draw each run twice at nearly the same position (fake bold /
+// drop shadow), which produced duplicated headings like "THUYH2O MAKEUPTHUYH2O MAKEUP".
+// Drop an exact duplicate of a span already seen at ~the same spot on the same page.
+function dedupeSpans(spans: PdfSpan[]): PdfSpan[] {
+  const seen = new Set<string>();
+  return spans.filter((span) => {
+    if (!span.text.trim()) return false;
+    const key = `${Math.round(span.x)}|${Math.round(span.y)}|${span.fontSize.toFixed(1)}|${span.text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function reconstructPdfInBrowser(file: File, input: { bookId: string; organizationId?: string; title?: string; onProgress?: (done: number, total: number) => void }): Promise<ImportDocument> {
   const pdf = await loadPdf(file);
   try {
     const pages: PdfPageModel[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      input.onProgress?.(pageNumber, pdf.numPages);
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1 });
       const content = await page.getTextContent({ includeMarkedContent: true, disableNormalization: false });
-      pages.push({ page: pageNumber, width: viewport.width, height: viewport.height, spans: textItems(content).map((item) => spanFromItem(item, pageNumber, content.styles)) });
+      pages.push({ page: pageNumber, width: viewport.width, height: viewport.height, spans: dedupeSpans(textItems(content).map((item) => spanFromItem(item, pageNumber, content.styles))) });
     }
     return pdfPagesToImportDocument({
       pages,
@@ -220,7 +235,7 @@ async function pollJob(id: string, onProgress?: (status: string, progress: numbe
 export async function reconstructPdfWithWorker(file: File, input: { bookId: string; organizationId?: string; title?: string; mode: "editable_content" | "ocr"; onProgress?: (status: string, progress: number) => void; onJobCreated?: (jobId: string) => void | Promise<void> }): Promise<ImportDocument> {
   if (process.env.NEXT_PUBLIC_APP_MODE !== "production") {
     if (input.mode === "ocr") throw new Error("PDF_OCR_REQUIRES_WORKER: Demo Mode chưa chạy Tesseract server. Hãy dùng Production Mode hoặc chọn nội dung chỉnh sửa nếu PDF có text layer.");
-    return reconstructPdfInBrowser(file, input);
+    return reconstructPdfInBrowser(file, { bookId: input.bookId, organizationId: input.organizationId, title: input.title, onProgress: input.onProgress ? (done, total) => input.onProgress!("processing", total ? (done / total) * 100 : 0) : undefined });
   }
   const source = await uploadAsset(file, { organizationId: input.organizationId, category: "pdf-sources", assetType: "pdf-source" });
   if (!source.storageKey || source.assetId.startsWith("local:")) throw new Error("PDF_SOURCE_STORAGE_REQUIRED");
