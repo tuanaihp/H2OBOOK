@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Download, Highlighter, List, Maximize,
-  Menu, MessageSquareText, MonitorPlay, Moon, PanelLeftClose, Printer, Search, Sun, X, ZoomIn, ZoomOut, Brain, ListChecks, Layers3, Sparkles, Accessibility, FilePenLine
+  ArrowLeft, Bookmark, BookOpen, ChevronLeft, ChevronRight, Coffee, Download, EyeOff, Highlighter, List, Maximize,
+  Menu, MessageSquareText, MonitorPlay, Moon, PanelLeftClose, Printer, Scroll, Search, Square, Sun, Timer, Volume2, X, ZoomIn, ZoomOut, Brain, ListChecks, Layers3, Sparkles, Accessibility, FilePenLine
 } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import type { H2OElement, H2OBook } from "@/types/editor";
@@ -37,7 +37,14 @@ export default function ReaderPage() {
   const [narrow, setNarrow] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [presenter, setPresenter] = useState(false);
-  const [dark, setDark] = useState(true);
+  const [theme, setTheme] = useState<"dark" | "light" | "sepia">("dark");
+  const [viewMode, setViewMode] = useState<"page" | "scroll">("page");
+  const [zen, setZen] = useState(false);
+  const [turnDir, setTurnDir] = useState<1 | -1>(1);
+  const [autoFlip, setAutoFlip] = useState(0);
+  const [speaking, setSpeaking] = useState(false);
+  const scrollStageRef = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [note, setNote] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -183,8 +190,10 @@ export default function ReaderPage() {
   const go = (next: number) => {
     if (!book) return;
     const safe = Math.min(book.pages.length - 1, Math.max(0, next));
+    setTurnDir(safe >= index ? 1 : -1);
     persist(safe);
     setIndex(safe);
+    if (viewMode === "scroll") window.setTimeout(() => document.getElementById(`reader-page-${safe}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     try { const saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}"); setNote(saved.notes?.[safe] ?? ""); } catch { setNote(""); }
   };
   const toggleBookmark = () => {
@@ -207,6 +216,74 @@ export default function ReaderPage() {
     }, 1500);
   };
   const fullscreen = () => stageRef.current?.requestFullscreen?.();
+  const cycleTheme = () => setTheme(theme === "dark" ? "sepia" : theme === "sepia" ? "light" : "dark");
+  const speakable = Boolean(pageText.trim() || page?.notes || page?.name);
+
+  // Keyboard navigation — standard ebook keys. Inputs/textareas are left alone so typing
+  // a note or search never flips a page.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) return;
+      if (event.key === "Escape") { setZen(false); return; }
+      if (viewMode !== "page") return;
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") { event.preventDefault(); go(index + 1); }
+      else if (event.key === "ArrowLeft" || event.key === "PageUp") { event.preventDefault(); go(index - 1); }
+      else if (event.key === "Home") go(0);
+      else if (event.key === "End") go((book?.pages.length ?? 1) - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, book, viewMode]);
+
+  // Auto-flip: a self-resetting timeout per page; stops at the last page.
+  useEffect(() => {
+    if (!autoFlip || viewMode !== "page" || !book) return;
+    const timer = window.setTimeout(() => { if (index >= book.pages.length - 1) setAutoFlip(0); else go(index + 1); }, autoFlip * 1000);
+    return () => window.clearTimeout(timer);
+  }, [autoFlip, index, viewMode, book]);
+
+  // Scroll mode: the visible page wins the index so TOC/progress stay truthful while
+  // the reader just scrolls through the whole book.
+  useEffect(() => {
+    if (viewMode !== "scroll" || !book) return;
+    const container = scrollStageRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const next = Number((entry.target as HTMLElement).dataset.pageIndex);
+        if (Number.isNaN(next)) continue;
+        setIndex((previous) => { if (previous !== next) persist(next); return next; });
+      }
+    }, { root: container, threshold: 0.5 });
+    container.querySelectorAll("[data-page-index]").forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [viewMode, book, scale]);
+
+  // Text-to-speech: stop when the page changes or the reader unmounts.
+  const toggleSpeak = () => {
+    if (speaking) { window.speechSynthesis?.cancel(); setSpeaking(false); return; }
+    const text = pageText || page?.notes || page?.name || "";
+    if (!text.trim() || typeof window === "undefined" || !window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "vi-VN"; utterance.rate = 1;
+    utterance.onend = () => setSpeaking(false); utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.cancel(); window.speechSynthesis.speak(utterance); setSpeaking(true);
+  };
+  useEffect(() => { window.speechSynthesis?.cancel(); setSpeaking(false); }, [index]);
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  // Rough minutes left: ~180 wpm on text pages, ~24s on image-only pages.
+  const remainingMinutes = useMemo(() => {
+    if (!book) return 0;
+    let words = 0, imagePages = 0;
+    for (const item of book.pages.slice(index)) {
+      const text = item.elements.filter((element) => element.type === "text").map((element) => element.text ?? "").join(" ").trim();
+      if (text) words += text.split(/\s+/).length; else imagePages += 1;
+    }
+    return Math.max(0, Math.round(words / 180 + imagePages * 0.4));
+  }, [book, index]);
   const pageGroups = useMemo(() => { const all = book?.pages.map((item, pageIndex) => ({ item, pageIndex })) ?? []; const value = search.trim().toLowerCase(); if (!value) return all; return all.filter(({ item }) => `${item.name} ${item.chapter ?? ""} ${item.elements.map((element) => element.text ?? "").join(" ")}`.toLowerCase().includes(value)); }, [book, search]);
   const downloadProject = () => { if (!book) return; const campaign=readCampaign(book.id); if(campaign.enabled && campaign.downloadRequiresLead && !hasReaderLead(book.id)){ go(Math.max(0,(campaign.leadGatePage ?? 1)-1)); return; } const payload = JSON.stringify({ format: "h2obook-reader-export", version: 4, exportedAt: new Date().toISOString(), book }, null, 2); const url = URL.createObjectURL(new Blob([payload], { type: "application/json" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${"slug" in book && book.slug ? book.slug : book.id}.h2obook.json`; anchor.click(); URL.revokeObjectURL(url); };
 
@@ -214,15 +291,41 @@ export default function ReaderPage() {
     const stillLoading = !localBook && remoteState !== "missing";
     return <main className="reader-not-found">{stillLoading ? <h1>Đang mở sách…</h1> : <><h1>Không tìm thấy sách</h1><Link href="/library">Quay lại thư viện</Link></>}</main>;
   }
-  return <main className={`reader-shell-v2 ${dark ? "reader-dark" : "reader-light"} ${presenter ? "presenter-mode" : ""} ${highlightMode ? "reader-highlight-mode" : ""}`}>
-    <header className="reader-bar-v2"><div className="reader-bar-left"><Link href="/library" className="reader-btn" aria-label="Quay lại thư viện"><ArrowLeft size={15} aria-hidden="true"/></Link><button className="reader-btn" aria-label="Mục lục" aria-expanded={tocOpen} onClick={() => setTocOpen(!tocOpen)}><Menu size={15} aria-hidden="true"/></button><div><strong>{book.title}</strong><span>{page.name}</span></div></div><div className="reader-bar-center"><button className={`reader-btn ${searchOpen ? "active" : ""}`} aria-label="Tìm trong sách" aria-pressed={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setTocOpen(true); }}><Search size={15} aria-hidden="true"/></button><button className={`reader-btn ${bookmarks.includes(index) ? "active" : ""}`} aria-label="Đánh dấu trang" aria-pressed={bookmarks.includes(index)} onClick={toggleBookmark}><Bookmark size={15} aria-hidden="true" fill={bookmarks.includes(index) ? "currentColor" : "none"}/></button><button className={`reader-btn ${notesOpen ? "active" : ""}`} aria-label="Ghi chú" aria-pressed={notesOpen} onClick={() => setNotesOpen(!notesOpen)}><MessageSquareText size={15} aria-hidden="true"/></button><button className={`reader-btn ${highlightMode ? "active" : ""}`} title="Làm nổi bật vùng văn bản" aria-label="Làm nổi bật vùng văn bản" aria-pressed={highlightMode} onClick={() => setHighlightMode(!highlightMode)}><Highlighter size={15} aria-hidden="true"/></button><button className={`reader-btn ${studyOpen ? "active" : ""}`} title="Smart Study local" aria-label="Smart Study" aria-pressed={studyOpen} onClick={() => setStudyOpen(!studyOpen)}><Brain size={15} aria-hidden="true"/><span>Học</span></button></div><div className="reader-bar-right"><button className="reader-btn" aria-label={dark ? "Chuyển sang nền sáng" : "Chuyển sang nền tối"} onClick={() => setDark(!dark)}>{dark ? <Sun size={15} aria-hidden="true"/> : <Moon size={15} aria-hidden="true"/>}</button><button className={`reader-btn ${presenter ? "active" : ""}`} aria-label="Chế độ trình chiếu" aria-pressed={presenter} onClick={() => setPresenter(!presenter)}><MonitorPlay size={15} aria-hidden="true"/><span>Trình chiếu</span></button><button className="reader-btn" aria-label="In sách" onClick={() => window.print()}><Printer size={15} aria-hidden="true"/></button><button className="reader-btn" aria-label="Toàn màn hình" onClick={fullscreen}><Maximize size={15} aria-hidden="true"/></button></div></header>
+  return <main className={`reader-shell-v2 ${theme === "dark" ? "reader-dark" : theme === "sepia" ? "reader-sepia" : "reader-light"} ${presenter ? "presenter-mode" : ""} ${highlightMode ? "reader-highlight-mode" : ""} ${zen ? "reader-zen" : ""} ${viewMode === "scroll" ? "reader-scroll-mode" : ""}`}>
+    <header className="reader-bar-v2"><div className="reader-bar-left"><Link href="/library" className="reader-btn" aria-label="Quay lại thư viện"><ArrowLeft size={15} aria-hidden="true"/></Link><button className="reader-btn" aria-label="Mục lục" aria-expanded={tocOpen} onClick={() => setTocOpen(!tocOpen)}><Menu size={15} aria-hidden="true"/></button><div><strong>{book.title}</strong><span>{page.name}</span></div></div><div className="reader-bar-center"><button className={`reader-btn ${searchOpen ? "active" : ""}`} aria-label="Tìm trong sách" aria-pressed={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setTocOpen(true); }}><Search size={15} aria-hidden="true"/></button><button className={`reader-btn ${bookmarks.includes(index) ? "active" : ""}`} aria-label="Đánh dấu trang" aria-pressed={bookmarks.includes(index)} onClick={toggleBookmark}><Bookmark size={15} aria-hidden="true" fill={bookmarks.includes(index) ? "currentColor" : "none"}/></button><button className={`reader-btn ${notesOpen ? "active" : ""}`} aria-label="Ghi chú" aria-pressed={notesOpen} onClick={() => setNotesOpen(!notesOpen)}><MessageSquareText size={15} aria-hidden="true"/></button><button className={`reader-btn ${highlightMode ? "active" : ""}`} title="Làm nổi bật vùng văn bản" aria-label="Làm nổi bật vùng văn bản" aria-pressed={highlightMode} onClick={() => setHighlightMode(!highlightMode)}><Highlighter size={15} aria-hidden="true"/></button><button className={`reader-btn ${studyOpen ? "active" : ""}`} title="Smart Study local" aria-label="Smart Study" aria-pressed={studyOpen} onClick={() => setStudyOpen(!studyOpen)}><Brain size={15} aria-hidden="true"/><span>Học</span></button><button className={`reader-btn ${viewMode === "scroll" ? "active" : ""}`} title="Đổi cách đọc: lật trang ↔ cuộn dọc" aria-label="Đổi chế độ đọc" aria-pressed={viewMode === "scroll"} onClick={() => setViewMode(viewMode === "page" ? "scroll" : "page")}>{viewMode === "scroll" ? <BookOpen size={15} aria-hidden="true"/> : <Scroll size={15} aria-hidden="true"/>}<span>{viewMode === "scroll" ? "Lật trang" : "Cuộn dọc"}</span></button><button className={`reader-btn ${autoFlip ? "active" : ""}`} title="Tự lật trang" aria-label="Tự lật trang" aria-pressed={Boolean(autoFlip)} onClick={() => setAutoFlip(autoFlip === 0 ? 8 : autoFlip === 8 ? 15 : autoFlip === 15 ? 30 : 0)}><Timer size={15} aria-hidden="true"/><span>{autoFlip ? `${autoFlip}s` : "Tự lật"}</span></button></div><div className="reader-bar-right"><button className={`reader-btn ${speaking ? "active" : ""}`} disabled={!speakable} title={speaking ? "Dừng đọc to" : "Đọc to trang này"} aria-label="Đọc to trang này" aria-pressed={speaking} onClick={toggleSpeak}>{speaking ? <Square size={14} aria-hidden="true"/> : <Volume2 size={15} aria-hidden="true"/>}</button><button className="reader-btn" aria-label="Đổi màu nền đọc" title={theme === "dark" ? "Nền tối → nền sepia" : theme === "sepia" ? "Nền sepia → nền sáng" : "Nền sáng → nền tối"} onClick={cycleTheme}>{theme === "dark" ? <Moon size={15} aria-hidden="true"/> : theme === "sepia" ? <Coffee size={15} aria-hidden="true"/> : <Sun size={15} aria-hidden="true"/>}</button><button className={`reader-btn hide-mobile ${presenter ? "active" : ""}`} aria-label="Chế độ trình chiếu" aria-pressed={presenter} onClick={() => setPresenter(!presenter)}><MonitorPlay size={15} aria-hidden="true"/><span>Trình chiếu</span></button><button className="reader-btn hide-mobile" aria-label="In sách" onClick={() => window.print()}><Printer size={15} aria-hidden="true"/></button><button className="reader-btn hide-mobile" aria-label="Toàn màn hình" onClick={fullscreen}><Maximize size={15} aria-hidden="true"/></button><button className="reader-btn" aria-label="Chế độ tập trung" title="Tập trung — ẩn thanh công cụ (chạm giữa trang để hiện lại)" onClick={() => setZen(true)}><EyeOff size={15} aria-hidden="true"/></button></div></header>
     <div className="reader-main-v2" data-narrow={narrow || undefined}>
       {tocOpen && <aside className="reader-toc"><header><div><List size={16}/><strong>Mục lục</strong></div><button aria-label="Đóng mục lục" onClick={() => setTocOpen(false)}><PanelLeftClose size={15} aria-hidden="true"/></button></header>{searchOpen && <div className="reader-search-box"><Search size={14}/><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong sách..."/>{search && <button aria-label="Xóa từ khóa tìm kiếm" onClick={() => setSearch("")}><X size={12} aria-hidden="true"/></button>}</div>}<div>{pageGroups.map(({ item, pageIndex }) => <button key={item.id} className={pageIndex === index ? "active" : ""} onClick={() => go(pageIndex)}><span>{pageIndex + 1}</span><span><strong>{item.name}</strong><small>{item.chapter ?? item.pageType ?? "Trang sách"}</small></span>{bookmarks.includes(pageIndex) && <Bookmark size={11} fill="currentColor"/>}</button>)}</div></aside>}
-      <section className="reader-stage-v2" ref={stageRef}><div className="reader-page-frame" style={{ width: (page.width ?? 794) * scale, height: (page.height ?? 1123) * scale }}><div className="reader-page-v2" style={{ width: page.width ?? 794, height: page.height ?? 1123, background: page.background, transform: `scale(${scale})` }}>{page.elements.map((element) => <ReaderElement key={element.id} element={element}/>) }<div className="watermark-v2"><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span></div></div></div><GrowthLayer bookId={book.id} pageIndex={index}/>{presenter && page.notes && <div className="presenter-notes"><strong>Ghi chú giảng viên</strong><p>{page.notes}</p></div>}</section>
+      <section
+        className="reader-stage-v2"
+        ref={stageRef}
+        onTouchStart={(event) => { const touch = event.touches[0]; touchStart.current = { x: touch.clientX, y: touch.clientY }; }}
+        onTouchEnd={(event) => {
+          if (viewMode !== "page") return;
+          const start = touchStart.current; touchStart.current = null;
+          if (!start) return;
+          const dx = event.changedTouches[0].clientX - start.x;
+          const dy = event.changedTouches[0].clientY - start.y;
+          if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) go(index + (dx < 0 ? 1 : -1));
+        }}
+        // Ebook-style tap zones: outer 18% flips the page, the center toggles zen mode.
+        // Interactive children (buttons, growth overlays, notes) are ignored via closest().
+        onClick={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest("button,a,input,textarea,select,[role='button'],.reader-growth-gate,.reader-growth-block")) return;
+          const ratio = (event.clientX - event.currentTarget.getBoundingClientRect().left) / event.currentTarget.getBoundingClientRect().width;
+          if (ratio < 0.18) go(index - 1);
+          else if (ratio > 0.82) go(index + 1);
+          else setZen((value) => !value);
+        }}
+      >
+        {viewMode === "scroll"
+          ? <div className="reader-scroll-stack" ref={scrollStageRef}>{book.pages.map((item, pageIndex) => <div className="reader-scroll-page" data-page-index={pageIndex} id={`reader-page-${pageIndex}`} key={item.id}><div className="reader-page-frame" style={{ width: (item.width ?? 794) * scale, height: (item.height ?? 1123) * scale }}><div className="reader-page-v2" style={{ width: item.width ?? 794, height: item.height ?? 1123, background: item.background, transform: `scale(${scale})` }}>{item.elements.map((element) => <ReaderElement key={element.id} element={activeBrand ? resolveElement(element, activeBrand) : element}/>)}<div className="watermark-v2"><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span></div></div></div></div>)}</div>
+          : <div className={`reader-page-frame turn-${turnDir > 0 ? "next" : "prev"}`} key={index} style={{ width: (page.width ?? 794) * scale, height: (page.height ?? 1123) * scale }}><div className="reader-page-v2" style={{ width: page.width ?? 794, height: page.height ?? 1123, background: page.background, transform: `scale(${scale})` }}>{page.elements.map((element) => <ReaderElement key={element.id} element={element}/>) }<div className="watermark-v2"><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span><span>HỌC VIÊN • {book.author} • H2OBOOK</span></div></div></div>}
+        <GrowthLayer bookId={book.id} pageIndex={index}/>{presenter && page.notes && <div className="presenter-notes"><strong>Ghi chú giảng viên</strong><p>{page.notes}</p></div>}</section>
       {accessibilityOpen && <AccessibilityDock text={pageText || page.notes || page.name} onClose={() => setAccessibilityOpen(false)}/>}
       {notesOpen && <aside className="reader-notes"><header><div><MessageSquareText size={16}/><strong>Ghi chú của tôi</strong></div><button onClick={() => setNotesOpen(false)}><X size={15}/></button></header><textarea value={note} onChange={(event) => saveNote(event.target.value)} placeholder="Ghi lại ý quan trọng, câu hỏi hoặc nội dung cần thực hành..."/><small>{serverBookId ? "Ghi chú đồng bộ với tài khoản của bạn." : "Ghi chú được lưu trên thiết bị hiện tại."}</small><div className="reader-page-note"><strong>Ghi chú giảng viên</strong><p>{page.notes || "Trang này chưa có ghi chú dành cho giảng viên."}</p></div></aside>}{studyOpen && <aside className="reader-study-dock"><header><div><Brain size={16}/><strong>Smart Study Local</strong></div><button onClick={() => setStudyOpen(false)}><X size={15}/></button></header><div className="study-dock-tabs"><button className={studyTab === "summary" ? "active" : ""} onClick={() => setStudyTab("summary")}><Layers3 size={13}/>Tóm tắt</button><button className={studyTab === "questions" ? "active" : ""} onClick={() => setStudyTab("questions")}><ListChecks size={13}/>Câu hỏi</button><button className={studyTab === "cards" ? "active" : ""} onClick={() => setStudyTab("cards")}><Sparkles size={13}/>Flashcard</button></div>{studyTab === "summary" && <div className="study-dock-content"><pre>{localStudy.summary}</pre></div>}{studyTab === "questions" && <div className="study-dock-content"><pre>{localStudy.questions}</pre></div>}{studyTab === "cards" && <div className="study-card-list">{localStudy.cards.map((card, cardIndex) => <article key={cardIndex}><strong>{card.front}</strong><p>{card.back}</p></article>)}<button className="btn btn-primary btn-sm" onClick={() => { store.addFlashcardsFromText({ text: pageText || page.notes || page.name, bookId: book.id, pageId: page.id }); store.addStudySession({ bookId: book.id, mode: "review", durationMinutes: 5, completedItems: localStudy.cards.length }); }}>Lưu thẻ vào lịch ôn</button></div>}<footer><WifiOffBadge/></footer></aside>}
     </div>
-    <footer className="reader-footer-v2"><div className="reader-controls"><button className="reader-btn" aria-label="Trang trước" onClick={() => go(index - 1)} disabled={index === 0}><ChevronLeft size={16} aria-hidden="true"/></button><span>{index + 1} / {book.pages.length}</span><button className="reader-btn" aria-label="Trang sau" onClick={() => go(index + 1)} disabled={index === book.pages.length - 1}><ChevronRight size={16} aria-hidden="true"/></button></div><div className="reader-progress-v2"><span style={{ width: `${progress}%` }}/></div><div className="reader-controls"><button className="reader-btn" aria-label="Thu nhỏ" onClick={() => setScale((value) => Math.max(0.28, value - 0.08))}><ZoomOut size={15} aria-hidden="true"/></button><span>{Math.round(scale * 100)}%</span><button className="reader-btn" aria-label="Phóng to" onClick={() => setScale((value) => Math.min(1.25, value + 0.08))}><ZoomIn size={15} aria-hidden="true"/></button><button className="reader-btn" title="Tải gói sách H2OBOOK" aria-label="Tải gói sách H2OBOOK" onClick={downloadProject}><Download size={15} aria-hidden="true"/></button></div></footer>
+    <footer className="reader-footer-v2"><div className="reader-controls"><button className="reader-btn" aria-label="Trang trước" onClick={() => go(index - 1)} disabled={index === 0}><ChevronLeft size={16} aria-hidden="true"/></button><span>{index + 1} / {book.pages.length}</span><button className="reader-btn" aria-label="Trang sau" onClick={() => go(index + 1)} disabled={index === book.pages.length - 1}><ChevronRight size={16} aria-hidden="true"/></button></div><div className="reader-progress-v2"><input className="reader-jump" type="range" min={1} max={book.pages.length} value={index + 1} aria-label="Nhảy nhanh tới trang" onChange={(event) => go(Number(event.target.value) - 1)}/><span style={{ width: `${progress}%` }}/>{remainingMinutes > 0 && <em>≈{remainingMinutes} phút còn lại</em>}</div><div className="reader-controls"><button className="reader-btn" aria-label="Thu nhỏ" onClick={() => setScale((value) => Math.max(0.28, value - 0.08))}><ZoomOut size={15} aria-hidden="true"/></button><span>{Math.round(scale * 100)}%</span><button className="reader-btn" aria-label="Phóng to" onClick={() => setScale((value) => Math.min(1.25, value + 0.08))}><ZoomIn size={15} aria-hidden="true"/></button><button className="reader-btn" title="Tải gói sách H2OBOOK" aria-label="Tải gói sách H2OBOOK" onClick={downloadProject}><Download size={15} aria-hidden="true"/></button></div></footer>
   </main>;
 }
 
@@ -245,7 +348,7 @@ function ReaderImage({ element, style }: { element: H2OElement; style: React.CSS
     void resolveAssetUrl(element.assetId).then((url) => { objectUrl = url; if (!cancelled) setSource(url); });
     return () => { cancelled = true; if (objectUrl?.startsWith("blob:")) URL.revokeObjectURL(objectUrl); };
   }, [element.assetId, element.imageUrl]);
-  return source ? <img alt={element.altText ?? element.name} src={source} style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/> : <div aria-label={element.altText ?? element.name} style={{ ...style, background: "#eef1f4", borderRadius: element.cornerRadius }}/>;
+  return source ? <img alt={element.altText ?? element.name} src={source} loading="lazy" decoding="async" style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/> : <div aria-label={element.altText ?? element.name} style={{ ...style, background: "#eef1f4", borderRadius: element.cornerRadius }}/>;
 }
 
 function QrPreview({ element, style }: { element: H2OElement; style: React.CSSProperties }) {

@@ -428,6 +428,23 @@ a { color: inherit; text-decoration: none; }
 .reader-search-box{display:flex;align-items:center;gap:8px;margin:10px 12px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.06)}
 .reader-search-box input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:inherit;font-size:13px}.reader-search-box button{border:0;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer}
 .reader-highlight-mode .reader-page-v2 div[style*="white-space"]{background:color-mix(in srgb,#ffe26f 24%,transparent);outline:1px dashed color-mix(in srgb,#d6a700 45%,transparent)}
+
+/* Ebook reading upgrades — page-turn, themes, zen, scroll mode, quick jump */
+.reader-sepia{background:#e8dcc8;color:#4a3f2f}.reader-sepia .reader-bar-v2{background:#efe4cf;border-bottom-color:rgba(90,70,40,.18);color:#4a3f2f}.reader-sepia .reader-bar-left span{color:#8a7a5e}.reader-sepia .reader-btn{border-color:rgba(90,70,40,.25);background:rgba(255,255,255,.35);color:#4a3f2f}.reader-sepia .reader-toc,.reader-sepia .reader-notes{background:#efe4cf;border-color:rgba(90,70,40,.18);color:#4a3f2f}
+.reader-zen{grid-template-rows:0 minmax(0,1fr) 0}.reader-zen .reader-bar-v2,.reader-zen .reader-footer-v2,.reader-zen .reader-toc,.reader-zen .reader-notes,.reader-zen .reader-study-dock{display:none}
+@keyframes readerTurnNext{from{transform:translateX(56px);opacity:.1}to{transform:translateX(0);opacity:1}}
+@keyframes readerTurnPrev{from{transform:translateX(-56px);opacity:.1}to{transform:translateX(0);opacity:1}}
+.reader-page-frame.turn-next{animation:readerTurnNext .26s ease-out}
+.reader-page-frame.turn-prev{animation:readerTurnPrev .26s ease-out}
+@media(prefers-reduced-motion:reduce){.reader-page-frame.turn-next,.reader-page-frame.turn-prev{animation:none}}
+.reader-stage-v2{display:grid;place-items:center;overflow:auto;touch-action:pan-y;user-select:none}
+.reader-scroll-mode .reader-stage-v2{display:block;user-select:auto}
+.reader-scroll-stack{width:100%;max-height:100%;overflow-y:auto;display:grid;justify-items:center;gap:22px;padding:26px}
+.reader-scroll-page{scroll-margin-top:14px}
+.reader-jump{flex:1;min-width:90px;accent-color:#f3b8d1;cursor:pointer}
+.reader-progress-v2{display:flex;align-items:center;gap:10px;position:relative}.reader-progress-v2>span{position:absolute;left:0;bottom:-4px;height:3px;border-radius:99px;background:#f3b8d1;pointer-events:none}
+.reader-progress-v2 em{font-style:normal;font-size:8px;color:#bbaab2;white-space:nowrap}
+@media(max-width:850px){.reader-bar-right .hide-mobile{display:none}.reader-scroll-stack{padding:12px}}
 .class-detail-summary,.student-detail-grid,.order-detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}.class-detail-summary>div,.student-detail-grid>div,.order-detail>div{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);display:flex;gap:10px;align-items:center}.student-detail-grid>div,.order-detail>div{display:flex;flex-direction:column;align-items:flex-start;gap:4px}.detail-two-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.detail-two-columns h3{font-size:14px;margin:0 0 10px}.detail-list-row{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;color:inherit;text-decoration:none}.detail-list-row span{display:flex;flex-direction:column}.detail-list-row small,.muted{color:var(--muted)}
 .quiz-editor-list,.submission-list{display:grid;gap:9px;max-height:310px;overflow:auto;margin-bottom:16px}.quiz-editor-list article,.submission-list article{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:12px}.quiz-editor-list article>span{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-soft);font-weight:700}.quiz-editor-list article div,.submission-list article div{display:flex;flex:1;flex-direction:column;gap:3px}.quiz-editor-list small,.submission-list small{color:var(--muted)}.quiz-add-question{display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:end;padding-top:14px;border-top:1px solid var(--border)}.bulk-textarea{min-height:190px}.order-detail strong{word-break:break-word}
 @media(max-width:760px){.detail-two-columns,.class-detail-summary,.student-detail-grid,.order-detail,.quiz-add-question{grid-template-columns:1fr}}
