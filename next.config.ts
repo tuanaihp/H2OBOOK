@@ -27,6 +27,16 @@ const nextConfig: NextConfig = {
     config.resolve.alias = { ...config.resolve.alias, canvas: false, "@valkey/valkey-glide": false };
     return config;
   },
-  async headers() { return [{ source: "/:path*", headers: securityHeaders }]; }
+  async headers() { return [
+    { source: "/:path*", headers: securityHeaders },
+    // Long-lived cache for versioned/static /public assets — Vercel's default is max-age=0,
+    // so every icon/template-pack request revalidated and burned requests on every page load.
+    { source: "/icons/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { source: "/design-library/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { source: "/template-packs/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { source: "/manifest.webmanifest", headers: [{ key: "Cache-Control", value: "public, max-age=3600" }] },
+    // The service worker must revalidate every navigation or users get pinned to a stale app.
+    { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }] }
+  ]; }
 };
 export default nextConfig;
