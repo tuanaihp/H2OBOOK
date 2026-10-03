@@ -199,8 +199,8 @@ export async function renderPdfFixedLayout(file: File, input: { organizationId?:
       const context = canvas.getContext("2d");
       if (!context) throw new Error("PDF_CANVAS_UNAVAILABLE");
       await page.render({ canvas, canvasContext: context, viewport }).promise;
-      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("PDF_RENDER_FAILED")), "image/jpeg", 0.92));
-      const pageFile = new File([blob], `${file.name.replace(/\.pdf$/i, "")}-page-${pageNumber}.jpg`, { type: "image/jpeg" });
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("PDF_RENDER_FAILED")), "image/webp", 0.8));
+      const pageFile = new File([blob], `${file.name.replace(/\.pdf$/i, "")}-page-${pageNumber}.webp`, { type: "image/webp" });
       const asset = await uploadAsset(pageFile, { organizationId: input.organizationId, category: "pdf-pages", assetType: "pdf-page" });
       pages.push({
         id: uid("page"), name: `${file.name} — ${pageNumber}`, pageType: "imported", width: targetWidth, height: targetHeight, background: "#ffffff",

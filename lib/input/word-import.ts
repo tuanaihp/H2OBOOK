@@ -49,7 +49,7 @@ export async function importDocxToBookDocument(file: File, input: { bookId: stri
     const fileName = `${file.name.replace(/\.docx$/i, "")}-image-${imageIndex}.${extension(mimeType)}`;
     const embedded = new File([bytes], fileName, { type: mimeType });
     try {
-      const asset = await uploadAsset(embedded, { organizationId: input.organizationId, category: "word-images", assetType: "word-image" });
+      const asset = await uploadAsset(embedded, { organizationId: input.organizationId, category: "word-images", assetType: "word-image", compress: true });
       assets.push({ ...asset, fileName, mimeType });
       return { src: asset.previewUrl, "data-h2o-asset-id": asset.assetId, alt: fileName };
     } catch (error) {

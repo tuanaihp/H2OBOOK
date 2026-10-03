@@ -137,7 +137,7 @@ export default function AssetsPage() {
         // Shared upload client (presign → R2 PUT → same-origin proxy fallback → complete). A bare
         // direct PUT dies on an unconfigured bucket CORS rule with an opaque "Failed to fetch" —
         // the shared client retries through /api/storage/upload-proxy and tags each failing step.
-        const result = await uploadAsset(file, { organizationId: workspace.id, category: "library", assetType: file.type.startsWith("image/") ? "image" : "document" });
+        const result = await uploadAsset(file, { organizationId: workspace.id, category: "library", assetType: file.type.startsWith("image/") ? "image" : "document", compress: file.type.startsWith("image/") });
         if (result.mode === "local") setMessage(`${file.name} đã lưu trên thiết bị (chế độ demo — R2 chưa cấu hình).`);
         else if (result.scanStatus === "pending") setMessage(`${file.name} đã tải xong và đang chờ quét an toàn.`);
         else setMessage(`${file.name} đã sẵn sàng sử dụng.`);

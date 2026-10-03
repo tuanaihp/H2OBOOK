@@ -64,7 +64,7 @@ export function AssetCenterV1() {
         setMessage(`Đang kiểm tra và tải ${file.name}...`);
         // Shared upload client: presign → direct R2 PUT → same-origin proxy fallback → complete, so
         // an unconfigured bucket CORS rule no longer dead-ends the upload with "Failed to fetch".
-        const result = await uploadAsset(file, { organizationId: workspace.id, category: "library", assetType: file.type.startsWith("image/") ? "image" : "document" });
+        const result = await uploadAsset(file, { organizationId: workspace.id, category: "library", assetType: file.type.startsWith("image/") ? "image" : "document", compress: file.type.startsWith("image/") });
         if (result.mode === "local") setMessage(`${file.name} đã lưu trên thiết bị (chế độ demo — R2 chưa cấu hình).`);
         else if (result.scanStatus === "pending") setMessage(`${file.name} đã tải và đang chờ quét.`);
         else setMessage(`${file.name} đã sẵn sàng sử dụng.`);

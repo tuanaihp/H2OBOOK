@@ -61,7 +61,7 @@ async function localizeNode(node: SemanticContentNode, input: { organizationId?:
     const blob = await response.blob();
     const fileName = remoteName(response, sourceUrl);
     const file = new File([blob], fileName, { type: blob.type || response.headers.get("content-type") || "image/jpeg" });
-    const asset = await uploadAsset(file, { organizationId: input.organizationId, category: "html-images", assetType: "html-image", metadata: { sourceUrl, importedBy: "html-2.0" } });
+    const asset = await uploadAsset(file, { organizationId: input.organizationId, category: "html-images", assetType: "html-image", compress: true, metadata: { sourceUrl, importedBy: "html-2.0" } });
     if (process.env.NEXT_PUBLIC_APP_MODE === "production" && asset.scanStatus !== "clean") throw new Error(asset.scanStatus === "blocked" ? "ASSET_SCAN_BLOCKED" : "ASSET_SCAN_PENDING");
     input.assets.push({ assetId: asset.assetId, previewUrl: asset.previewUrl, fileName, mimeType: file.type });
     return { ...node, children, attrs: { ...node.attrs, assetId: asset.assetId, previewUrl: asset.previewUrl, legacyUrl: asset.previewUrl, localizationStatus: "localized", originalSourceUrl: sourceUrl } };

@@ -61,7 +61,7 @@ export function ImageSmartImport({
   const commitAsset = async () => {
     setBusy(true);
     try {
-      const asset = await uploadInspectedImage(inspection, { organizationId, category: "editor-images", assetType: "image" });
+      const asset = await uploadInspectedImage(inspection, { organizationId, category: "editor-images", assetType: "image", compress: true });
       const metadata = buildImageMetadata(inspection);
       if (onCommitAsset) await onCommitAsset({ assetId: asset.assetId, previewUrl: asset.previewUrl, fileName: inspection.metadata.fileName, metadata });
       else store.addImage({ assetId: asset.assetId, previewUrl: asset.previewUrl, fileName: inspection.metadata.fileName, metadata });
@@ -74,7 +74,7 @@ export function ImageSmartImport({
   const commitFullPage = async () => {
     setBusy(true);
     try {
-      const asset = await uploadInspectedImage(inspection, { organizationId, category: "full-page-images", assetType: "full-page-image" });
+      const asset = await uploadInspectedImage(inspection, { organizationId, category: "full-page-images", assetType: "full-page-image", compress: true });
       const page = buildFullPageImage(asset, inspection.metadata);
       if (onCommitFullPage) await onCommitFullPage(page);
       else store.addImportedPage(page);
@@ -100,7 +100,7 @@ export function ImageSmartImport({
         for (const region of imageRegions) {
           const cropped = await cropImageRegion(inspection, region);
           const croppedInspection = await inspectImage(cropped);
-          const asset = await uploadInspectedImage(croppedInspection, { organizationId, category: "image-regions", assetType: "image-region" });
+          const asset = await uploadInspectedImage(croppedInspection, { organizationId, category: "image-regions", assetType: "image-region", compress: true });
           added.push({
             id: uid("image"), type: "image", parentId: chapter.id, position: chapter.children.length + added.length,
             attrs: { assetId: asset.assetId, legacyUrl: asset.previewUrl, altText: region.label || `Vùng ảnh ${region.order + 1}`, caption: "", sourceRegion: region, page: 1 },
