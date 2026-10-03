@@ -10,7 +10,7 @@ import {
 import { useAppStore } from "@/store/app-store";
 import type { H2OElement, H2OBook } from "@/types/editor";
 import { localFlashcards, localQuiz, localSummary } from "@/lib/local-smart-engine";
-import { resolveAssetUrl } from "@/lib/assets/asset-client";
+import { resolveAssetUrl, assetProxyFallbackUrl } from "@/lib/assets/asset-client";
 import { resolveElement } from "@/lib/brand-resolver";
 import { GrowthLayer } from "@/components/reader/growth-layer";
 import { AccessibilityDock } from "@/components/reader/accessibility-dock";
@@ -340,8 +340,7 @@ function ReaderElement({ element }: { element: H2OElement }) {
 }
 
 function ReaderImage({ element, style }: { element: H2OElement; style: React.CSSProperties }) {
-  const [source, setSource] = useState<string | null>(null);
-  const [fallbackSource, setFallbackSource] = useState<string | null>(null);
+  const [sources, setSources] = useState<string[]>([]);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -351,13 +350,15 @@ function ReaderImage({ element, style }: { element: H2OElement; style: React.CSS
       const assetUrl = element.assetId ? await resolveAssetUrl(element.assetId) : null;
       if (element.assetId?.startsWith("local:") && assetUrl?.startsWith("blob:")) ownedObjectUrl = assetUrl;
       if (cancelled) return;
-      setSource(assetUrl ?? element.imageUrl ?? null);
-      setFallbackSource(assetUrl && element.imageUrl && assetUrl !== element.imageUrl ? element.imageUrl : null);
+      // Presigned direct-R2 first (no serverless bytes), same-origin stream as the CORS-less
+      // rescue, legacy imageUrl last — each only runs if the previous source fails to load.
+      setSources([assetUrl, element.assetId ? assetProxyFallbackUrl(element.assetId) : null, element.imageUrl].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index));
     })();
     return () => { cancelled = true; if (ownedObjectUrl) URL.revokeObjectURL(ownedObjectUrl); };
   }, [element.assetId, element.imageUrl]);
+  const source = sources[0] ?? null;
   if (source && !failed) return <img alt={element.altText ?? element.name} src={source} loading="lazy" decoding="async" onError={() => {
-    if (fallbackSource && fallbackSource !== source) { setSource(fallbackSource); setFallbackSource(null); }
+    if (sources.length > 1) setSources(sources.slice(1));
     else setFailed(true);
   }} style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/>;
   return <div aria-label={element.altText ?? element.name} style={{ ...style, background: "#eef1f4", borderRadius: element.cornerRadius, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>

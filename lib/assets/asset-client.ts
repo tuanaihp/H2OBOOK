@@ -60,15 +60,13 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
     return { assetId, previewUrl: URL.createObjectURL(file), mode: "local", mimeType: file.type, fileName: file.name };
   }
   let uploaded: Response | null = null;
-  // The current R2 API token cannot administer bucket CORS. Small files therefore use the
-  // same-origin proxy immediately instead of producing one failed preflight per page before
-  // falling back. Large files still require direct-to-R2 because of the platform body limit.
-  if (file.size > PROXY_UPLOAD_MAX_BYTES) {
-    try {
-      uploaded = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
-    } catch {
-      // The explicit error below explains the required bucket CORS repair.
-    }
+  // Direct-to-R2 first for every size: proxied upload bytes count against serverless bandwidth,
+  // so the presigned PUT is attempted unconditionally and the same-origin proxy only runs when
+  // the bucket CORS rule is missing (preflight fails before R2 ever sees the body — safe retry).
+  try {
+    uploaded = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
+  } catch {
+    // CORS/network failure — fall through to the proxy or the explicit large-file error.
   }
   if (!uploaded?.ok) {
     if (file.size > PROXY_UPLOAD_MAX_BYTES) throw new Error("R2_UPLOAD_FAILED: File cần kết nối trực tiếp R2 — CORS của bucket chưa mở cho tên miền này (chạy scripts/configure-r2-cors.mjs hoặc đặt AllowedOrigins trong Cloudflare Dashboard).");
@@ -124,18 +122,34 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   }
 }
 
-/** URL a browser can actually render an asset from (<img>, Konva canvas, CSS background).
- *  Cloud assets resolve to our own origin, never to a presigned R2 link: R2 answers a
- *  cross-origin GET without Access-Control-Allow-Origin unless the bucket carries an explicit
- *  CORS rule, so an <img crossOrigin="anonymous"> load silently fails and the page renders
- *  blank — the exact symptom of imported image/PDF book pages showing up empty. The same-origin
- *  route also sidesteps the 5-minute presign expiry during long editing sessions. */
+/** Same-origin stream route — LAST RESORT only. Every byte served this way bills serverless
+ *  bandwidth, so it exists solely to rescue Konva/canvas loads on a bucket whose CORS rule is
+ *  still missing. Normal display must go through resolveAssetUrl's presigned R2 URL. */
+export function assetProxyFallbackUrl(assetId: string) {
+  return assetId.startsWith("local:") ? null : `/api/assets/${encodeURIComponent(assetId)}/raw`;
+}
+
+/** URL a browser can render an asset from (<img>, Konva canvas, CSS background).
+ *  Primary: presigned direct-to-R2 URL — image bytes never touch Vercel, which is the whole
+ *  point of R2 (a 65-page image book would otherwise burn serverless bandwidth on every view).
+ *  Plain <img> renders cross-origin without bucket CORS; only canvas pixel access needs it.
+ *  On any resolve failure the /raw same-origin stream remains as the emergency answer. */
 export async function resolveAssetUrl(assetId: string) {
   if (assetId.startsWith("local:")) {
     const blob = await readLocalAsset(assetId);
     return blob ? URL.createObjectURL(blob) : null;
   }
-  return `/api/assets/${encodeURIComponent(assetId)}/raw`;
+  try {
+    const response = await fetch(`/api/assets/${encodeURIComponent(assetId)}/url?view=1`, { cache: "no-store" });
+    if (response.ok) {
+      const payload = await response.json() as { url?: string | null };
+      if (payload.url) return payload.url;
+    } else {
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      console.warn(`[H2OBOOK] asset view url failed: ${assetId} → ${response.status} ${body?.error ?? ""}`.trim());
+    }
+  } catch { /* presign endpoint unreachable — proxy fallback below keeps the image alive */ }
+  return assetProxyFallbackUrl(assetId);
 }
 
 /** Presigned, time-limited R2 link with attachment disposition — for "save file" actions only. */

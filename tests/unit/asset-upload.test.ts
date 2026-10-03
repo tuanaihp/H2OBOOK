@@ -15,7 +15,7 @@ describe("browser asset upload", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses the same-origin proxy directly for small uploads", async () => {
+  it("attempts the direct presigned R2 PUT before any proxy fallback", async () => {
     const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "evidence.jpg", { type: "image/jpeg" });
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ mode: "cloud", key: "org-1/student-competency/evidence.jpg", uploadUrl: "https://r2.example.test/signed" }), { status: 200 }))
@@ -27,8 +27,25 @@ describe("browser asset upload", () => {
     const result = await uploadAsset(file, { organizationId: "org-1", category: "student-competency", assetType: "image" });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/storage/upload-proxy");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://r2.example.test/signed");
     expect(result).toMatchObject({ assetId: "asset-1", mode: "cloud", scanStatus: "clean", previewUrl: "/api/assets/asset-1/raw" });
+  });
+
+  it("falls back to the same-origin proxy only when the direct PUT fails (bucket CORS missing)", async () => {
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "evidence.jpg", { type: "image/jpeg" });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ mode: "cloud", key: "org-1/student-competency/evidence.jpg", uploadUrl: "https://r2.example.test/signed" }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch")) // blocked preflight surfaces as a network TypeError
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ asset: { id: "asset-1", storage_key: "org-1/student-competency/evidence.jpg", mime_type: "image/jpeg", original_name: "evidence.jpg", quarantine_status: "clean" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:preview") });
+
+    const result = await uploadAsset(file, { organizationId: "org-1", category: "student-competency", assetType: "image" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[2]?.[0]).toBe("/api/storage/upload-proxy");
+    expect(result).toMatchObject({ assetId: "asset-1", mode: "cloud" });
   });
 
   it("compresses image batches at 80% without reducing their pixel dimensions", async () => {

@@ -46,6 +46,19 @@ export async function createDownloadUrl(key: string, fileName?: string) {
   return getSignedUrl(client(), command, { expiresIn: 5 * 60 });
 }
 
+// Direct-to-R2 display URL for <img>/canvas — the default render path. Every byte proxied
+// through a serverless function counts against the hosting bandwidth quota, so page images
+// must flow browser↔R2, never browser↔Vercel↔R2. Inline disposition makes the browser render
+// instead of download; the 6-hour expiry survives long editing sessions.
+// Caveat: Konva/canvas pixel access still needs the bucket CORS rule (scripts/configure-r2-cors.mjs);
+// plain <img> renders cross-origin without it.
+export async function createViewUrl(key: string) {
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET!, Key: key, ResponseContentDisposition: "inline"
+  });
+  return getSignedUrl(client(), command, { expiresIn: 6 * 60 * 60 });
+}
+
 export async function headStoredObject(key: string) {
   const result = await client().send(new HeadObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }));
   return { sizeBytes: Number(result.ContentLength ?? 0), contentType: result.ContentType ?? "application/octet-stream", metadata: result.Metadata ?? {} };
@@ -83,11 +96,9 @@ export async function readStoredObject(key: string) {
   return merged;
 }
 
-// Inline streaming for <img>/<canvas> display. The presigned GET URL cannot be used by the
-// browser for rendering: it is cross-origin (r2.cloudflarestorage.com) and R2 only answers with
-// Access-Control-Allow-Origin when the bucket has an explicit CORS rule, so a <img crossOrigin>
-// load fails and the page renders blank. Streaming through our own origin removes that
-// dependency (and the 5-minute presign expiry) entirely.
+// LAST-RESORT streaming for <img>/<canvas>: every byte through this helper is billed serverless
+// bandwidth. Use only when the direct presigned URL cannot render — i.e. a Konva canvas on a
+// bucket that still lacks its CORS rule. The default display path is createViewUrl (browser↔R2).
 export async function getStoredObjectStream(key: string) {
   const result = await client().send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }));
   const body = result.Body as { transformToWebStream?: () => ReadableStream } | undefined;

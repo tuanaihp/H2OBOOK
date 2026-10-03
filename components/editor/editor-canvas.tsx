@@ -5,7 +5,7 @@ import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer
 import Konva from "konva";
 import { useEditorStore } from "@/store/editor-store";
 import type { H2OElement } from "@/types/editor";
-import { resolveAssetUrl } from "@/lib/assets/asset-client";
+import { resolveAssetUrl, assetProxyFallbackUrl } from "@/lib/assets/asset-client";
 
 const minSize = 18;
 
@@ -66,7 +66,9 @@ function CanvasImage({ element, selected, onSelect, onChange, snapToGrid, gridSi
     const load = async () => {
       const assetUrl = element.assetId ? await resolveAssetUrl(element.assetId) : null;
       if (element.assetId?.startsWith("local:") && assetUrl?.startsWith("blob:")) ownedObjectUrl = assetUrl;
-      const candidates = [assetUrl, element.imageUrl].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
+      // crossOrigin="anonymous" needs the R2 bucket CORS rule for direct presigned URLs; when the
+      // rule is missing the same-origin /raw stream rescues the frame at bandwidth cost.
+      const candidates = [assetUrl, element.assetId ? assetProxyFallbackUrl(element.assetId) : null, element.imageUrl].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
       const tryCandidate = (index: number) => {
         if (cancelled) return;
         const url = candidates[index];

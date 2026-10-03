@@ -4,9 +4,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getStoredObjectStream } from "@/lib/storage/r2";
 import { isR2Configured } from "@/lib/runtime-config";
 
-// Same-origin inline bytes for display (editor canvas, reader, previews). The sibling /url route
-// still exists for downloads — its presigned R2 link is cross-origin and Content-Disposition:
-// attachment, neither of which a browser will render into an <img> or a Konva canvas.
+// Same-origin inline bytes — LAST RESORT display path. Every byte here is billed serverless
+// bandwidth, so the default render path is the presigned direct-R2 URL from /url?view=1. This
+// route exists only for clients whose canvas load fails without a bucket CORS rule (Konva
+// crossOrigin="anonymous"), and for presign-endpoint outages.
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;

@@ -46,8 +46,9 @@ export async function POST(request: Request) {
       storageKey: row.storage_key,
       fileName: row.original_name,
       mimeType: row.mime_type,
-      // A presigned R2 URL is cross-origin and expires; persist the authenticated same-origin
-      // display route so fixed-layout PDF pages remain visible after navigation and reload.
+      // Persist the durable same-origin reference (no expiry) — a presigned URL would die in
+      // hours. Renderers still resolve assetId → presigned R2 first, so this only serves as the
+      // emergency fallback when direct-R2 display cannot load.
       previewUrl: `/api/assets/${encodeURIComponent(row.id)}/raw`,
     });
   }
