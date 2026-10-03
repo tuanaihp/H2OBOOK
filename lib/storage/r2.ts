@@ -82,3 +82,20 @@ export async function readStoredObject(key: string) {
   for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
   return merged;
 }
+
+// Inline streaming for <img>/<canvas> display. The presigned GET URL cannot be used by the
+// browser for rendering: it is cross-origin (r2.cloudflarestorage.com) and R2 only answers with
+// Access-Control-Allow-Origin when the bucket has an explicit CORS rule, so a <img crossOrigin>
+// load fails and the page renders blank. Streaming through our own origin removes that
+// dependency (and the 5-minute presign expiry) entirely.
+export async function getStoredObjectStream(key: string) {
+  const result = await client().send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }));
+  const body = result.Body as { transformToWebStream?: () => ReadableStream } | undefined;
+  if (!body?.transformToWebStream) return null;
+  return {
+    stream: body.transformToWebStream(),
+    contentType: result.ContentType ?? "application/octet-stream",
+    contentLength: result.ContentLength,
+    etag: result.ETag
+  };
+}

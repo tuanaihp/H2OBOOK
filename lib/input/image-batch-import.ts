@@ -11,7 +11,7 @@ const MAX_PAGES_PER_BATCH = 300;
 export interface BuildPagesFromImagesInput {
   files: File[];
   organizationId?: string;
-  /** Re-encode each page as WebP (~82%, max 2000px) before upload — lighter storage and faster
+  /** Re-encode each page as WebP (80%, original pixel dimensions) before upload — lighter storage and faster
    *  page loads on phones. Off keeps the original pixels untouched. */
   compress?: boolean;
   onProgress?: (done: number, total: number, fileName: string) => void;

@@ -314,7 +314,7 @@ export const useEditorStore = create<EditorState>()(
         let height = width / Math.max(.05, ratio);
         const maxHeight = pageHeight * .64;
         if (height > maxHeight) { height = maxHeight; width = height * ratio; }
-        const element: H2OElement = { id: uid("image"), type: "image", name: source.fileName || "Hình ảnh", x: (pageWidth - width) / 2, y: (pageHeight - height) / 2, width, height, rotation: 0, opacity: 1, locked: false, hidden: false, assetId: source.assetId, imageUrl: source.previewUrl, altText: (source.fileName || "Hình ảnh").replace(/\.[^.]+$/, ""), imageMetadata: source.metadata, imageFit: "contain", cornerRadius: 0, permissions: permissions({ canEditContent: false, canChangeColor: false }) };
+        const element: H2OElement = { id: uid("image"), type: "image", name: source.fileName || "Hình ảnh", x: (pageWidth - width) / 2, y: (pageHeight - height) / 2, width, height, rotation: 0, opacity: 1, locked: false, hidden: false, assetId: source.assetId, imageUrl: source.previewUrl.startsWith("blob:") ? undefined : source.previewUrl, altText: (source.fileName || "Hình ảnh").replace(/\.[^.]+$/, ""), imageMetadata: source.metadata, imageFit: "contain", cornerRadius: 0, permissions: permissions({ canEditContent: false, canChangeColor: false }) };
         set((state) => ({ selectedIds: [element.id], book: { ...state.book, pages: state.book.pages.map((item) => item.id === state.activePageId ? { ...item, elements: [...item.elements, element] } : item) }, dirty: true }));
         get().checkpoint();
       },

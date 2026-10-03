@@ -29,6 +29,7 @@ import { localizeHtmlAssets, previewHtmlFile } from "@/lib/input/html-import";
 import { EditorCreativeHandoffBridge } from "@/components/creative-publishing-v1";
 import { exportBookPdf } from "@/lib/editor/export-pdf";
 import { pagesToDesignPack } from "@/lib/design-library/external-templates";
+import { mergeMissingBookAssetReferences } from "@/lib/editor/asset-recovery";
 
 const panels = [
   { id: "pages", label: "Trang", icon: Layers3 },
@@ -88,7 +89,11 @@ export function EditorWorkspace() {
           .then((response) => response.ok ? response.json() : null)
           .then((payload) => {
             if (loadedBookId.current !== bookId) return;
-            if (payload?.book) { store.replaceBook(payload.book); setLoadState("ready"); }
+            if (payload?.book) {
+              const localBook = useAppStore.getState().books.find((item) => item.id === bookId);
+              store.replaceBook(mergeMissingBookAssetReferences(payload.book, localBook));
+              setLoadState("ready");
+            }
             else setLoadState(foundLocally ? "ready" : "missing");
           })
           .catch((error) => {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser, resolveOrganizationAccess } from "@/lib/auth/api";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createDownloadUrl, headStoredObject } from "@/lib/storage/r2";
+import { headStoredObject } from "@/lib/storage/r2";
 
 export async function POST(request: Request) {
   const auth = await requireApiUser();
@@ -46,7 +46,9 @@ export async function POST(request: Request) {
       storageKey: row.storage_key,
       fileName: row.original_name,
       mimeType: row.mime_type,
-      previewUrl: await createDownloadUrl(row.storage_key),
+      // A presigned R2 URL is cross-origin and expires; persist the authenticated same-origin
+      // display route so fixed-layout PDF pages remain visible after navigation and reload.
+      previewUrl: `/api/assets/${encodeURIComponent(row.id)}/raw`,
     });
   }
   return NextResponse.json({ assets: output });

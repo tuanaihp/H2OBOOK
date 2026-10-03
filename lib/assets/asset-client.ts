@@ -5,19 +5,18 @@ export type UploadedAsset = { assetId: string; previewUrl: string; mode: "local"
 function localId() { return `local:${crypto.randomUUID()}`; }
 
 const COMPRESSIBLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_IMAGE_DIMENSION = 2000;
-const IMAGE_OUTPUT_QUALITY = 0.82;
+const IMAGE_OUTPUT_QUALITY = 0.8;
 export const PROXY_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 
-/** Resizes/re-encodes oversized raster images to WebP before upload to reduce storage; falls back to the original file on any failure or when it isn't smaller. */
+/** Re-encodes raster images to WebP at 80% while retaining their original pixel dimensions.
+ *  This keeps book pages sharp; the original file is used whenever conversion is not smaller. */
 async function compressImageFile(file: File): Promise<File> {
   if (typeof window === "undefined" || typeof document === "undefined" || !COMPRESSIBLE_IMAGE_TYPES.has(file.type)) return file;
   try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height));
-    if (scale >= 1 && file.type === "image/webp") { bitmap.close(); return file; }
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    if (file.type === "image/webp") { bitmap.close(); return file; }
+    const width = bitmap.width;
+    const height = bitmap.height;
     const canvas = document.createElement("canvas");
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext("2d");
@@ -61,12 +60,15 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
     return { assetId, previewUrl: URL.createObjectURL(file), mode: "local", mimeType: file.type, fileName: file.name };
   }
   let uploaded: Response | null = null;
-  try {
-    uploaded = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
-  } catch {
-    // A missing/misconfigured R2 CORS rule makes browser fetch throw before it can expose the
-    // response. Small evidence images get a same-origin fallback so the learning flow remains
-    // usable while operators repair bucket CORS. Large files keep the direct-to-R2 path only.
+  // The current R2 API token cannot administer bucket CORS. Small files therefore use the
+  // same-origin proxy immediately instead of producing one failed preflight per page before
+  // falling back. Large files still require direct-to-R2 because of the platform body limit.
+  if (file.size > PROXY_UPLOAD_MAX_BYTES) {
+    try {
+      uploaded = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type }, body: file });
+    } catch {
+      // The explicit error below explains the required bucket CORS repair.
+    }
   }
   if (!uploaded?.ok) {
     if (file.size > PROXY_UPLOAD_MAX_BYTES) throw new Error("R2_UPLOAD_FAILED: File cần kết nối trực tiếp R2 — CORS của bucket chưa mở cho tên miền này (chạy scripts/configure-r2-cors.mjs hoặc đặt AllowedOrigins trong Cloudflare Dashboard).");
@@ -105,7 +107,9 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   // a bare status code so upload UIs can show why the file was rejected.
   if (!result?.asset) throw new Error(`COMPLETE_${complete.status}: Không thể xác nhận file đã tải lên.`);
   if (result.scan?.status === "blocked") throw new Error(`UPLOAD_BLOCKED: ${result.scan.reason ?? "file không đạt kiểm tra an toàn"}`);
-  return { assetId: result.asset.id, previewUrl: URL.createObjectURL(file), mode: "cloud", storageKey: result.asset.storage_key ?? signed.key, mimeType: result.asset.mime_type ?? file.type, fileName: result.asset.original_name ?? file.name, scanStatus: result.scan?.status ?? result.asset.quarantine_status, scanReason: result.scan?.reason };
+  // Persist a same-origin URL, not a blob: preview. blob: URLs die on navigation/reload and were
+  // the reason an imported page still had "1 layer" while its canvas was completely white.
+  return { assetId: result.asset.id, previewUrl: `/api/assets/${encodeURIComponent(result.asset.id)}/raw`, mode: "cloud", storageKey: result.asset.storage_key ?? signed.key, mimeType: result.asset.mime_type ?? file.type, fileName: result.asset.original_name ?? file.name, scanStatus: result.scan?.status ?? result.asset.quarantine_status, scanReason: result.scan?.reason };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "UPLOAD_FAILED";
     // Content rejections must not silently downgrade to local — the caller needs the verdict.
@@ -120,7 +124,22 @@ export async function uploadAsset(inputFile: File, input?: { organizationId?: st
   }
 }
 
+/** URL a browser can actually render an asset from (<img>, Konva canvas, CSS background).
+ *  Cloud assets resolve to our own origin, never to a presigned R2 link: R2 answers a
+ *  cross-origin GET without Access-Control-Allow-Origin unless the bucket carries an explicit
+ *  CORS rule, so an <img crossOrigin="anonymous"> load silently fails and the page renders
+ *  blank — the exact symptom of imported image/PDF book pages showing up empty. The same-origin
+ *  route also sidesteps the 5-minute presign expiry during long editing sessions. */
 export async function resolveAssetUrl(assetId: string) {
+  if (assetId.startsWith("local:")) {
+    const blob = await readLocalAsset(assetId);
+    return blob ? URL.createObjectURL(blob) : null;
+  }
+  return `/api/assets/${encodeURIComponent(assetId)}/raw`;
+}
+
+/** Presigned, time-limited R2 link with attachment disposition — for "save file" actions only. */
+export async function resolveAssetDownloadUrl(assetId: string) {
   if (assetId.startsWith("local:")) {
     const blob = await readLocalAsset(assetId);
     return blob ? URL.createObjectURL(blob) : null;

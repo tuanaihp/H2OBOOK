@@ -62,19 +62,29 @@ function CanvasImage({ element, selected, onSelect, onChange, snapToGrid, gridSi
   const nodeRef = useRef<Konva.Image>(null);
   useEffect(() => {
     let cancelled = false;
-    let resolvedUrl: string | null = null;
+    let ownedObjectUrl: string | null = null;
     const load = async () => {
-      resolvedUrl = element.imageUrl && !element.imageUrl.startsWith("blob:")
-        ? element.imageUrl
-        : (element.assetId ? await resolveAssetUrl(element.assetId) : null) ?? element.imageUrl ?? null;
-      if (!resolvedUrl || cancelled) { if (!cancelled) setImage(null); return; }
-      const img = new window.Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => { if (!cancelled) setImage(img); };
-      img.src = resolvedUrl;
+      const assetUrl = element.assetId ? await resolveAssetUrl(element.assetId) : null;
+      if (element.assetId?.startsWith("local:") && assetUrl?.startsWith("blob:")) ownedObjectUrl = assetUrl;
+      const candidates = [assetUrl, element.imageUrl].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
+      const tryCandidate = (index: number) => {
+        if (cancelled) return;
+        const url = candidates[index];
+        if (!url) {
+          console.warn(`[H2OBOOK canvas] ảnh không tải được: ${element.assetId ?? "—"}`);
+          setImage(null);
+          return;
+        }
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => { if (!cancelled) setImage(img); };
+        img.onerror = () => tryCandidate(index + 1);
+        img.src = url;
+      };
+      tryCandidate(0);
     };
     void load();
-    return () => { cancelled = true; if (resolvedUrl?.startsWith("blob:")) URL.revokeObjectURL(resolvedUrl); };
+    return () => { cancelled = true; if (ownedObjectUrl) URL.revokeObjectURL(ownedObjectUrl); };
   }, [element.assetId, element.imageUrl]);
   const crop = image ? imageCrop(image, element.width, element.height, element.imageFit) : undefined;
   return <>

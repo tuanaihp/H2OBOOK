@@ -82,8 +82,8 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("Chọn file hoặc nhập URL để bắt đầu.");
   const [error, setError] = useState("");
-  // Image-book pages default to WebP ~82% (max 2000px) — a 65-page PNG book would otherwise
-  // store hundreds of MB on R2 and crawl on phones. Off keeps original pixels for archival.
+  // Image-book pages default to WebP 80% at their original pixel dimensions — a 65-page PNG
+  // book would otherwise store hundreds of MB. Off keeps the original file bytes for archival.
   const [compressPages, setCompressPages] = useState(true);
 
   const format = useMemo(() => source?.kind === "url" ? "url" : source?.kind === "file" ? detectInputFormat({ fileName: source.file.name, mimeType: source.file.type }) : null, [source]);
@@ -305,7 +305,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
         const base = structuredClone(editor.book);
         const page = base.pages.find((item) => item.id === editor.activePageId) ?? base.pages[0];
         if (!page || !value.previewUrl) throw new Error("EDITOR_PAGE_REQUIRED");
-        const image = { id: uid("image"), type: "image" as const, name: value.fileName || "Hình ảnh", x: 120, y: 160, width: Math.min(560, page.width * .7), height: Math.min(420, page.height * .5), rotation: 0, opacity: 1, locked: false, hidden: false, assetId: value.assetId, imageUrl: value.previewUrl, imageMetadata: value.metadata, altText: (value.fileName || "Hình ảnh").replace(/\.[^.]+$/, ""), imageFit: "contain" as const, permissions: { canEditContent: false, canMove: true, canResize: true, canDelete: true, canChangeColor: false, canReplaceAsset: true, canChangeFont: false, canRotate: true } };
+        const image = { id: uid("image"), type: "image" as const, name: value.fileName || "Hình ảnh", x: 120, y: 160, width: Math.min(560, page.width * .7), height: Math.min(420, page.height * .5), rotation: 0, opacity: 1, locked: false, hidden: false, assetId: value.assetId, imageUrl: value.previewUrl?.startsWith("blob:") ? undefined : value.previewUrl, imageMetadata: value.metadata, altText: (value.fileName || "Hình ảnh").replace(/\.[^.]+$/, ""), imageFit: "contain" as const, permissions: { canEditContent: false, canMove: true, canResize: true, canDelete: true, canChangeColor: false, canReplaceAsset: true, canChangeFont: false, canRotate: true } };
         page.elements.push(image); nextBook = { ...base, updatedAt: new Date().toISOString() };
       }
       const placeholder = plainTextToImportDocument({ sourceFileName: source.file.name, text: kind === "asset" ? "Image asset import" : "Full-page image import", format: "txt", bookId: nextBook.id, organizationId });
@@ -354,7 +354,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
 
   const cancel = async () => { if (!session) { setSource(null); return; } setBusy(true); try { setSession(await cancelOrchestratedInput(organizationId, session)); setMessage("Phiên nhập đã hủy; có thể retry sau."); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "INPUT_CANCEL_FAILED"); } finally { setBusy(false); } };
   const retry = async () => { if (!session) return; setBusy(true); try { const next = await retryOrchestratedInput(organizationId, session); setSession(next); setMessage("Phiên đã mở lại. Hãy chạy xử lý hoặc commit lại."); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "INPUT_RETRY_FAILED"); } finally { setBusy(false); } };
-  const recover = async () => { if (!session) return; setBusy(true); try { const result = await recoverOrchestratedInput(organizationId, session.id); setSession(result.session); setPreview(result.session.preview ?? null); setMessage("Đã khôi phục session từ cloud/local cache."); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "INPUT_RECOVERY_FAILED"); } finally { setBusy(false); } };
+  const recover = async () => { if (!session) return; setBusy(true); try { const result = await recoverOrchestratedInput(organizationId, session.id); const recoveredDesign = result.session.metadata.designPayload; setSession(result.session); setPreview(result.session.preview ?? null); setDesignPayload(recoveredDesign && typeof recoveredDesign === "object" && Array.isArray((recoveredDesign as Partial<H2OBook>).pages) ? recoveredDesign as H2OBook : null); setMessage("Đã khôi phục session từ cloud/local cache."); } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "INPUT_RECOVERY_FAILED"); } finally { setBusy(false); } };
 
   return <div className="unified-input-gateway">
     <header className="input-gateway-hero"><div><span className="eyebrow">H2OBOOK 4.13.7</span><h1>Unified Input Orchestrator</h1><p>Một luồng duy nhất cho DOCX, PDF, ảnh, HTML, Markdown, TXT và URL. AI không bắt buộc.</p></div>{session && <div className="input-session-badge" data-status={session.status}><strong>{sessionDisplayStage(session.status)}{session.status === "preview" ? " — chờ commit" : ""}</strong><span>{session.progress}%</span></div>}</header>
@@ -385,7 +385,7 @@ export function UnifiedInputGateway({ initialBookId }: { initialBookId?: string 
       <div><label>Nguồn</label><strong>{source.files.length} trang ảnh</strong></div>
       <label>Đích nhập<select value={destinationChoice} onChange={(event) => setDestinationChoice(event.target.value as DestinationChoice)}><option value="new_book">Tạo sách mới</option><option value="append_chapter">Nối vào sách hiện tại</option><option value="replace_document">Thay nội dung sách</option></select></label>
       {destinationChoice !== "new_book" && <label>Sách đích<select value={targetBookId} onChange={(event) => setTargetBookId(event.target.value)}><option value={editor.book.id}>{editor.book.title} — đang mở</option>{libraryBooks.filter((book) => book.id !== editor.book.id).map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></label>}
-      <label className="input-check"><input type="checkbox" checked={compressPages} onChange={(event) => setCompressPages(event.target.checked)}/> Nén ảnh về WebP ~82% (tối đa 2000px) — file nhẹ hơn, đọc trên điện thoại nhanh hơn. Bỏ chọn để giữ nguyên pixel gốc.</label>
+      <label className="input-check"><input type="checkbox" checked={compressPages} onChange={(event) => setCompressPages(event.target.checked)}/> Nén ảnh về WebP 80%, giữ nguyên kích thước pixel và tỷ lệ — file nhẹ hơn nhưng vẫn đủ nét. Bỏ chọn để lưu nguyên file gốc.</label>
       {source.zipWarnings && source.zipWarnings.length > 0 && <div className="word-import-warnings">{source.zipWarnings.slice(0, 10).map((warning, index) => <p key={`${warning.entryName}-${index}`} data-severity="info"><strong>{warning.entryName}</strong>{warning.reason}</p>)}</div>}
     </section>}
 

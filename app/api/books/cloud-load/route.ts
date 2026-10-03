@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireApiUser, resolveOrganizationAccess } from "@/lib/auth/api";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { H2OElement, H2OPage } from "@/types/editor";
+import type { H2OBook } from "@/types/editor";
+import { mergeMissingBookAssetReferences } from "@/lib/editor/asset-recovery";
 
 export async function GET(request: Request) {
   const auth = await requireApiUser(); if (auth.response) return auth.response;
@@ -40,5 +42,21 @@ export async function GET(request: Request) {
     return { id: page.client_key ?? page.id, name: page.name, width: page.width, height: page.height, background: background?.value ?? "#ffffff", pageType: metadata.pageType as H2OPage["pageType"], chapter: metadata.chapter as string | undefined, notes: metadata.notes as string | undefined, hidden: metadata.hidden as boolean | undefined, masterPageId: metadata.masterPageId as string | undefined, elements: mappedElements };
   });
   const cover = book.cover as { value?: string } | null;
-  return NextResponse.json({ mode: "cloud", book: { id: book.client_key ?? clientKey, title: book.title, subtitle: book.subtitle, description: book.description, author: book.author, cover: cover?.value ?? "linear-gradient(135deg,#6f1d46,#b45f83)", status: book.status === "published" ? "published" : "draft", pages: mappedPages, updatedAt: book.updated_at } });
+  let loadedBook: H2OBook = { id: book.client_key ?? clientKey, title: book.title, subtitle: book.subtitle, description: book.description, author: book.author, cover: cover?.value ?? "linear-gradient(135deg,#6f1d46,#b45f83)", status: book.status === "published" ? "published" : "draft", pages: mappedPages, updatedAt: book.updated_at };
+  // Compatibility repair for books committed before assetId was added to save_book_document().
+  // Their page/element rows exist but image content is empty. The orchestrator's scoped design
+  // payload still has the asset references, so merge only the missing fields by stable client IDs.
+  if (mappedPages.some((page) => page.elements.some((element) => element.type === "image" && !element.assetId && !element.imageUrl))) {
+    const { data: sourceSession } = await supabase.from("input_sessions")
+      .select("design_payload")
+      .eq("organization_id", access.organizationId)
+      .eq("target_book_id", book.id)
+      .not("design_payload", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const fallback = sourceSession?.design_payload as H2OBook | null | undefined;
+    loadedBook = mergeMissingBookAssetReferences(loadedBook, fallback);
+  }
+  return NextResponse.json({ mode: "cloud", book: loadedBook });
 }

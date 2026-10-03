@@ -42,3 +42,36 @@ Completed in source as H2OBOOK 4.13.7 Release Candidate.
 - Concurrent production jobs and browser-refresh recovery.
 
 Phase 7 is therefore source-complete but remains a release candidate until these external gates pass.
+
+## 2026-10-02 — Imported image/PDF blank-page regression
+
+- Cloud assets now persist a same-origin `/api/assets/:id/raw` display URL instead of a temporary
+  `blob:` URL or expiring cross-origin R2 URL.
+- Editor canvas and Reader resolve `assetId` first and retry the legacy `imageUrl` as fallback.
+- Cloud load recovers image references dropped by older `save_book_document()` versions from the
+  organization-scoped Input Session design payload; the editor also merges a same-browser local
+  copy so already-imported books can recover without being re-uploaded.
+- Multi-image imports use WebP quality 80% while retaining the source pixel dimensions and aspect
+  ratio. Disabling compression continues to preserve the original file bytes.
+- Verified: TypeScript typecheck and production build passed; 314 unit tests passed with one R2-live
+  test intentionally skipped; Phase 3 and Phase 7 validators passed. Phase 4 source checks reached
+  its external Tesseract runtime gate and stopped because the Tesseract executable is not installed
+  on this Windows host.
+- Demo mode now remains local even when `.env.local` contains Supabase credentials, and its commit
+  state machine follows `preview -> committing -> completed` like the production database RPC.
+- Local Playwright passed all four gateway cases, including a two-PNG import with WebP 80%
+  compression, commit, editor navigation, two persisted pages, and non-empty rendered canvas pixels.
+- Production Supabase/R2 and the signed-in browser flow were not exercised from this environment;
+  the same-origin cloud asset route is covered by typecheck, unit tests, and the production build.
+
+## 2026-10-02 — Existing-book image append follow-up
+
+- Fixed `BOOK_NOT_FOUND` when a signed-in user appends imported image pages to a book that still
+  exists only in the browser library: the explicit commit now materializes the target in Supabase,
+  stores its UUID on the Input Session, then continues through the hardened commit RPC.
+- Recovery restores the saved design payload as well as the semantic preview, so an interrupted
+  image-book commit remains recoverable after refresh.
+- Small files now use the same-origin upload proxy immediately. The current R2 token cannot manage
+  bucket CORS, so this avoids one failed browser preflight per imported page while retaining the
+  direct-to-R2 requirement and explicit diagnostic for files above the 4 MiB proxy limit.
+- Playwright passed 5/5 gateway cases, including append-and-commit into a current local-only book.

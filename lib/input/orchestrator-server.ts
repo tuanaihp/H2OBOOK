@@ -185,28 +185,53 @@ export async function commitInputSession(input: { organizationId: string; userId
   if (session.status === "completed" && session.commitResult) return session.commitResult;
   if (!session.preview && !(session.metadata.designPayload || false)) throw new Error("INPUT_PREVIEW_REQUIRED");
   const destination = input.destination ?? session.destination;
+  const designPayload = (session.metadata.designPayload ?? null) as Record<string, unknown> | null;
   validateCorrections(input.corrections ?? session.corrections);
-  validateDesignPayload((session.metadata.designPayload ?? undefined) as Record<string, unknown> | undefined);
+  validateDesignPayload(designPayload ?? undefined);
   let document = session.preview ? applyInputCorrections(session.preview.document, input.corrections ?? session.corrections) : undefined;
+
+  const client = await createSupabaseServerClient();
+  if (!client) {
+    const result: InputCommitResult = { sessionId: session.id, bookId: destination.targetBookId ?? document?.bookId ?? crypto.randomUUID(), clientKey: destination.targetClientKey ?? document?.bookId, documentVersion: document?.version, destination: destination.type, committedAt: new Date().toISOString(), openPath: `/editor/${destination.targetClientKey ?? document?.bookId ?? "new"}?mode=${destination.openMode ?? "compose"}` };
+    // Keep the demo state machine identical to the database RPC: preview first
+    // enters committing, then completed. A direct preview -> completed transition
+    // is intentionally invalid and used to make demo image commits fail here.
+    const committing = session.status === "committing"
+      ? session
+      : transitionInputSession(session, "committing", { progress: 95, stageMessage: "Đang commit nội dung." });
+    const next = transitionInputSession(committing, "completed", { progress: 100, commitResult: result, retryable: false });
+    demoSessions.set(next.id, next);
+    return result;
+  }
+
   let target = null;
   if (destination.type !== "new_book") {
     target = await loadExistingDocument(input.organizationId, destination.targetBookId, destination.targetClientKey);
+    if (!target && designPayload) {
+      // A real account can still have an older/local-only book (for example book_14017732)
+      // selected in the editor. The explicit Commit click is the right point to materialize that
+      // target in Supabase, then let the hardened commit RPC finish against its UUID.
+      const bootstrapClientKey = destination.targetClientKey ?? destination.targetBookId;
+      if (!bootstrapClientKey) throw new Error("INPUT_TARGET_BOOK_REQUIRED");
+      const designTitle = typeof designPayload.title === "string" && designPayload.title.trim()
+        ? designPayload.title.trim()
+        : session.preview?.title ?? "Tài liệu nhập";
+      const bootstrapSlug = `${designTitle.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "tai-lieu"}-${session.id.slice(0, 8)}`;
+      const { error: bootstrapError } = await client.rpc("save_book_document", {
+        p_organization_id: input.organizationId,
+        p_client_key: bootstrapClientKey,
+        p_slug: bootstrapSlug,
+        p_payload: designPayload,
+      });
+      if (bootstrapError) throw bootstrapError;
+      target = await loadExistingDocument(input.organizationId, undefined, bootstrapClientKey);
+    }
     if (!target) throw new Error("BOOK_NOT_FOUND");
     if (destination.type === "append_chapter") {
       if (!document) throw new Error("INPUT_SEMANTIC_DOCUMENT_REQUIRED");
       document = target.document ? appendImportAsChapter(target.document, document, destination.chapterTitle) : { ...document, bookId: target.book.id };
     } else if (document) document = { ...document, bookId: target.book.id, version: (target.document?.version ?? 0) + 1 };
   }
-
-  const client = await createSupabaseServerClient();
-  if (!client) {
-    const result: InputCommitResult = { sessionId: session.id, bookId: destination.targetBookId ?? document?.bookId ?? crypto.randomUUID(), clientKey: destination.targetClientKey ?? document?.bookId, documentVersion: document?.version, destination: destination.type, committedAt: new Date().toISOString(), openPath: `/editor/${destination.targetClientKey ?? document?.bookId ?? "new"}?mode=${destination.openMode ?? "compose"}` };
-    const next = transitionInputSession(session, "completed", { progress: 100, commitResult: result, retryable: false });
-    demoSessions.set(next.id, next);
-    return result;
-  }
-
-  const designPayload = (session.metadata.designPayload ?? null) as Record<string, unknown> | null;
   if (target) {
     const { error: targetUpdateError } = await client.from("input_sessions").update({
       target_book_id: target.book.id,

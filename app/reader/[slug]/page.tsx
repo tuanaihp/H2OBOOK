@@ -340,18 +340,26 @@ function ReaderElement({ element }: { element: H2OElement }) {
 }
 
 function ReaderImage({ element, style }: { element: H2OElement; style: React.CSSProperties }) {
-  const durableUrl = element.imageUrl && !element.imageUrl.startsWith("blob:") ? element.imageUrl : null;
-  const [source, setSource] = useState<string | null>(durableUrl);
+  const [source, setSource] = useState<string | null>(null);
+  const [fallbackSource, setFallbackSource] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    let objectUrl: string | null = null;
-    if (durableUrl) { setSource(durableUrl); return; }
-    if (!element.assetId) { setSource(element.imageUrl ?? null); return; }
-    void resolveAssetUrl(element.assetId).then((url) => { objectUrl = url; if (!cancelled) setSource(url ?? element.imageUrl ?? null); });
-    return () => { cancelled = true; if (objectUrl?.startsWith("blob:")) URL.revokeObjectURL(objectUrl); };
-  }, [element.assetId, element.imageUrl, durableUrl]);
-  const [failed, setFailed] = useState(false);
-  if (source && !failed) return <img alt={element.altText ?? element.name} src={source} loading="lazy" decoding="async" onError={() => setFailed(true)} style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/>;
+    let ownedObjectUrl: string | null = null;
+    setFailed(false);
+    void (async () => {
+      const assetUrl = element.assetId ? await resolveAssetUrl(element.assetId) : null;
+      if (element.assetId?.startsWith("local:") && assetUrl?.startsWith("blob:")) ownedObjectUrl = assetUrl;
+      if (cancelled) return;
+      setSource(assetUrl ?? element.imageUrl ?? null);
+      setFallbackSource(assetUrl && element.imageUrl && assetUrl !== element.imageUrl ? element.imageUrl : null);
+    })();
+    return () => { cancelled = true; if (ownedObjectUrl) URL.revokeObjectURL(ownedObjectUrl); };
+  }, [element.assetId, element.imageUrl]);
+  if (source && !failed) return <img alt={element.altText ?? element.name} src={source} loading="lazy" decoding="async" onError={() => {
+    if (fallbackSource && fallbackSource !== source) { setSource(fallbackSource); setFallbackSource(null); }
+    else setFailed(true);
+  }} style={{ ...style, objectFit: element.imageFit ?? "cover", borderRadius: element.cornerRadius }}/>;
   return <div aria-label={element.altText ?? element.name} style={{ ...style, background: "#eef1f4", borderRadius: element.cornerRadius, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
     {element.assetId ? <span style={{ color: "#8a5b6e", fontSize: 13, lineHeight: 1.5 }}>{element.assetId.startsWith("local:")
       ? <>Ảnh lưu cục bộ không còn đọc được.<br/>Dữ liệu IndexedDB đã bị xóa hoặc sách mở ở trình duyệt khác.</>
