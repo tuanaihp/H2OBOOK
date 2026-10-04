@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser, resolveOrganizationAccess } from "@/lib/auth/api";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createViewUrl } from "@/lib/storage/r2";
 import { PAGE_SIZE, queryToFilters, queryToPaging } from "@/lib/assets/governance";
 
 // Asset Governance V1 added filtering and the folder list on top of the existing query. Reads still
@@ -61,9 +62,19 @@ export async function GET(request: Request) {
   ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  // Presigned R2 view URLs for image rows so the library can render real thumbnails straight
+  // from storage — presigning is a local HMAC, so a page of 50 costs no network round-trips
+  // and the bytes themselves still flow browser↔R2 (never through this function).
+  const assets = await Promise.all((data ?? []).map(async (asset) => ({
+    ...asset,
+    view_url: asset.mime_type?.startsWith("image/") && asset.storage_key
+      ? await createViewUrl(String(asset.storage_key)).catch(() => null)
+      : null
+  })));
+
   return NextResponse.json({
     mode: "cloud",
-    assets: data ?? [],
+    assets,
     folders: folders ?? [],
     counts: { total: total ?? 0, unclassified: unclassified ?? 0 },
     page: paging.page,

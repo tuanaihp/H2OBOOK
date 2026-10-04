@@ -9,7 +9,7 @@ import { uploadAsset } from "@/lib/assets/asset-client";
 import { AssetOrganizationPanel, SECONDARY_VIEWS, type SavedView, type TagRow } from "@/components/assets/asset-organization-panel";
 import type { FolderNode } from "@/lib/assets/organization-rules";
 
-type UploadedAsset = { id: string; title: string | null; fileName: string; assetType: string; assetSubtype: string | null; mimeType: string; sizeBytes: number; key: string; mode: "demo" | "cloud"; createdAt: string; status: string; quarantineStatus: string; classificationStatus: string; reviewStatus: string; lifecycleStatus: string; folderId: string | null; deletedAt: string | null };
+type UploadedAsset = { id: string; title: string | null; fileName: string; assetType: string; assetSubtype: string | null; mimeType: string; sizeBytes: number; key: string; viewUrl: string | null; mode: "demo" | "cloud"; createdAt: string; status: string; quarantineStatus: string; classificationStatus: string; reviewStatus: string; lifecycleStatus: string; folderId: string | null; deletedAt: string | null };
 const OPTIONAL_COLUMNS = [
   { id: "subtype", label: "Phân loại con" },
   { id: "key", label: "Đường dẫn lưu trữ" },
@@ -18,6 +18,13 @@ const OPTIONAL_COLUMNS = [
 type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number]["id"];
 type Folder = { id: string; name: string; parent_id: string | null };
 type Counts = { total: number; unclassified: number } | null;
+
+function AssetThumb({ asset, name }: { asset: UploadedAsset; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const icon = asset.mimeType.startsWith("image/") ? <FileImage/> : asset.mimeType.includes("pdf") || asset.mimeType.includes("word") ? <FileText/> : <File/>;
+  if (!asset.viewUrl || failed) return <span className="asset-file-icon">{icon}</span>;
+  return <img className="asset-thumb-img" src={asset.viewUrl} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
+}
 
 export default function AssetsPage() {
   const workspace = useAppStore(state => state.workspace);
@@ -59,6 +66,7 @@ export default function AssetsPage() {
       id: String(asset.id), title: asset.title ? String(asset.title) : null, fileName: String(asset.original_name ?? "asset"),
       assetType: String(asset.asset_type ?? "other"), assetSubtype: asset.asset_subtype ? String(asset.asset_subtype) : null,
       mimeType: String(asset.mime_type ?? ""), sizeBytes: Number(asset.size_bytes ?? 0), key: String(asset.storage_key ?? ""),
+      viewUrl: typeof asset.view_url === "string" ? asset.view_url : null,
       mode: payload.mode === "cloud" ? "cloud" : "demo", createdAt: String(asset.created_at ?? new Date().toISOString()),
       status: String(asset.status ?? "ready"), quarantineStatus: String(asset.quarantine_status ?? "clean"),
       classificationStatus: String(asset.classification_status ?? "unclassified"), reviewStatus: String(asset.review_status ?? "not_required"),
@@ -235,21 +243,22 @@ export default function AssetsPage() {
       </div>}
 
       <div className={viewMode === "grid" ? "asset-grid" : "asset-list"}>{filtered.length ? filtered.map(asset => {
-        const icon = asset.mimeType.startsWith("image/") ? <FileImage/> : asset.mimeType.includes("pdf") || asset.mimeType.includes("word") ? <FileText/> : <File/>;
         const name = assetDisplayName({ title: asset.title, original_name: asset.fileName });
-        return <article key={asset.id} className={viewMode === "grid" ? "asset-grid-item" : undefined}>
-        {canManage && !trashed && <label style={{ display: "flex", alignItems: "center", paddingRight: 4 }}>
-          <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Chọn {name}</span>
-          <input type="checkbox" name="selectAsset" checked={selected.includes(asset.id)}
-            onChange={e => setSelected(current => e.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} />
-        </label>}
-        <span className="asset-file-icon">{icon}</span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <strong>{name}</strong>
+        return <article key={asset.id} className={viewMode === "grid" ? "asset-grid-item" : "asset-row"}>
+        <div className="asset-thumb">
+          <AssetThumb asset={asset} name={name}/>
+          {canManage && !trashed && <label className="asset-check">
+            <input type="checkbox" name="selectAsset" aria-label={`Chọn ${name}`} checked={selected.includes(asset.id)}
+              onChange={e => setSelected(current => e.target.checked ? [...current, asset.id] : current.filter(id => id !== asset.id))} />
+          </label>}
+          {viewMode === "grid" && <span className="asset-type-chip">{TYPE_LABEL[asset.assetType] ?? asset.assetType}</span>}
+        </div>
+        <div className="asset-body">
+          <strong className="asset-name" title={name}>{name}</strong>
           <small>
-            {TYPE_LABEL[asset.assetType] ?? asset.assetType}
-            {visibleColumns.includes("subtype") && asset.assetSubtype ? ` · ${asset.assetSubtype}` : ""}
-            {` · ${(asset.sizeBytes / 1024 / 1024).toFixed(2)} MB`}
+            {viewMode === "table" && <>{TYPE_LABEL[asset.assetType] ?? asset.assetType} · </>}
+            {visibleColumns.includes("subtype") && asset.assetSubtype ? `${asset.assetSubtype} · ` : ""}
+            {`${(asset.sizeBytes / 1024 / 1024).toFixed(2)} MB`}
             {visibleColumns.includes("date") ? ` · ${new Date(asset.createdAt).toLocaleDateString("vi-VN")}` : ""}
           </small>
           {visibleColumns.includes("key") && viewMode === "table" && <code>{asset.key}</code>}
@@ -279,7 +288,7 @@ export default function AssetsPage() {
             </div>
           </div>}
         </div>
-        <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+        <div className="asset-side">
           {trashed ? (
             canManage && <>
               <button className="btn btn-secondary" onClick={() => void restoreFromTrash(asset.id)}><RotateCcw size={13}/>Khôi phục</button>
