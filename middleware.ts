@@ -19,7 +19,10 @@ import { NextResponse, type NextRequest } from "next/server";
 // design, rate limited, and strips PII; the admin siblings stay out of this list on purpose:
 // /api/analytics/report requires owner/admin/teacher, and PUT /api/reader/campaign/[id] does its
 // own requireApiUser + resolveOrganizationAccess, so listing the prefix does not expose the write.
-const publicPrefixes = ["/login", "/signup", "/auth", "/forgot-password", "/reset-password", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve", "/api/reader/campaign", "/api/reader/leads", "/api/analytics/events"];
+// "/api/mcp" is the H2O MCP gateway for Joyce OS. It is listed here because the route enforces
+// its own Bearer-token check (H2O_MCP_TOKEN); without the prefix, an unauthenticated machine
+// POST was redirected to /login and the JSON-RPC handshake never reached the handler.
+const publicPrefixes = ["/login", "/signup", "/auth", "/forgot-password", "/reset-password", "/portal", "/reader", "/academy", "/verify", "/verify-outcome", "/unauthorized", "/dev", "/api/public", "/api/health", "/api/readiness", "/api/payments/checkout", "/api/payments/webhook", "/api/academy/applications", "/api/academy/catalog/resolve", "/api/reader/campaign", "/api/reader/leads", "/api/analytics/events", "/api/mcp"];
 
 function isPathUnder(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
